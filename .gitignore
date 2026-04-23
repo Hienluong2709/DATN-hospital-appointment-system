@@ -1,0 +1,46 @@
+# dependencies
+node_modules/
+
+# build
+dist/
+build/
+coverage/
+
+# environment
+.env
+.env.*
+!.env.example
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Angular
+.angular/
+.sass-cache/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
+
+# model / temp files
+*.h5
+*.pt
+*.pth
+*.onnx
+tmp/
+temp/
+uploads/
+outputs/
