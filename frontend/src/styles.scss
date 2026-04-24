@@ -1,0 +1,174 @@
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0');
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap');
+
+:root {
+	--color-primary-50: #e2f2f9;
+	--color-primary-100: #b6dff0;
+	--color-primary-500: #007bb6;
+	--color-primary-600: #006ea3;
+	--color-primary-700: #005d8b;
+	--color-primary-800: #004b72;
+	--color-primary-850: #003c5d;
+	--color-accent-50: #f4f6fa;
+	--color-accent-100: #e2e6ef;
+	--color-accent-800: #1a212a;
+}
+
+html,
+body {
+	height: 100%;
+}
+
+body {
+	margin: 0;
+	font-family: 'Source Sans 3', sans-serif;
+	font-optical-sizing: auto;
+	color: var(--color-accent-800);
+	background: var(--color-accent-50);
+}
+
+* {
+	box-sizing: border-box;
+}
+
+a {
+	text-decoration: none;
+}
+
+.material-symbols-outlined {
+	font-family: 'Material Symbols Outlined';
+	font-weight: normal;
+	font-style: normal;
+	font-size: 20px;
+	line-height: 1;
+	letter-spacing: normal;
+	text-transform: none;
+	display: inline-block;
+	white-space: nowrap;
+	word-wrap: normal;
+	direction: ltr;
+	font-variation-settings:
+		'FILL' 0,
+		'wght' 400,
+		'GRAD' 0,
+		'opsz' 24;
+	-webkit-font-smoothing: antialiased;
+}
+
+.feature-page {
+	max-width: 1200px;
+	margin: 0 auto;
+	padding: 1.4rem 1.2rem 1.8rem;
+}
+
+.feature-page--narrow {
+	max-width: 860px;
+}
+
+.feature-header {
+	display: grid;
+	gap: 0.22rem;
+	margin-bottom: 1rem;
+}
+
+.feature-title {
+	margin: 0;
+	font-size: 1.52rem;
+	line-height: 1.2;
+	font-weight: 700;
+	letter-spacing: 0.01em;
+	color: #14314f;
+}
+
+.feature-subtitle {
+	margin: 0;
+	font-size: 0.95rem;
+	color: #637c95;
+}
+
+.feature-card {
+	background: #ffffff;
+	border: 1px solid #d8e3ef;
+	border-radius: 16px;
+	box-shadow: rgba(11, 39, 66, 0.08) 0 8px 22px;
+	padding: 1rem;
+}
+
+
+.feature-page :where(button:not(.icon-close)) {
+	border: 1px solid #cfddea;
+	border-radius: 12px;
+	min-height: 40px;
+	padding: 0 0.95rem;
+	cursor: pointer;
+	font-weight: 600;
+	background: #f4f8fc;
+	color: #17486b;
+}
+
+.feature-page :where(button:not(.icon-close)):disabled {
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+
+.feature-page .button-primary {
+	background: var(--color-primary-500);
+	border-color: var(--color-primary-500);
+	color: #fff;
+}
+
+.feature-page .button-secondary {
+	background: #f4f8fc;
+	color: #17486b;
+	border-color: #cfddea;
+}
+
+.feature-page .button-warning {
+	background: #fff8e6;
+	color: #8a5a00;
+	border-color: #f2d38a;
+}
+
+.feature-page .button-danger {
+	background: #fff1f1;
+	color: #9c2d2d;
+	border-color: #f0c7c7;
+}
+
+.feature-card-grid {
+	display: grid;
+	gap: 0.8rem;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.feature-stat {
+	border: 1px solid #d8e5f2;
+	border-radius: 12px;
+	padding: 0.85rem;
+	background: #f7fbff;
+}
+
+.feature-stat label {
+	display: block;
+	font-size: 0.78rem;
+	font-weight: 600;
+	color: #5f7790;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	margin-bottom: 0.2rem;
+}
+
+.feature-stat strong {
+	font-size: 1.3rem;
+	color: #0f3558;
+}
+
+@media (max-width: 768px) {
+	.feature-page {
+		padding: 1rem 0.8rem 1.2rem;
+	}
+
+	.feature-title {
+		font-size: 1.3rem;
+	}
+}
