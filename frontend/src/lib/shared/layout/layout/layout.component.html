@@ -1,0 +1,135 @@
+<div class="shell">
+  <!-- HEADER -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="brand">
+        <span class="material-symbols-outlined logo">health_and_safety</span>
+        <div>
+          <strong>Hospital System</strong>
+          <small>Digital Clinic Platform</small>
+        </div>
+      </div>
+
+      <!-- Breadcrumb -->
+      <div class="breadcrumb">
+        <span>Dashboard</span>
+        <span class="divider">/</span>
+        <span>Overview</span>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <!-- Search -->
+      <div class="search-box">
+        <span class="material-symbols-outlined">search</span>
+        <input type="text" placeholder="Tìm kiếm ..." />
+      </div>
+
+      <!-- Notification -->
+      <button class="top-action" type="button">
+        <span class="material-symbols-outlined">notifications</span>
+        <span class="badge">3</span>
+      </button>
+
+      <!-- Settings -->
+      <button class="top-action" type="button">
+        <span class="material-symbols-outlined">settings</span>
+      </button>
+
+      <!-- USER -->
+      <div class="user-menu" (click)="onUserMenuClick($event)">
+        <button class="user-area" type="button" (click)="toggleUserMenu($event)">
+          <span class="avatar">{{ userInitials }}</span>
+          <div class="user-info">
+            <strong>{{ userName }}</strong>
+            <small class="role">{{ userRole }}</small>
+          </div>
+          <span class="material-symbols-outlined">expand_more</span>
+        </button>
+
+        @if (isUserMenuOpen) {
+          <div class="user-dropdown">
+            <div class="user-summary">
+              <span class="avatar large">{{ userInitials }}</span>
+              <div>
+                <strong>{{ userName }}</strong>
+                <small>{{ userEmail }}</small>
+              </div>
+            </div>
+
+            <button class="dropdown-item" (click)="goToProfile()">
+              <span class="material-symbols-outlined">person</span>
+              <span>Profile</span>
+            </button>
+
+            <button class="dropdown-item" (click)="goToChangePassword()">
+              <span class="material-symbols-outlined">lock_reset</span>
+              <span>Đổi mật khẩu</span>
+            </button>
+
+            <button class="dropdown-item danger" (click)="onLogout()">
+              <span class="material-symbols-outlined">logout</span>
+              <span>Đăng xuất</span>
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+  </header>
+
+  <!-- BODY -->
+  <div class="workspace" [class.collapsed]="!isExpanded" [class.no-sidebar]="isPatientRole">
+    @if (!isPatientRole) {
+      <!-- MINI SIDEBAR -->
+      <aside class="rail">
+        <div class="rail-menu">
+          @for (item of visiblePrimaryMenu; track item.link) {
+            <a
+              class="rail-item"
+              [routerLink]="item.link"
+              routerLinkActive="active">
+              <span class="material-symbols-outlined">{{ item.icon }}</span>
+            </a>
+          }
+        </div>
+
+        <button
+          class="rail-toggle"
+          type="button"
+          [attr.aria-label]="isExpanded ? 'Thu gọn menu' : 'Mở rộng menu'"
+          [title]="isExpanded ? 'Thu gọn menu' : 'Mở rộng menu'"
+          (click)="toggleSidebar()">
+          <span class="material-symbols-outlined">
+            {{ isExpanded ? 'menu_open' : 'menu' }}
+          </span>
+        </button>
+      </aside>
+
+      <!-- MAIN SIDEBAR -->
+      <aside class="subnav">
+        <!-- <p class="subnav-title">Danh mục</p> -->
+
+        @for (group of visibleMenuGroups; track group.key) {
+          <section class="subnav-group">
+            <h4>{{ group.title }}</h4>
+
+            @for (item of group.items; track item.link) {
+              <a
+                class="subnav-item"
+                [routerLink]="item.link"
+                routerLinkActive="active">
+                <span class="material-symbols-outlined">{{ item.icon }}</span>
+                <span>{{ item.label }}</span>
+              </a>
+            }
+          </section>
+        }
+      </aside>
+    }
+
+    <!-- CONTENT -->
+    <main class="content">
+      <router-outlet />
+    </main>
+  </div>
+</div>
