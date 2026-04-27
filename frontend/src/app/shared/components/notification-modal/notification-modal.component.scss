@@ -1,0 +1,150 @@
+.notification-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(6px);
+}
+
+.notification-modal {
+  position: relative;
+  width: min(100%, 420px);
+  overflow: hidden;
+  border-radius: 24px;
+  padding: 1.25rem 1.2rem 1rem;
+  border: 1px solid transparent;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+  animation: notification-pop 180ms ease-out;
+}
+
+.notification-modal--success {
+  background:
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.16), transparent 34%),
+    linear-gradient(180deg, #f4fffb 0%, #ffffff 100%);
+  border-color: #9ee6cf;
+  color: #0f5132;
+}
+
+.notification-modal--error {
+  background:
+    radial-gradient(circle at top left, rgba(239, 68, 68, 0.16), transparent 34%),
+    linear-gradient(180deg, #fff6f6 0%, #ffffff 100%);
+  border-color: #f7b0b0;
+  color: #991b1b;
+}
+
+.notification-icon {
+  width: 68px;
+  height: 68px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  margin-bottom: 1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.notification-modal--success .notification-icon {
+  background: linear-gradient(180deg, #dcfce7 0%, #bbf7d0 100%);
+  color: #15803d;
+}
+
+.notification-modal--error .notification-icon {
+  background: linear-gradient(180deg, #fee2e2 0%, #fecaca 100%);
+  color: #dc2626;
+}
+
+.notification-icon svg {
+  width: 36px;
+  height: 36px;
+  fill: currentColor;
+}
+
+.notification-content {
+  padding-right: 2rem;
+}
+
+.notification-label {
+  margin: 0 0 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.notification-modal h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+.notification-message {
+  margin: 0.45rem 0 0;
+  font-size: 0.96rem;
+  line-height: 1.5;
+  color: rgba(15, 23, 42, 0.78);
+}
+
+.notification-modal--success .notification-message {
+  color: rgba(6, 78, 59, 0.88);
+}
+
+.notification-modal--error .notification-message {
+  color: rgba(127, 29, 29, 0.88);
+}
+
+.notification-close {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  color: inherit;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.notification-progress {
+  height: 6px;
+  margin: 1rem -1.2rem -1rem;
+  transform-origin: left center;
+  animation: notification-timer 5s linear forwards;
+}
+
+.notification-modal--success .notification-progress {
+  background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+}
+
+.notification-modal--error .notification-progress {
+  background: linear-gradient(90deg, #ef4444 0%, #f87171 100%);
+}
+
+@keyframes notification-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes notification-timer {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}

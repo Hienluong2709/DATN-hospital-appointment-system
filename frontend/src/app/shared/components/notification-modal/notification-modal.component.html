@@ -1,0 +1,36 @@
+@if (isOpen && message) {
+  <div class="notification-backdrop" (click)="close()">
+    <article
+      class="notification-modal"
+      [class.notification-modal--success]="type === 'success'"
+      [class.notification-modal--error]="type === 'error'"
+      (click)="$event.stopPropagation()"
+      role="alertdialog"
+      aria-modal="true"
+    >
+      <button class="notification-close" type="button" (click)="close()" aria-label="Đóng thông báo">
+        ×
+      </button>
+
+      <div class="notification-icon" aria-hidden="true">
+        @if (type === 'success') {
+          <svg viewBox="0 0 24 24">
+            <path d="M9.2 16.6 4.9 12.3l1.4-1.4 2.9 2.9 8-8 1.4 1.4-9.4 9.4Z" />
+          </svg>
+        } @else {
+          <svg viewBox="0 0 24 24">
+            <path d="M12 2.75A9.25 9.25 0 1 0 21.25 12 9.26 9.26 0 0 0 12 2.75Zm1 13.5h-2v-2h2Zm0-4h-2V7.75h2Z" />
+          </svg>
+        }
+      </div>
+
+      <div class="notification-content">
+        <p class="notification-label">{{ type === 'success' ? 'Thành công' : 'Thất bại' }}</p>
+        <h2>{{ type === 'success' ? 'Thao tác thành công' : 'Có lỗi xảy ra' }}</h2>
+        <p class="notification-message">{{ message }}</p>
+      </div>
+
+      <div class="notification-progress" aria-hidden="true"></div>
+    </article>
+  </div>
+}
