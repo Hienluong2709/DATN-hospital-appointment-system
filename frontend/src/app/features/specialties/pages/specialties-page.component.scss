@@ -1,0 +1,139 @@
+/* ===== Page tổng ===== */
+.feature-page {
+  padding: 24px;
+  background-color: #f5f7fb;
+  min-height: 100vh;
+  font-family: Arial, sans-serif;
+}
+
+/* ===== Header ===== */
+.feature-header {
+  margin-bottom: 20px;
+
+  .feature-title {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .feature-subtitle {
+    color: #666;
+    font-size: 14px;
+  }
+}
+
+/* ===== Feedback ===== */
+.feedback {
+  padding: 10px 14px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  background-color: #e6f4ea;
+  color: #1e7e34;
+
+  &--error {
+    background-color: #fdecea;
+    color: #c62828;
+  }
+}
+
+/* ===== Card ===== */
+.feature-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.table-card {
+  margin-top: 10px;
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+
+  h2 {
+    font-size: 18px;
+    font-weight: 600;
+  }
+}
+
+.table-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ===== Table ===== */
+.table-wrapper {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th,
+  td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+  }
+
+  th {
+    background-color: #fafafa;
+    font-weight: 600;
+  }
+
+  tr:hover {
+    background-color: #f9f9f9;
+  }
+}
+
+/* ===== Actions ===== */
+.actions {
+  display: flex;
+  gap: 6px;
+}
+
+.action-icon-button {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-icon {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+/* ===== State text ===== */
+.state-text {
+  text-align: center;
+  padding: 20px;
+  color: #777;
+}

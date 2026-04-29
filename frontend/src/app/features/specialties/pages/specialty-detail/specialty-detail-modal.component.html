@@ -1,0 +1,31 @@
+@if (isOpen) {
+  <div class="modal-overlay" (click)="onOverlayClick()">
+    <article class="modal-card" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <h2>Chi tiết chuyên khoa</h2>
+        <button class="icon-close" type="button" (click)="onCloseClick()">x</button>
+      </header>
+
+      @if (isLoading) {
+        <p class="state-text">Đang tải chi tiết...</p>
+      } @else if (specialty) {
+        <dl>
+          <div>
+            <dt>ID</dt>
+            <dd>{{ specialty.id }}</dd>
+          </div>
+          <div>
+            <dt>Tên</dt>
+            <dd>{{ specialty.name }}</dd>
+          </div>
+          <div>
+            <dt>Mô tả</dt>
+            <dd>{{ specialty.description || 'Khong co mo ta' }}</dd>
+          </div>
+        </dl>
+      } @else {
+        <p class="state-text">Không có dữ liệu chi tiết.</p>
+      }
+    </article>
+  </div>
+}
