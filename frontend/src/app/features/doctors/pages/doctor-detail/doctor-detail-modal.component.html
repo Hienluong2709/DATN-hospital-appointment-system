@@ -1,0 +1,142 @@
+@if (isOpen) {
+  <div class="modal-overlay" (click)="onOverlayClick()">
+    <article class="modal-card" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <h2>Chi tiết bác sĩ</h2>
+        <button class="icon-close" type="button" (click)="onCloseClick()">x</button>
+      </header>
+
+      @if (isLoading) {
+        <p class="state-text">Đang tải chi tiết...</p>
+      } @else if (doctor) {
+        <div class="modal-body">
+          <dl class="doctor-overview">
+            <div>
+              <dt>ID</dt>
+              <dd>{{ doctor.id }}</dd>
+            </div>
+            <div>
+              <dt>Bác sĩ</dt>
+              <dd>{{ doctor.User?.fullname || doctor.User?.username || doctor.user_id }}</dd>
+            </div>
+            <div>
+              <dt>Email</dt>
+              <dd>{{ doctor.User?.email || '--' }}</dd>
+            </div>
+            <div>
+              <dt>Chuyên khoa</dt>
+              <dd>{{ doctor.Specialty?.name || '--' }}</dd>
+            </div>
+            <div>
+              <dt>Phòng</dt>
+              <dd>{{ doctor.Room?.name || '--' }}</dd>
+            </div>
+            <div>
+              <dt>Trạng thái</dt>
+              <dd>{{ doctor.status }}</dd>
+            </div>
+            <div class="doctor-overview__full">
+              <dt>Mô tả</dt>
+              <dd>{{ doctor.description || 'Không có mô tả' }}</dd>
+            </div>
+          </dl>
+
+          <section class="schedule-panel">
+            <header class="schedule-panel__header">
+              <div>
+                <h3>Lịch làm việc và lịch nghỉ</h3>
+                <p>Lễ tân có thể theo dõi lịch 14 ngày tới của bác sĩ theo ngày bắt đầu đã chọn.</p>
+              </div>
+
+              <div class="schedule-panel__actions">
+                <label class="schedule-panel__date-field">
+                  <span>Ngày bắt đầu</span>
+                  <input
+                    type="date"
+                    [ngModel]="selectedStartDate"
+                    (ngModelChange)="onStartDateChange($event)"
+                  />
+                </label>
+
+                <button class="button-refresh" type="button" (click)="reloadAvailability()" [disabled]="isLoadingAvailability">
+                  Tải lại
+                </button>
+              </div>
+            </header>
+
+            @if (isLoadingAvailability) {
+              <p class="state-text">Đang tải lịch làm việc và lịch nghỉ...</p>
+            } @else if (availabilityErrorMessage) {
+              <p class="state-text state-text--error">{{ availabilityErrorMessage }}</p>
+            } @else if (!availabilityDays.length) {
+              <p class="state-text">Không tìm thấy lịch làm việc hoặc lịch nghỉ trong khoảng thời gian này.</p>
+            } @else {
+              <div class="schedule-list">
+                @for (day of availabilityDays; track day.date) {
+                  <article class="schedule-day" [class.schedule-day--off]="day.is_off">
+                    <header class="schedule-day__header">
+                      <div>
+                        <h4>{{ formatDayLabel(day) }}</h4>
+                        <p>
+                          @if (day.available_slots.length) {
+                            Còn {{ day.available_slots.length }} khung giờ trống
+                          } @else if (day.is_off) {
+                            Bác sĩ nghỉ trong ngày này
+                          } @else {
+                            Không còn khung giờ trống
+                          }
+                        </p>
+                      </div>
+
+                      <span class="schedule-badge" [class.schedule-badge--off]="day.is_off">
+                        {{ getAvailabilityBadge(day) }}
+                      </span>
+                    </header>
+
+                    <div class="schedule-day__content">
+                      <section class="schedule-group">
+                        <h5>Lịch làm việc</h5>
+                        @if (day.working_periods.length) {
+                          <div class="chip-list">
+                            @for (period of day.working_periods; track period.start_time + period.end_time) {
+                              <span class="info-chip">{{ formatPeriod(period) }}</span>
+                            }
+                          </div>
+                        } @else {
+                          <p class="empty-text">Không có ca làm việc cố định.</p>
+                        }
+                      </section>
+
+                      <section class="schedule-group">
+                        <h5>Lịch nghỉ / chặn lịch</h5>
+                        @if (day.is_off) {
+                          <div class="event-card event-card--off">
+                            <strong>Nghỉ cả ngày</strong>
+                            <p>{{ day.off_reason || 'Không có lý do được ghi nhận.' }}</p>
+                          </div>
+                        } @else if (day.blocked_periods.length) {
+                          <div class="event-list">
+                            @for (period of day.blocked_periods; track period.start_time + period.end_time + (period.reason || '')) {
+                              <div class="event-card">
+                                <strong>{{ formatPeriod(period) }}</strong>
+                                <p>{{ period.reason || 'Chưa có lý do block thời gian.' }}</p>
+                              </div>
+                            }
+                          </div>
+                        } @else {
+                          <p class="empty-text">Không có lịch nghỉ hoặc block thời gian.</p>
+                        }
+                      </section>
+                    </div>
+                  </article>
+                }
+              </div>
+            }
+          </section>
+        </div>
+      } @else {
+        <p class="state-text">Không có dữ liệu chi tiết.</p>
+      }
+    </article>
+  </div>
+}

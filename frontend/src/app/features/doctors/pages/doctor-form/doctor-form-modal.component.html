@@ -1,0 +1,71 @@
+@if (isOpen) {
+  <div class="modal-overlay" (click)="onOverlayClick()">
+    <article class="modal-card" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <h2>{{ isEditMode ? 'Cap nhat bac si' : 'Tao bac si moi' }}</h2>
+        <button class="icon-close" type="button" (click)="onCloseClick()" [disabled]="isSubmitting">x</button>
+      </header>
+
+      <form class="doctor-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+        <label>
+          <span>User ID</span>
+          <input type="number" formControlName="user_id" min="1" placeholder="Nhap ID nguoi dung co vai tro DOCTOR" />
+          @if (userInvalid) {
+            <small>User ID la bat buoc va phai la so hop le.</small>
+          }
+        </label>
+
+        <div class="grid-2">
+          <label>
+            <span>Chuyen khoa</span>
+            <select formControlName="specialty_id" (change)="onSpecialtyChange($any($event.target).value)">
+              <option [ngValue]="0" disabled>Chon chuyen khoa</option>
+              @for (specialty of specialties; track specialty.id) {
+                <option [ngValue]="specialty.id">{{ specialty.name }}</option>
+              }
+            </select>
+            @if (specialtyInvalid) {
+              <small>Vui long chon chuyen khoa.</small>
+            }
+          </label>
+
+          <label>
+            <span>Phong</span>
+            <select formControlName="room_id">
+              <option [ngValue]="null">Khong chon phong</option>
+              @for (room of filteredRooms.length ? filteredRooms : rooms; track room.id) {
+                <option [ngValue]="room.id">{{ room.name }}</option>
+              }
+            </select>
+            @if (roomInvalid) {
+              <small>Phong da chon phai thuoc chuyen khoa hien tai.</small>
+            }
+          </label>
+        </div>
+
+        <label>
+          <span>Trang thai</span>
+          <select formControlName="status">
+            @for (status of statusOptions; track status) {
+              <option [value]="status">{{ status }}</option>
+            }
+          </select>
+        </label>
+
+        <label>
+          <span>Mo ta</span>
+          <textarea rows="3" formControlName="description" placeholder="Mo ta chuyen mon hoac ghi chu"></textarea>
+        </label>
+
+        <div class="form-actions">
+          <button class="button-primary" type="submit" [disabled]="isSubmitting || !specialties.length">
+            {{ isSubmitting ? 'Dang xu ly...' : isEditMode ? 'Luu cap nhat' : 'Them bac si' }}
+          </button>
+          <button class="button-secondary" type="button" (click)="onCloseClick()" [disabled]="isSubmitting">
+            Dong
+          </button>
+        </div>
+      </form>
+    </article>
+  </div>
+}
