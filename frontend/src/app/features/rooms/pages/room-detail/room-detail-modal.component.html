@@ -1,0 +1,43 @@
+@if (isOpen) {
+  <div class="modal-overlay" (click)="onOverlayClick()">
+    <article class="modal-card" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <h2>Chi tiết phòng khám</h2>
+        <button class="icon-close" type="button" (click)="onCloseClick()">x</button>
+      </header>
+
+      @if (isLoading) {
+        <p class="state-text">Đang tải chi tiết...</p>
+      } @else if (room) {
+        <dl>
+          <div>
+            <dt>ID</dt>
+            <dd>{{ room.id }}</dd>
+          </div>
+          <div>
+            <dt>Tên phòng</dt>
+            <dd>{{ room.name }}</dd>
+          </div>
+          <div>
+            <dt>Tầng</dt>
+            <dd>{{ room.floor ?? '--' }}</dd>
+          </div>
+          <div>
+            <dt>Chuyên khoa</dt>
+            <dd>{{ room.Specialty?.name || '--' }}</dd>
+          </div>
+          <div>
+            <dt>Trạng thái</dt>
+            <dd>{{ room.status }}</dd>
+          </div>
+          <div>
+            <dt>Mô tả</dt>
+            <dd>{{ room.description || 'Không có mô tả' }}</dd>
+          </div>
+        </dl>
+      } @else {
+        <p class="state-text">Không có dữ liệu chi tiết.</p>
+      }
+    </article>
+  </div>
+}

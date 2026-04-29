@@ -1,0 +1,62 @@
+@if (isOpen) {
+  <div class="modal-overlay" (click)="onOverlayClick()">
+    <article class="modal-card" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <h2>{{ isEditMode ? 'Cap nhat phong kham' : 'Tao phong kham moi' }}</h2>
+        <button class="icon-close" type="button" (click)="onCloseClick()" [disabled]="isSubmitting">x</button>
+      </header>
+
+      <form class="room-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+        <label>
+          <span>Ten phong</span>
+          <input type="text" formControlName="name" placeholder="Vi du: A101" />
+          @if (nameInvalid) {
+            <small>Ten phong la bat buoc.</small>
+          }
+        </label>
+
+        <div class="grid-2">
+          <label>
+            <span>Tang</span>
+            <input type="number" formControlName="floor" min="0" placeholder="Vi du: 2" />
+          </label>
+
+          <label>
+            <span>Trang thai</span>
+            <select formControlName="status">
+              <option value="Available">Available</option>
+              <option value="Maintenance">Maintenance</option>
+            </select>
+          </label>
+        </div>
+
+        <label>
+          <span>Chuyen khoa</span>
+          <select formControlName="specialty_id">
+            <option [ngValue]="0" disabled>Chon chuyen khoa</option>
+            @for (specialty of specialties; track specialty.id) {
+              <option [ngValue]="specialty.id">{{ specialty.name }}</option>
+            }
+          </select>
+          @if (specialtyInvalid) {
+            <small>Vui long chon chuyen khoa.</small>
+          }
+        </label>
+
+        <label>
+          <span>Mo ta</span>
+          <textarea rows="3" formControlName="description" placeholder="Mo ta phong kham"></textarea>
+        </label>
+
+        <div class="form-actions">
+          <button class="button-primary" type="submit" [disabled]="isSubmitting || !specialties.length">
+            {{ isSubmitting ? 'Dang xu ly...' : isEditMode ? 'Luu cap nhat' : 'Them phong' }}
+          </button>
+          <button class="button-secondary" type="button" (click)="onCloseClick()" [disabled]="isSubmitting">
+            Dong
+          </button>
+        </div>
+      </form>
+    </article>
+  </div>
+}
