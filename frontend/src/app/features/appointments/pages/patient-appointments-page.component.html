@@ -1,0 +1,390 @@
+<section class="patient-appointments-page">
+  <app-notification-modal
+    [isOpen]="isNotificationOpen"
+    [message]="notificationMessage"
+    [type]="notificationType"
+    [version]="notificationVersion"
+    (closed)="closeNotification()"
+  />
+
+  <header class="patient-hero">
+    <div>
+      <p class="patient-hero__kicker">Cổng thông tin bệnh nhân</p>
+      <h1>Lịch khám của tôi</h1>
+      <p>Quản lý các lịch khám đã đặt, theo dõi lịch sắp tới và tra cứu lịch sử khám trong cùng một nơi.</p>
+    </div>
+  </header>
+
+  <section class="overview-shell">
+    <article class="next-appointment-card">
+      <header class="section-heading">
+        <div>
+          <h2>Lịch khám sắp tới</h2>
+        </div>
+      </header>
+
+      @if (isLoadingAppointments) {
+        <p class="state">Đang tải lịch khám sắp tới...</p>
+      } @else if (!nextAppointment) {
+        <div class="empty-highlight">
+          <p>Bạn chưa có lịch khám nào đang hiệu lực.</p>
+          <a href="#booking-card" class="empty-highlight__link">Đặt lịch ngay</a>
+        </div>
+      } @else {
+        <article class="featured-appointment-card">
+          <header class="featured-appointment-card__header">
+            <div>
+              <p class="featured-appointment-card__eyebrow">{{ getSpecialtyName(nextAppointment) }}</p>
+              <h3>{{ getDoctorName(nextAppointment) }}</h3>
+            </div>
+            <span class="status-chip" [class]="getAppointmentStatusClass(nextAppointment)">
+              {{ getAppointmentStatusLabel(nextAppointment) }}
+            </span>
+          </header>
+
+          <div class="featured-appointment-card__grid">
+            <div>
+              <span>Ngày khám</span>
+              <strong>{{ nextAppointment.date }}</strong>
+            </div>
+            <div>
+              <span>Dự kiến vào khám</span>
+              <strong>{{ getEstimatedStartLabel(nextAppointment) }}</strong>
+            </div>
+            <div>
+              <span>Địa điểm</span>
+              <strong>{{ getRoomLabel(nextAppointment) }}</strong>
+            </div>
+            <div>
+              <span>Tiếp nhận</span>
+              <strong>{{ getQueueNumberLabel(nextAppointment) }}</strong>
+            </div>
+          </div>
+
+          <p class="featured-appointment-card__hint">{{ getNextStepHint(nextAppointment) }}</p>
+
+          <div class="featured-appointment-card__actions">
+            <button type="button" class="button-secondary" (click)="openAppointmentDetail(nextAppointment)">Xem chi tiết</button>
+            @if (canCancelAppointment(nextAppointment)) {
+              <button
+                type="button"
+                class="button-danger"
+                (click)="cancel(nextAppointment)"
+                [disabled]="processingActionById[nextAppointment.id]"
+              >
+                Hủy lịch
+              </button>
+            }
+          </div>
+        </article>
+      }
+    </article>
+
+    <article class="booking-card" id="booking-card">
+      <header class="section-heading">
+        <div>
+          <p class="section-heading__eyebrow">Đặt lịch mới</p>
+          <h2>Tạo yêu cầu khám</h2>
+        </div>
+      </header>
+
+      <div class="booking-grid">
+        <label>
+          <span>Chuyên khoa</span>
+          <select
+            [ngModel]="selectedSpecialtyId"
+            (ngModelChange)="selectSpecialty($event)"
+            [disabled]="isLoadingSpecialties || isCreatingAppointment"
+          >
+            <option [ngValue]="0">Chọn chuyên khoa</option>
+            @for (specialty of specialties; track specialty.id) {
+              <option [ngValue]="specialty.id">{{ specialty.name }}</option>
+            }
+          </select>
+        </label>
+
+        <label>
+          <span>Ngày khám</span>
+          <input
+            type="date"
+            [value]="bookingDate"
+            [min]="minBookingDate"
+            (input)="selectBookingDate($any($event.target).value)"
+            [disabled]="isCreatingAppointment"
+          />
+        </label>
+
+        <label class="booking-grid__full">
+          <span>Bác sĩ còn nhận lịch trong ngày</span>
+          <select
+            [ngModel]="selectedDoctorId"
+            (ngModelChange)="selectDoctor($event)"
+            [disabled]="isLoadingAvailableDoctors || isCreatingAppointment || !availableDoctors.length"
+          >
+            <option [ngValue]="0">Chọn bác sĩ</option>
+            @for (doctor of availableDoctors; track doctor.doctor_id) {
+              <option [ngValue]="doctor.doctor_id">{{ doctor.name }}</option>
+            }
+          </select>
+          @if (!isLoadingAvailableDoctors && selectedSpecialtyId > 0 && !availableDoctors.length) {
+            <small>Không còn bác sĩ nhận lịch cho chuyên khoa và ngày đã chọn.</small>
+          }
+        </label>
+      </div>
+
+      <p class="booking-lead-time-note">
+        Bệnh nhân cần đặt lịch trước ít nhất 1 ngày. Bạn chỉ có thể chọn lịch sớm nhất từ ngày mai.
+      </p>
+
+      <label class="booking-reason">
+        <span>Lý do khám</span>
+        <textarea
+          rows="3"
+          [value]="bookingReason"
+          (input)="updateReason($any($event.target).value)"
+          placeholder="Ví dụ: Đau bụng 2 ngày, cần tư vấn tim mạch, tái khám sau điều trị"
+        ></textarea>
+      </label>
+
+      <div class="booking-actions">
+        <button
+          type="button"
+          class="button-primary"
+          (click)="submitBooking()"
+          [disabled]="isCreatingAppointment || isLoadingAvailableDoctors || isValidatingBooking"
+        >
+          {{ isCreatingAppointment ? 'Đang đặt lịch...' : isValidatingBooking ? 'Đang kiểm tra...' : 'Đặt lịch ngay' }}
+        </button>
+      </div>
+
+      <div class="booking-helper-list">
+        <p>Vui lòng có mặt trước giờ khám dự kiến 15 phút.</p>
+        <p>Bạn có thể hủy lịch trước ít nhất 24 giờ nếu có thay đổi.</p>
+        <p>Mang theo CCCD/BHYT khi đến khám để check-in nhanh hơn.</p>
+      </div>
+    </article>
+  </section>
+
+  <section class="appointments-shell">
+    <header class="section-heading">
+      <div>
+        <p class="section-heading__eyebrow">Tra cứu lịch khám</p>
+        <h2>Danh sách lịch khám</h2>
+      </div>
+    </header>
+
+    <article class="appointments-toolbar">
+      <label>
+        <span>Tìm theo bác sĩ hoặc chuyên khoa</span>
+        <input
+          type="search"
+          [ngModel]="searchTerm"
+          (ngModelChange)="updateSearchTerm($event)"
+          placeholder="Ví dụ: Tim mạch, Bác sĩ A"
+        />
+      </label>
+
+      <label>
+        <span>Thời gian</span>
+        <select [ngModel]="selectedTimeFilter" (ngModelChange)="updateTimeFilter($event)">
+          <option value="ALL">Tất cả thời gian</option>
+          <option value="THIS_MONTH">Trong tháng này</option>
+        </select>
+      </label>
+
+      <div class="appointments-toolbar__actions">
+        <button type="button" class="button-secondary" (click)="clearAppointmentFilters()">Đặt lại bộ lọc</button>
+      </div>
+    </article>
+
+    <div class="appointments-tabs" role="tablist" aria-label="Nhóm lịch khám">
+      <button
+        type="button"
+        class="appointments-tabs__button"
+        [class.appointments-tabs__button--active]="activeTab === 'upcoming'"
+        (click)="setActiveTab('upcoming')"
+      >
+        Sắp khám
+        <span>{{ visibleUpcomingAppointments.length }}</span>
+      </button>
+      <button
+        type="button"
+        class="appointments-tabs__button"
+        [class.appointments-tabs__button--active]="activeTab === 'waiting'"
+        (click)="setActiveTab('waiting')"
+      >
+        Đang chờ khám
+        <span>{{ visibleWaitingAppointments.length }}</span>
+      </button>
+      <button
+        type="button"
+        class="appointments-tabs__button"
+        [class.appointments-tabs__button--active]="activeTab === 'completed'"
+        (click)="setActiveTab('completed')"
+      >
+        Đã hoàn thành
+        <span>{{ visibleCompletedAppointments.length }}</span>
+      </button>
+      <button
+        type="button"
+        class="appointments-tabs__button"
+        [class.appointments-tabs__button--active]="activeTab === 'cancelled'"
+        (click)="setActiveTab('cancelled')"
+      >
+        Đã huỷ / lỡ hẹn
+        <span>{{ visibleCancelledAppointments.length }}</span>
+      </button>
+    </div>
+
+    <article class="appointments-panel">
+      <header class="appointments-panel__header">
+        <h3>{{ getTabTitle() }}</h3>
+        <span>{{ activeTabAppointments.length }} lịch</span>
+      </header>
+
+      @if (isLoadingAppointments) {
+        <p class="state">Đang tải danh sách lịch khám...</p>
+      } @else if (!activeTabAppointments.length) {
+        <div class="empty-state">
+          <div class="empty-state__icon">+</div>
+          <p>{{ getEmptyStateMessage() }}</p>
+          @if (activeTab === 'upcoming') {
+            <a href="#booking-card" class="empty-state__link">Đặt lịch ngay</a>
+          }
+        </div>
+      } @else {
+        <div class="appointments-list">
+          @for (appointment of activeTabAppointments; track appointment.id) {
+            <article class="appointment-portal-card">
+              <header class="appointment-portal-card__header">
+                <div>
+                  <h4>{{ getDoctorName(appointment) }}</h4>
+                  <p>{{ getSpecialtyName(appointment) }}</p>
+                </div>
+                <span class="status-chip" [class]="getAppointmentStatusClass(appointment)">
+                  {{ getAppointmentStatusLabel(appointment) }}
+                </span>
+              </header>
+
+              <div class="appointment-portal-card__grid">
+                <div>
+                  <span>Ngày khám</span>
+                  <strong>{{ appointment.date }}</strong>
+                </div>
+                @if (appointment.time_slot) {
+                  <div>
+                    <span>Giờ khám</span>
+                    <strong>{{ getDisplayTime(appointment.time_slot) }}</strong>
+                  </div>
+                }
+                <div>
+                  <span>Phòng khám</span>
+                  <strong>{{ getRoomLabel(appointment) }}</strong>
+                </div>
+                <div>
+                  <span>Dự kiến vào khám</span>
+                  <strong>{{ getEstimatedStartLabel(appointment) }}</strong>
+                </div>
+              </div>
+
+              <div class="appointment-portal-card__support">
+                <p><strong>Mã lịch hẹn:</strong> {{ getAppointmentCode(appointment) }}</p>
+                <p><strong>Tiếp nhận:</strong> {{ getQueueNumberLabel(appointment) }}</p>
+                <p><strong>Cần có mặt:</strong> {{ getExpectedArrivalLabel(appointment) }}</p>
+              </div>
+
+              <div class="appointment-portal-card__reason">
+                <span>Lý do khám</span>
+                <p>{{ appointment.reason || 'Không có ghi chú từ bệnh nhân.' }}</p>
+              </div>
+
+              <footer class="appointment-portal-card__footer">
+                <p class="appointment-portal-card__hint">{{ getNextStepHint(appointment) }}</p>
+                <div class="appointment-portal-card__actions">
+                  <button type="button" class="button-secondary" (click)="openAppointmentDetail(appointment)">Xem chi tiết</button>
+                  @if (canCancelAppointment(appointment)) {
+                    <button
+                      type="button"
+                      class="button-danger"
+                      (click)="cancel(appointment)"
+                      [disabled]="processingActionById[appointment.id]"
+                    >
+                      Hủy lịch
+                    </button>
+                  }
+                  @if (activeTab === 'cancelled' && canHideArchivedAppointment(appointment)) {
+                    <button type="button" class="button-secondary" (click)="hideArchivedAppointment(appointment)">
+                      Xóa
+                    </button>
+                  }
+                </div>
+              </footer>
+            </article>
+          }
+        </div>
+      }
+    </article>
+  </section>
+
+  @if (selectedAppointmentDetail; as detailAppointment) {
+    <div class="appointment-detail-backdrop" (click)="closeAppointmentDetail()">
+      <article class="appointment-detail-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+        <button type="button" class="appointment-detail-modal__close" (click)="closeAppointmentDetail()" aria-label="Đóng chi tiết lịch khám">
+          ×
+        </button>
+
+        <header class="appointment-detail-modal__header">
+          <div>
+            <p class="section-heading__eyebrow">Chi tiết lịch khám</p>
+            <h3>{{ getDoctorName(detailAppointment) }}</h3>
+            <p>{{ getSpecialtyName(detailAppointment) }}</p>
+          </div>
+          <span class="status-chip" [class]="getAppointmentStatusClass(detailAppointment)">
+            {{ getAppointmentStatusLabel(detailAppointment) }}
+          </span>
+        </header>
+
+        <div class="appointment-detail-modal__grid">
+          <div>
+            <span>Mã lịch hẹn</span>
+            <strong>{{ getAppointmentCode(detailAppointment) }}</strong>
+          </div>
+          <div>
+            <span>Ngày khám</span>
+            <strong>{{ detailAppointment.date }}</strong>
+          </div>
+          @if (detailAppointment.time_slot) {
+            <div>
+              <span>Giờ hẹn</span>
+              <strong>{{ getDisplayTime(detailAppointment.time_slot) }}</strong>
+            </div>
+          }
+          <div>
+            <span>Dự kiến vào khám</span>
+            <strong>{{ getEstimatedStartLabel(detailAppointment) }}</strong>
+          </div>
+          <div>
+            <span>Phòng khám</span>
+            <strong>{{ getRoomLabel(detailAppointment) }}</strong>
+          </div>
+          <div>
+            <span>Tiếp nhận</span>
+            <strong>{{ getQueueNumberLabel(detailAppointment) }}</strong>
+          </div>
+          <div class="appointment-detail-modal__full">
+            <span>Triệu chứng / lý do khám</span>
+            <strong>{{ detailAppointment.reason || 'Không có ghi chú từ bệnh nhân.' }}</strong>
+          </div>
+          <div class="appointment-detail-modal__full">
+            <span>Hướng dẫn check-in</span>
+            <strong>{{ getNextStepHint(detailAppointment) }}</strong>
+          </div>
+          <div class="appointment-detail-modal__full">
+            <span>Lưu ý</span>
+            <strong>Thời gian dự kiến có thể thay đổi theo tình hình thực tế tại bệnh viện.</strong>
+          </div>
+        </div>
+      </article>
+    </div>
+  }
+</section>

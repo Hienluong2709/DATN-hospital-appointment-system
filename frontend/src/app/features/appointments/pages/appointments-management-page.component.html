@@ -1,0 +1,404 @@
+<section class="feature-page">
+  <header class="feature-header">
+    <h1 class="feature-title">{{ isDoctorView ? 'Lịch hẹn khám của tôi' : 'Quản lý lịch hẹn' }}</h1>
+    <p class="feature-subtitle">
+      {{
+        isDoctorView
+          ? 'Theo dõi các ca khám trong ngày, ưu tiên thao tác bắt đầu và hoàn tất khám.'
+          : 'Theo dõi trạng thái lịch hẹn và xử lý nhanh các bước tiếp nhận.'
+      }}
+    </p>
+  </header>
+
+  <article class="feature-card filters-card">
+    <div class="filters-grid" [class.filters-grid--doctor]="isDoctorView">
+      <label class="filter-field">
+        <span>Ngày hẹn</span>
+        <input type="date" [value]="selectedDate" (input)="updateSelectedDate($any($event.target).value)" />
+      </label>
+
+      <label class="filter-field" *ngIf="!isDoctorView">
+        <span>Bác sĩ</span>
+        <select [ngModel]="selectedDoctorId" (ngModelChange)="updateSelectedDoctor($event)">
+          <option [ngValue]="0">Tất cả bác sĩ</option>
+          <option *ngFor="let doctor of doctorFilterOptions" [ngValue]="doctor.id">{{ doctor.label }}</option>
+        </select>
+      </label>
+
+      <label class="filter-field">
+        <span>Trạng thái</span>
+        <select [value]="selectedStatus" (change)="updateSelectedStatus($any($event.target).value)">
+          <option value="ALL">Tất cả trạng thái</option>
+          <option value="Pending">Chờ xác nhận</option>
+          <option value="Confirmed">Đã xác nhận</option>
+          <option value="CheckedIn">Đã check-in</option>
+          <option value="Cancelled">Đã hủy</option>
+          <option value="Completed">Đã hoàn tất</option>
+          <option value="NoShow">Lỡ hẹn</option>
+        </select>
+      </label>
+
+      <div class="filter-field">
+        <span>Chế độ xem</span>
+        <div class="view-mode-toggle" role="group" aria-label="Chế độ xem lịch hẹn">
+          <button type="button" class="button-secondary" [class.active]="viewMode === 'day'" (click)="setViewMode('day')">
+            Theo ngày
+          </button>
+          <button type="button" class="button-secondary" [class.active]="viewMode === 'week'" (click)="setViewMode('week')">
+            Theo tuần
+          </button>
+        </div>
+      </div>
+
+      <div class="filter-field filter-actions">
+        <span>&nbsp;</span>
+        <div class="filter-actions__buttons">
+          <ng-container *ngIf="viewMode === 'week'">
+            <button type="button" class="button-secondary" (click)="goToPreviousWeek()" [disabled]="isLoading">Tuần trước</button>
+            <button type="button" class="button-secondary" (click)="goToToday()" [disabled]="isLoading">Hôm nay</button>
+            <button type="button" class="button-secondary" (click)="goToNextWeek()" [disabled]="isLoading">Tuần sau</button>
+          </ng-container>
+          <button type="button" class="button-secondary" (click)="resetFilters()" [disabled]="isLoading">Đặt lại bộ lọc</button>
+          <button type="button" class="button-secondary" (click)="reload()" [disabled]="isLoading">Tải lại</button>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="feature-card table-card" [class.doctor-table-card]="isDoctorView">
+    <div class="table-header">
+      <h2>{{ viewMode === 'day' ? ('Lịch hẹn ngày ' + selectedDate) : 'Lịch hẹn theo tuần' }}</h2>
+    </div>
+
+    <p *ngIf="errorMessage" class="alert error" role="alert">{{ errorMessage }}</p>
+    <p *ngIf="successMessage" class="alert success">{{ successMessage }}</p>
+
+    <p *ngIf="isLoading" class="state-text">Đang tải dữ liệu lịch hẹn...</p>
+
+    <p *ngIf="!isLoading" class="state-text state-text--left">
+      Tổng số lịch hiển thị: {{ viewMode === 'day' ? filteredAppointments.length : weekAppointmentsCount }}
+    </p>
+
+    <div *ngIf="!isLoading && viewMode === 'day' && filteredAppointments.length === 0" class="state-text">
+      Không có lịch hẹn trong ngày đã chọn.
+    </div>
+
+    <div *ngIf="!isLoading && viewMode === 'week' && !hasAnyWeekAppointment" class="state-text">
+      Không có lịch hẹn trong tuần đã chọn.
+    </div>
+
+    <div *ngIf="!isLoading && viewMode === 'day' && filteredAppointments.length > 0 && !isDoctorView" class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>STT</th>
+            <th>Ngày</th>
+            <th>Giờ hẹn</th>
+            <th>Dự kiến vào khám</th>
+            <th>Bệnh nhân</th>
+            <th>Bác sĩ</th>
+            <th>Trạng thái</th>
+            <th>Số tiếp nhận</th>
+            <th>Lý do</th>
+            <th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let appointment of filteredAppointments; let index = index">
+            <td>{{ index + 1 }}</td>
+            <td>{{ appointment.date }}</td>
+            <td>{{ getScheduledTimeLabel(appointment) }}</td>
+            <td>{{ getEstimatedStartLabel(appointment) }}</td>
+            <td>{{ appointment.patient?.fullname ?? appointment.patient?.username ?? '-' }}</td>
+            <td>{{ getDoctorName(appointment) }}</td>
+            <td>
+              <span class="status" [class.status--pending]="appointment.status === 'Pending'" [class.status--confirmed]="appointment.status === 'Confirmed' || appointment.status === 'CheckedIn'" [class.status--cancelled]="appointment.status === 'Cancelled' || appointment.status === 'NoShow'" [class.status--completed]="appointment.status === 'Completed'">
+                {{ getStatusLabel(appointment.status) }}
+              </span>
+            </td>
+            <td>{{ getQueueNumberLabel(appointment) }}</td>
+            <td>{{ appointment.reason || '-' }}</td>
+            <td>
+              <div class="actions">
+                <button
+                  *ngIf="canUseCheckInAction"
+                  type="button"
+                  class="btn-confirm"
+                  (click)="checkIn(appointment)"
+                  [disabled]="!canCheckIn(appointment) || processingActionById[appointment.id]"
+                >
+                  Check-in
+                </button>
+                <button
+                  *ngIf="canUseConfirmAction"
+                  type="button"
+                  class="btn-confirm"
+                  (click)="confirm(appointment)"
+                  [disabled]="!canConfirm(appointment) || processingActionById[appointment.id]"
+                >
+                  Xác nhận
+                </button>
+                <button
+                  *ngIf="canUseCancelAction"
+                  type="button"
+                  class="btn-cancel"
+                  (click)="cancel(appointment)"
+                  [disabled]="!canCancel(appointment) || processingActionById[appointment.id]"
+                >
+                  Hủy
+                </button>
+                <button
+                  *ngIf="canUseStartAction"
+                  type="button"
+                  class="btn-start"
+                  (click)="start(appointment)"
+                  [disabled]="!canStart(appointment) || processingActionById[appointment.id]"
+                >
+                  Bắt đầu
+                </button>
+                <button
+                  *ngIf="canUseCompleteAction"
+                  type="button"
+                  class="btn-complete"
+                  (click)="complete(appointment)"
+                  [disabled]="!canComplete(appointment) || processingActionById[appointment.id]"
+                >
+                  Hoàn tất
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div *ngIf="!isLoading && viewMode === 'day' && filteredAppointments.length > 0 && isDoctorView" class="doctor-day-tabs" role="tablist" aria-label="Danh sách ca khám">
+      <button
+        type="button"
+        class="doctor-day-tabs__button"
+        [class.doctor-day-tabs__button--active]="activeDoctorDayTab === 'schedule'"
+        (click)="setDoctorDayTab('schedule')"
+      >
+        Lịch trong ngày
+        <span>{{ filteredAppointments.length }}</span>
+      </button>
+      <button
+        type="button"
+        class="doctor-day-tabs__button"
+        [class.doctor-day-tabs__button--active]="activeDoctorDayTab === 'in-progress'"
+        (click)="setDoctorDayTab('in-progress')"
+      >
+        Ca đang khám
+        <span>{{ doctorInProgressAppointments.length }}</span>
+      </button>
+      <button
+        type="button"
+        class="doctor-day-tabs__button"
+        [class.doctor-day-tabs__button--active]="activeDoctorDayTab === 'completed'"
+        (click)="setDoctorDayTab('completed')"
+      >
+        Ca hoàn tất
+        <span>{{ doctorCompletedAppointments.length }}</span>
+      </button>
+    </div>
+
+    <div *ngIf="!isLoading && viewMode === 'day' && filteredAppointments.length > 0 && isDoctorView && activeDoctorDayTab === 'schedule'" class="doctor-appointments-list">
+      <article class="doctor-appointment-card" *ngFor="let appointment of filteredAppointments; let index = index">
+        <header class="doctor-appointment-card__header">
+          <div>
+            <p class="doctor-appointment-card__index">Ca khám #{{ index + 1 }}</p>
+            <h3>{{ appointment.patient?.fullname ?? appointment.patient?.username ?? 'Bệnh nhân' }}</h3>
+          </div>
+          <span
+            class="status"
+            [class.status--pending]="appointment.status === 'Pending'"
+            [class.status--confirmed]="appointment.status === 'Confirmed' || appointment.status === 'CheckedIn'"
+            [class.status--cancelled]="appointment.status === 'Cancelled' || appointment.status === 'NoShow'"
+            [class.status--completed]="appointment.status === 'Completed'"
+          >
+            {{ getStatusLabel(appointment.status) }}
+          </span>
+        </header>
+
+        <div class="doctor-appointment-card__meta">
+          <p><strong>Giờ hẹn:</strong> {{ getDisplayTime(appointment.time_slot) }}</p>
+          <p><strong>Dự kiến vào khám:</strong> {{ getEstimatedStartLabel(appointment) }}</p>
+          <p><strong>Bắt đầu thực tế:</strong> {{ getActualStartLabel(appointment) }}</p>
+          <p><strong>Kết thúc thực tế:</strong> {{ getActualEndLabel(appointment) }}</p>
+          <p><strong>Tiếp nhận:</strong> {{ getQueueNumberLabel(appointment) }}</p>
+          <p><strong>Lý do:</strong> {{ appointment.reason || 'Không có ghi chú' }}</p>
+        </div>
+
+        <div class="doctor-appointment-card__actions">
+          <button
+            *ngIf="canUseCheckInAction"
+            type="button"
+            class="btn-confirm"
+            (click)="checkIn(appointment)"
+            [disabled]="!canCheckIn(appointment) || processingActionById[appointment.id]"
+          >
+            Check-in
+          </button>
+          <button
+            *ngIf="canUseStartAction && !appointment.Queue?.actual_start && !appointment.Queue?.actual_end"
+            type="button"
+            class="btn-start"
+            (click)="start(appointment)"
+            [disabled]="!canStart(appointment) || processingActionById[appointment.id]"
+          >
+            Bắt đầu khám
+          </button>
+          <button
+            *ngIf="canUseCompleteAction && !!appointment.Queue?.actual_start && !appointment.Queue?.actual_end"
+            type="button"
+            class="btn-complete"
+            (click)="complete(appointment)"
+            [disabled]="!canComplete(appointment) || processingActionById[appointment.id]"
+          >
+            Hoàn tất khám
+          </button>
+        </div>
+      </article>
+    </div>
+
+    <div *ngIf="!isLoading && viewMode === 'day' && filteredAppointments.length > 0 && isDoctorView && activeDoctorDayTab === 'in-progress' && !doctorInProgressAppointments.length" class="state-text">
+      Không có ca nào đang khám trong ngày đã chọn.
+    </div>
+
+    <div *ngIf="!isLoading && viewMode === 'day' && filteredAppointments.length > 0 && isDoctorView && activeDoctorDayTab === 'in-progress' && doctorInProgressAppointments.length > 0" class="doctor-appointments-list">
+      <article class="doctor-appointment-card" *ngFor="let appointment of doctorInProgressAppointments; let index = index">
+        <header class="doctor-appointment-card__header">
+          <div>
+            <p class="doctor-appointment-card__index">Ca đang khám #{{ index + 1 }}</p>
+            <h3>{{ appointment.patient?.fullname ?? appointment.patient?.username ?? 'Bệnh nhân' }}</h3>
+          </div>
+          <span
+            class="status"
+            [class.status--pending]="appointment.status === 'Pending'"
+            [class.status--confirmed]="appointment.status === 'Confirmed' || appointment.status === 'CheckedIn'"
+            [class.status--cancelled]="appointment.status === 'Cancelled' || appointment.status === 'NoShow'"
+            [class.status--completed]="appointment.status === 'Completed'"
+          >
+            {{ getStatusLabel(appointment.status) }}
+          </span>
+        </header>
+
+        <div class="doctor-appointment-card__meta">
+          <p><strong>Giờ hẹn:</strong> {{ getDisplayTime(appointment.time_slot) }}</p>
+          <p><strong>Dự kiến vào khám:</strong> {{ getEstimatedStartLabel(appointment) }}</p>
+          <p><strong>Bắt đầu thực tế:</strong> {{ getActualStartLabel(appointment) }}</p>
+          <p><strong>Kết thúc thực tế:</strong> {{ getActualEndLabel(appointment) }}</p>
+          <p><strong>Tiếp nhận:</strong> {{ getQueueNumberLabel(appointment) }}</p>
+          <p><strong>Lý do:</strong> {{ appointment.reason || 'Không có ghi chú' }}</p>
+        </div>
+
+        <div class="doctor-appointment-card__actions">
+          <button
+            *ngIf="canUseCompleteAction && !!appointment.Queue?.actual_start && !appointment.Queue?.actual_end"
+            type="button"
+            class="btn-complete"
+            (click)="complete(appointment)"
+            [disabled]="!canComplete(appointment) || processingActionById[appointment.id]"
+          >
+            Hoàn tất khám
+          </button>
+        </div>
+      </article>
+    </div>
+
+    <div *ngIf="!isLoading && viewMode === 'day' && filteredAppointments.length > 0 && isDoctorView && activeDoctorDayTab === 'completed' && !doctorCompletedAppointments.length" class="state-text">
+      Chưa có ca nào hoàn tất trong ngày đã chọn.
+    </div>
+
+    <div *ngIf="!isLoading && viewMode === 'day' && filteredAppointments.length > 0 && isDoctorView && activeDoctorDayTab === 'completed' && doctorCompletedAppointments.length > 0" class="doctor-appointments-list">
+      <article class="doctor-appointment-card" *ngFor="let appointment of doctorCompletedAppointments; let index = index">
+        <header class="doctor-appointment-card__header">
+          <div>
+            <p class="doctor-appointment-card__index">Ca hoàn tất #{{ index + 1 }}</p>
+            <h3>{{ appointment.patient?.fullname ?? appointment.patient?.username ?? 'Bệnh nhân' }}</h3>
+          </div>
+          <span
+            class="status"
+            [class.status--pending]="appointment.status === 'Pending'"
+            [class.status--confirmed]="appointment.status === 'Confirmed' || appointment.status === 'CheckedIn'"
+            [class.status--cancelled]="appointment.status === 'Cancelled' || appointment.status === 'NoShow'"
+            [class.status--completed]="appointment.status === 'Completed'"
+          >
+            {{ getStatusLabel(appointment.status) }}
+          </span>
+        </header>
+
+        <div class="doctor-appointment-card__meta">
+          <p><strong>Giờ hẹn:</strong> {{ getDisplayTime(appointment.time_slot) }}</p>
+          <p><strong>Dự kiến vào khám:</strong> {{ getEstimatedStartLabel(appointment) }}</p>
+          <p><strong>Bắt đầu thực tế:</strong> {{ getActualStartLabel(appointment) }}</p>
+          <p><strong>Kết thúc thực tế:</strong> {{ getActualEndLabel(appointment) }}</p>
+          <p><strong>Tiếp nhận:</strong> {{ getQueueNumberLabel(appointment) }}</p>
+          <p><strong>Lý do:</strong> {{ appointment.reason || 'Không có ghi chú' }}</p>
+        </div>
+      </article>
+    </div>
+
+    <div *ngIf="!isLoading && viewMode === 'week' && hasAnyWeekAppointment" class="week-board">
+      <section class="week-day-card" *ngFor="let day of weekDayAppointments">
+        <header class="week-day-card__header">
+          <h3>{{ day.dayLabel }}</h3>
+          <span>{{ day.dateLabel }}</span>
+        </header>
+
+        <p *ngIf="day.appointments.length === 0" class="state-text">Không có lịch hẹn</p>
+
+        <div *ngIf="day.appointments.length > 0 && !isDoctorView" class="week-day-table-wrapper">
+          <table class="week-day-table">
+            <thead>
+              <tr>
+                <th>Giờ hẹn</th>
+                <th>Dự kiến</th>
+                <th>Bệnh nhân</th>
+                <th>Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let appointment of day.appointments">
+                <td>{{ getScheduledTimeLabel(appointment) }}</td>
+                <td>{{ getEstimatedStartLabel(appointment) }}</td>
+                <td>{{ appointment.patient?.fullname ?? appointment.patient?.username ?? '-' }}</td>
+                <td>
+                  <span
+                    class="status"
+                    [class.status--pending]="appointment.status === 'Pending'"
+                    [class.status--confirmed]="appointment.status === 'Confirmed' || appointment.status === 'CheckedIn'"
+                    [class.status--cancelled]="appointment.status === 'Cancelled' || appointment.status === 'NoShow'"
+                    [class.status--completed]="appointment.status === 'Completed'"
+                  >
+                    {{ getStatusLabel(appointment.status) }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div *ngIf="day.appointments.length > 0 && isDoctorView" class="doctor-week-appointments">
+          <article class="doctor-week-appointment-card" *ngFor="let appointment of day.appointments">
+            <div>
+              <h4>{{ appointment.patient?.fullname ?? appointment.patient?.username ?? 'Bệnh nhân' }}</h4>
+              <p>Giờ hẹn: {{ getDisplayTime(appointment.time_slot) }} • Dự kiến: {{ getEstimatedStartLabel(appointment) }}</p>
+              <p>Bắt đầu: {{ getActualStartLabel(appointment) }} • Kết thúc: {{ getActualEndLabel(appointment) }}</p>
+              <p>{{ appointment.reason || 'Không có ghi chú' }}</p>
+            </div>
+            <span
+              class="status"
+              [class.status--pending]="appointment.status === 'Pending'"
+              [class.status--confirmed]="appointment.status === 'Confirmed' || appointment.status === 'CheckedIn'"
+              [class.status--cancelled]="appointment.status === 'Cancelled' || appointment.status === 'NoShow'"
+              [class.status--completed]="appointment.status === 'Completed'"
+            >
+              {{ getStatusLabel(appointment.status) }}
+            </span>
+          </article>
+        </div>
+      </section>
+    </div>
+  </article>
+</section>
