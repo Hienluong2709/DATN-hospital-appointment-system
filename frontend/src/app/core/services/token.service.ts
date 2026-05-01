@@ -75,10 +75,10 @@ export class TokenService {
     }
 
     const roleHomeMap: Record<BackendRole, string> = {
-      ADMIN: '/admin',
-      RECEPTIONIST: '/receptionist',
-      DOCTOR: '/doctor',
-      PATIENT: '/patient'
+      ADMIN: '/staff/dashboard',
+      RECEPTIONIST: '/staff/receptionist',
+      DOCTOR: '/staff/doctor',
+      PATIENT: '/patient/appointments'
     };
 
     return roleHomeMap[role];

@@ -127,7 +127,13 @@ export const registerUserService = async (payload) => {
 
   const email = normalizeOptionalString(payload?.email);
   const phone = normalizeOptionalString(payload?.phone);
-  const role = normalizeRole(payload?.role);
+  if (payload?.role !== undefined && payload?.role !== null && payload?.role !== "" && payload.role !== "PATIENT") {
+    const error = new Error("Chỉ được đăng ký tài khoản bệnh nhân");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const role = "PATIENT";
 
   const existed = await User.findOne({ where: { username } });
   if (existed) {
