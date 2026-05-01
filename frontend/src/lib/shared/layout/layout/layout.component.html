@@ -78,8 +78,8 @@
   </header>
 
   <!-- BODY -->
-  <div class="workspace" [class.collapsed]="!isExpanded" [class.no-sidebar]="isPatientRole">
-    @if (!isPatientRole) {
+  <div class="workspace" [class.collapsed]="!isExpanded" [class.no-sidebar]="isPatientPortal">
+    @if (!isPatientPortal) {
       <!-- MINI SIDEBAR -->
       <aside class="rail">
         <div class="rail-menu">

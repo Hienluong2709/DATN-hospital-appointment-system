@@ -1,7 +1,24 @@
 import { Component, HostListener, OnInit, inject } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { BackendRole } from '../../../../app/core/models/auth-role.model';
+import {
+  ADMIN_PATH,
+  APPOINTMENTS_PATH,
+  CHANGE_PASSWORD_PATH,
+  DASHBOARD_PATH,
+  DOCTOR_PORTAL_PATH,
+  DOCTORS_PATH,
+  EQUEUE_NUMBERS_PATH,
+  PROFILE_PATH,
+  QUEUES_PATH,
+  RECEPTIONIST_PATH,
+  ROOMS_PATH,
+  SPECIALTIES_PATH,
+  USERS_PATH,
+  WORK_SCHEDULES_PATH,
+  WORK_SCHEDULE_BLOCKS_PATH
+} from '../../../../app/shared/constant/navigator-endpoint.constant';
 import { TokenService } from '../../../../app/core/services/token.service';
 
 interface MenuItem {
@@ -30,6 +47,7 @@ export class LayoutComponent implements OnInit {
   private static readonly EXPAND_BREAKPOINT = 1120;
   private readonly tokenService = inject(TokenService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   isExpanded = true;
   isUserMenuOpen = false;
@@ -50,8 +68,12 @@ export class LayoutComponent implements OnInit {
     return this.tokenService.getCurrentRole();
   }
 
-  get isPatientRole(): boolean {
-    return this.roleKey === 'PATIENT';
+  get portalKey(): 'staff' | 'patient' {
+    return this.route.snapshot.data['portal'] === 'patient' ? 'patient' : 'staff';
+  }
+
+  get isPatientPortal(): boolean {
+    return this.portalKey === 'patient';
   }
 
   ngOnInit(): void {
@@ -59,55 +81,54 @@ export class LayoutComponent implements OnInit {
   }
 
   primaryMenu: MenuItem[] = [
-    { label: 'Admin', short: 'AD', icon: 'admin_panel_settings', link: '/admin', roles: ['ADMIN'] },
+    { label: 'Admin', short: 'AD', icon: 'admin_panel_settings', link: this.staffLink(ADMIN_PATH), roles: ['ADMIN'] },
     {
       label: 'Reception',
       short: 'RE',
       icon: 'support_agent',
-      link: '/receptionist',
+      link: this.staffLink(RECEPTIONIST_PATH),
       roles: ['RECEPTIONIST']
     },
-    { label: 'Doctor', short: 'DR', icon: 'stethoscope', link: '/doctor', roles: ['DOCTOR'] },
-    { label: 'Patient', short: 'PT', icon: 'personal_injury', link: '/patient', roles: ['PATIENT'] },
-    { label: 'Dashboard', short: 'DB', icon: 'dashboard', link: '/dashboard', exact: true, roles: ['ADMIN'] },
+    { label: 'Doctor', short: 'DR', icon: 'stethoscope', link: this.staffLink(DOCTOR_PORTAL_PATH), roles: ['DOCTOR'] },
+    { label: 'Dashboard', short: 'DB', icon: 'dashboard', link: this.staffLink(DASHBOARD_PATH), exact: true, roles: ['ADMIN'] },
     {
       label: 'Specialties',
       short: 'SP',
       icon: 'medical_services',
-      link: '/specialties',
+      link: this.staffLink(SPECIALTIES_PATH),
       roles: ['ADMIN', 'RECEPTIONIST']
     },
-    { label: 'Users', short: 'US', icon: 'manage_accounts', link: '/users', roles: ['ADMIN'] },
-    { label: 'Rooms', short: 'RM', icon: 'meeting_room', link: '/rooms', roles: ['ADMIN', 'RECEPTIONIST'] },
-    { label: 'Doctors', short: 'DC', icon: 'groups', link: '/doctors', roles: ['ADMIN', 'RECEPTIONIST'] },
+    { label: 'Users', short: 'US', icon: 'manage_accounts', link: this.staffLink(USERS_PATH), roles: ['ADMIN'] },
+    { label: 'Rooms', short: 'RM', icon: 'meeting_room', link: this.staffLink(ROOMS_PATH), roles: ['ADMIN', 'RECEPTIONIST'] },
+    { label: 'Doctors', short: 'DC', icon: 'groups', link: this.staffLink(DOCTORS_PATH), roles: ['ADMIN', 'RECEPTIONIST'] },
     {
       label: 'Schedules',
       short: 'WS',
       icon: 'calendar_month',
-      link: '/work-schedules',
+      link: this.staffLink(WORK_SCHEDULES_PATH),
       roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
     },
     {
       label: 'Blocks',
       short: 'WB',
       icon: 'event_busy',
-      link: '/work-schedule-blocks',
+      link: this.staffLink(WORK_SCHEDULE_BLOCKS_PATH),
       roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
     },
     {
       label: 'Appointments',
       short: 'AP',
       icon: 'event_note',
-      link: '/appointments',
-      roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATIENT']
+      link: this.staffLink(APPOINTMENTS_PATH),
+      roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
     },
-    { label: 'Queues', short: 'QU', icon: 'groups', link: '/queues', roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR'] },
+    { label: 'Queues', short: 'QU', icon: 'groups', link: this.staffLink(QUEUES_PATH), roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR'] },
     {
       label: 'E-Queue',
       short: 'EQ',
       icon: 'confirmation_number',
-      link: '/equeue-numbers',
-      roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATIENT']
+      link: this.staffLink(EQUEUE_NUMBERS_PATH),
+      roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
     }
   ];
 
@@ -142,7 +163,7 @@ export class LayoutComponent implements OnInit {
           label: 'Tổng quan hệ thống',
           short: 'DB',
           icon: 'dashboard',
-          link: '/dashboard',
+          link: this.staffLink(DASHBOARD_PATH),
           exact: true,
           roles: ['ADMIN']
         }
@@ -156,24 +177,30 @@ export class LayoutComponent implements OnInit {
           label: 'Danh mục chuyên khoa',
           short: 'SP',
           icon: 'medical_services',
-          link: '/specialties',
+          link: this.staffLink(SPECIALTIES_PATH),
           roles: ['ADMIN', 'RECEPTIONIST']
         },
         {
           label: 'Quản lý người dùng',
           short: 'US',
           icon: 'manage_accounts',
-          link: '/users',
+          link: this.staffLink(USERS_PATH),
           roles: ['ADMIN']
         },
         {
           label: 'Danh mục phòng khám',
           short: 'RM',
           icon: 'meeting_room',
-          link: '/rooms',
+          link: this.staffLink(ROOMS_PATH),
           roles: ['ADMIN', 'RECEPTIONIST']
         },
-        { label: 'Danh sách bác sĩ', short: 'DC', icon: 'groups', link: '/doctors', roles: ['ADMIN', 'RECEPTIONIST'] }
+        {
+          label: 'Danh sách bác sĩ',
+          short: 'DC',
+          icon: 'groups',
+          link: this.staffLink(DOCTORS_PATH),
+          roles: ['ADMIN', 'RECEPTIONIST']
+        }
       ]
     },
     {
@@ -184,30 +211,36 @@ export class LayoutComponent implements OnInit {
           label: 'Lịch làm việc',
           short: 'WS',
           icon: 'calendar_month',
-          link: '/work-schedules',
+          link: this.staffLink(WORK_SCHEDULES_PATH),
           roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
         },
         {
           label: 'Lịch nghỉ',
           short: 'WB',
           icon: 'event_busy',
-          link: '/work-schedule-blocks',
+          link: this.staffLink(WORK_SCHEDULE_BLOCKS_PATH),
           roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
         },
         {
           label: 'Lịch hẹn khám',
           short: 'AP',
           icon: 'event_note',
-          link: '/appointments',
-          roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATIENT']
+          link: this.staffLink(APPOINTMENTS_PATH),
+          roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
         },
-        { label: 'Hàng đợi', short: 'QU', icon: 'groups', link: '/queues', roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR'] },
+        {
+          label: 'Hàng đợi',
+          short: 'QU',
+          icon: 'groups',
+          link: this.staffLink(QUEUES_PATH),
+          roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
+        },
         {
           label: 'Số thứ tự điện tử',
           short: 'EQ',
           icon: 'confirmation_number',
-          link: '/equeue-numbers',
-          roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATIENT']
+          link: this.staffLink(EQUEUE_NUMBERS_PATH),
+          roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
         }
       ]
     }
@@ -267,12 +300,12 @@ export class LayoutComponent implements OnInit {
 
   goToProfile(): void {
     this.isUserMenuOpen = false;
-    void this.router.navigate(['/profile']);
+    void this.router.navigateByUrl(this.portalLink(PROFILE_PATH));
   }
 
   goToChangePassword(): void {
     this.isUserMenuOpen = false;
-    void this.router.navigate(['/change-password']);
+    void this.router.navigateByUrl(this.portalLink(CHANGE_PASSWORD_PATH));
   }
 
   isGroupActive(group: MenuGroup): boolean {
@@ -291,7 +324,19 @@ export class LayoutComponent implements OnInit {
   onLogout(): void {
     this.isUserMenuOpen = false;
     this.tokenService.clearSession();
-    void this.router.navigate(['/auth/login']);
+    void this.router.navigateByUrl(this.portalKey === 'patient' ? '/' : '/staff/login');
+  }
+
+  private portalLink(childPath: string): string {
+    return this.portalKey === 'patient' ? this.patientLink(childPath) : this.staffLink(childPath);
+  }
+
+  private staffLink(childPath: string): string {
+    return `/staff/${childPath}`;
+  }
+
+  private patientLink(childPath: string): string {
+    return `/patient/${childPath}`;
   }
 
   private resolveUserName(): string {

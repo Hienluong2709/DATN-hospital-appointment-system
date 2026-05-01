@@ -9,7 +9,7 @@ import { RouterLink } from '@angular/router';
     <section class="status-page">
       <h1>Access Denied</h1>
       <p>You do not have permission to access this resource.</p>
-      <a routerLink="/auth/login">Go to Login</a>
+      <a routerLink="/login">Go to Login</a>
     </section>
   `,
   styles: ['.status-page { max-width: 720px; margin: 0 auto; padding: 3rem 1rem; }']

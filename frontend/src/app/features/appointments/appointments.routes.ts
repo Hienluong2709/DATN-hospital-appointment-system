@@ -1,18 +1,18 @@
 import { Routes } from '@angular/router';
-import { roleGuard } from '@guard';
 
 import { AppointmentsPageComponent } from './pages/appointments-page.component';
 import { PatientAppointmentsPageComponent } from './pages/patient-appointments-page.component';
 
-export const APPOINTMENT_ROUTES: Routes = [
+export const STAFF_APPOINTMENT_ROUTES: Routes = [
   {
     path: '',
-    canActivate: [roleGuard(['ADMIN', 'DOCTOR', 'RECEPTIONIST'])],
     component: AppointmentsPageComponent
-  },
+  }
+];
+
+export const PATIENT_APPOINTMENT_ROUTES: Routes = [
   {
-    path: 'patient',
-    canActivate: [roleGuard(['PATIENT'])],
+    path: '',
     component: PatientAppointmentsPageComponent
   }
 ];

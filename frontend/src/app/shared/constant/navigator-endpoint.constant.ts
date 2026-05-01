@@ -1,4 +1,6 @@
 export const AUTH_PATH = 'auth';
+export const STAFF_PATH = 'staff';
+export const PATIENT_PATH = 'patient';
 export const DASHBOARD_PATH = 'dashboard';
 export const SPECIALTIES_PATH = 'specialties';
 export const ROOMS_PATH = 'rooms';
@@ -12,7 +14,6 @@ export const EQUEUE_NUMBERS_PATH = 'equeue-numbers';
 export const ADMIN_PATH = 'admin';
 export const RECEPTIONIST_PATH = 'receptionist';
 export const DOCTOR_PORTAL_PATH = 'doctor';
-export const PATIENT_PATH = 'patient';
 export const PROFILE_PATH = 'profile';
 export const CHANGE_PASSWORD_PATH = 'change-password';
 export const ACCESS_DENIED_PATH = 'access-denied';
