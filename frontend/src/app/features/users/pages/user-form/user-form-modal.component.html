@@ -1,0 +1,87 @@
+@if (isOpen) {
+  <div class="modal-overlay" (click)="onOverlayClick()">
+    <article class="modal-card" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <h2>{{ isEditMode ? 'Cập nhật người dùng' : 'Tạo người dùng mới' }}</h2>
+        <button class="icon-close" type="button" (click)="onCloseClick()" [disabled]="isSubmitting">x</button>
+      </header>
+
+      <form class="user-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+        <label>
+          <span>Username</span>
+          <input type="text" formControlName="username" placeholder="Nhập username" />
+          @if (usernameInvalid) {
+            <small>Username là bắt buộc.</small>
+          }
+        </label>
+
+        <label>
+          <span>Họ tên</span>
+          <input type="text" formControlName="fullname" placeholder="Nhập họ tên" />
+          @if (fullnameInvalid) {
+            <small>Họ tên là bắt buộc.</small>
+          }
+        </label>
+
+        <label>
+          <span>Mật khẩu {{ isEditMode ? '(để trống nếu không đổi)' : '' }}</span>
+          <input type="password" formControlName="password" placeholder="Tối thiểu 6 ký tự" />
+          @if (passwordInvalid) {
+            <small>Mật khẩu tối thiểu 6 ký tự.</small>
+          }
+        </label>
+
+        <label>
+          <span>Email</span>
+          <input type="email" formControlName="email" placeholder="example@email.com" />
+        </label>
+
+        <label>
+          <span>Số điện thoại</span>
+          <input type="text" formControlName="phone" placeholder="Nhập số điện thoại" />
+        </label>
+
+        <label>
+          <span>Ngày sinh</span>
+          <input type="date" formControlName="date_of_birth" />
+        </label>
+
+        <label>
+          <span>Giới tính</span>
+          <select formControlName="gender">
+            <option value="">Chưa cập nhật</option>
+            @for (option of genderOptions; track option.value) {
+              <option [value]="option.value">{{ option.label }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="user-form__full">
+          <span>Địa chỉ</span>
+          <input type="text" formControlName="address" placeholder="Nhập địa chỉ" />
+        </label>
+
+        <label>
+          <span>Vai trò</span>
+          <select formControlName="role">
+            @for (role of roleOptions; track role) {
+              <option [value]="role">{{ role }}</option>
+            }
+          </select>
+          @if (roleInvalid) {
+            <small>Vai trò là bắt buộc.</small>
+          }
+        </label>
+
+        <div class="form-actions">
+          <button class="button-primary" type="submit" [disabled]="isSubmitting">
+            {{ isSubmitting ? 'Dang xu ly...' : isEditMode ? 'Lưu cập nhật' : 'Thêm người dùng' }}
+          </button>
+          <button class="button-secondary" type="button" (click)="onCloseClick()" [disabled]="isSubmitting">
+            Đóng
+          </button>
+        </div>
+      </form>
+    </article>
+  </div>
+}

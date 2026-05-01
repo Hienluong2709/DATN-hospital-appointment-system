@@ -1,0 +1,5 @@
+@import '../../../specialties/pages/specialty-form/specialty-form-modal.component.css';
+
+.user-form__full {
+  grid-column: 1 / -1;
+}

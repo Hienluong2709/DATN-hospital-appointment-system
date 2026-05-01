@@ -1,0 +1,61 @@
+@if (isOpen) {
+  <div class="modal-overlay" (click)="onOverlayClick()">
+    <article class="modal-card" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <h2>Chi tiết người dùng</h2>
+        <button class="icon-close" type="button" (click)="onCloseClick()">x</button>
+      </header>
+
+      @if (isLoading) {
+        <p class="state-text">Đang tải chi tiết...</p>
+      } @else if (user) {
+        <dl>
+          <div>
+            <dt>Username</dt>
+            <dd>{{ user.username }}</dd>
+          </div>
+          <div>
+            <dt>Họ tên</dt>
+            <dd>{{ user.fullname }}</dd>
+          </div>
+          <div>
+            <dt>Email</dt>
+            <dd>{{ user.email || '--' }}</dd>
+          </div>
+          <div>
+            <dt>Số điện thoại</dt>
+            <dd>{{ user.phone || '--' }}</dd>
+          </div>
+          <div>
+            <dt>Ngày sinh</dt>
+            <dd>{{ user.date_of_birth || '--' }}</dd>
+          </div>
+          <div>
+            <dt>Giới tính</dt>
+            <dd>
+              @if (user.gender === 'MALE') {
+                Nam
+              } @else if (user.gender === 'FEMALE') {
+                Nữ
+              } @else if (user.gender === 'OTHER') {
+                Khác
+              } @else {
+                --
+              }
+            </dd>
+          </div>
+          <div>
+            <dt>Địa chỉ</dt>
+            <dd>{{ user.address || '--' }}</dd>
+          </div>
+          <div>
+            <dt>Vai trò</dt>
+            <dd>{{ user.role }}</dd>
+          </div>
+        </dl>
+      } @else {
+        <p class="state-text">Không có dữ liệu chi tiết.</p>
+      }
+    </article>
+  </div>
+}
