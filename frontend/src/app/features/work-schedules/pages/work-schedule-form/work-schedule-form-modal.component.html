@@ -1,0 +1,75 @@
+@if (isOpen) {
+  <div class="modal-overlay" (click)="onOverlayClick()">
+    <article class="modal-card" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <h2>{{ isEditMode ? 'Cập nhật lịch làm việc' : 'Tạo lịch làm việc mới' }}</h2>
+        <button class="icon-close" type="button" (click)="onCloseClick()" [disabled]="isSubmitting">x</button>
+      </header>
+
+      <form class="schedule-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+        <label>
+          <span>Bác sĩ</span>
+          <select formControlName="doctor_id">
+            <option [ngValue]="0" disabled>Chọn bác sĩ</option>
+            @for (doctor of doctors; track doctor.id) {
+              <option [ngValue]="doctor.id">{{ doctor.User?.fullname || doctor.User?.username || 'Doctor ' + doctor.id }}</option>
+            }
+          </select>
+          @if (doctorInvalid) {
+            <small>Bác sĩ là bắt buộc.</small>
+          }
+        </label>
+
+        <label>
+          <span>Ngày trong tuần</span>
+          <select formControlName="day_of_week">
+            <option [ngValue]="0" disabled>Chọn ngày</option>
+            @for (day of dayOptions; track day.value) {
+              <option [ngValue]="day.value">{{ day.label }}</option>
+            }
+          </select>
+          @if (dayInvalid) {
+            <small>Ngày trong tuần là bắt buộc.</small>
+          }
+        </label>
+
+        <div class="grid-2">
+          <label>
+            <span>Giờ bắt đầu</span>
+            <select formControlName="start_time" [disabled]="isSubmitting || !hasAvailableTimeOptions">
+              <option value="">Chọn giờ bắt đầu</option>
+              @for (time of availableStartTimes; track time) {
+                <option [value]="time">{{ time }}</option>
+              }
+            </select>
+          </label>
+
+          <label>
+            <span>Giờ kết thúc</span>
+            <select formControlName="end_time" [disabled]="isSubmitting || !availableEndTimes.length || !form.get('start_time')?.value">
+              <option value="">Chọn giờ kết thúc</option>
+              @for (time of availableEndTimes; track time) {
+                <option [value]="time">{{ time }}</option>
+              }
+            </select>
+          </label>
+        </div>
+
+        <small class="time-hint">{{ timeAvailabilityMessage }}</small>
+
+        @if (timeInvalid) {
+          <small>Giờ bắt đầu phải nhỏ hơn giờ kết thúc và thời lượng tối thiểu là 30 phút.</small>
+        }
+
+        <div class="form-actions">
+          <button class="button-primary" type="submit" [disabled]="isSubmitting || !doctors.length || !hasAvailableTimeOptions">
+            {{ isSubmitting ? 'Đang xử lý...' : isEditMode ? 'Lưu cập nhật' : 'Thêm lịch' }}
+          </button>
+          <button class="button-secondary" type="button" (click)="onCloseClick()" [disabled]="isSubmitting">
+            Đóng
+          </button>
+        </div>
+      </form>
+    </article>
+  </div>
+}
