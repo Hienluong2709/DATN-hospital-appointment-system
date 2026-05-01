@@ -1,0 +1,402 @@
+.feature-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.feature-header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.feature-title {
+  margin: 0;
+  color: #123555;
+  font-size: clamp(1.5rem, 1.2rem + 1vw, 2rem);
+}
+
+.feature-subtitle {
+  margin: 0;
+  color: #5f7590;
+}
+
+.feedback {
+  margin: 0;
+  padding: 0.8rem 0.95rem;
+  border-radius: 14px;
+  background: #e8f5ec;
+  color: #16603a;
+  border: 1px solid #c7e8d2;
+}
+
+.feedback--error {
+  background: #fff0f0;
+  color: #a12c2c;
+  border-color: #f0c6c6;
+}
+
+.table-card {
+  padding: 1rem;
+}
+
+.doctor-table-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.filters-card {
+  padding: 1rem;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.filters-grid--doctor {
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+}
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  span {
+    font-size: 13px;
+    font-weight: 600;
+    color: #40607d;
+  }
+
+  select,
+  input {
+    height: 38px;
+    border: 1px solid #d9dfe8;
+    border-radius: 8px;
+    padding: 0 10px;
+    font-size: 14px;
+    background: #fff;
+    color: #17324d;
+  }
+}
+
+.view-mode-toggle {
+  display: flex;
+  gap: 8px;
+
+  .button-secondary.active {
+    border-color: #1d4ed8;
+    color: #1d4ed8;
+    background: #eff6ff;
+  }
+}
+
+.table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+
+  h2 {
+    margin: 0;
+    color: #15324d;
+    font-size: 1.1rem;
+  }
+}
+
+.table-header-actions {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.week-quick-nav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.table-wrapper {
+  overflow: auto;
+  border-radius: 14px;
+  border: 1px solid #d7e3f0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 920px;
+
+  th,
+  td {
+    padding: 0.8rem 0.9rem;
+    text-align: left;
+    border-bottom: 1px solid #e4edf6;
+    vertical-align: top;
+  }
+
+  th {
+    background: #f5f9fc;
+    color: #41617f;
+    font-size: 0.88rem;
+    font-weight: 700;
+  }
+
+  td {
+    color: #24435e;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.action-icon-button {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-icon {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 0.65rem;
+  border-radius: 999px;
+  background: #e9f6ff;
+  color: #0f5f8c;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.status-badge--inactive {
+  background: #f3f3ff;
+  color: #5a55a7;
+}
+
+.state-text {
+  margin: 0;
+  padding: 0.75rem 0;
+  color: #5d748d;
+}
+
+.state-text--left {
+  text-align: left;
+  padding: 0 0 12px;
+}
+
+.week-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.week-day-card {
+  border: 1px solid #d7e3f0;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fcfdff;
+}
+
+.week-day-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+
+  h3 {
+    font-size: 15px;
+    margin: 0;
+    color: #214360;
+  }
+
+  span {
+    font-size: 12px;
+    color: #667085;
+  }
+}
+
+.day-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.doctor-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.doctor-group-card {
+  border: 1px dashed #d9e2f2;
+  border-radius: 8px;
+  padding: 8px;
+  background: #f9fbff;
+}
+
+.doctor-group-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+
+  h4 {
+    margin: 0;
+    font-size: 13px;
+    color: #24435e;
+  }
+
+  span {
+    font-size: 12px;
+    color: #475467;
+    background: #eaf1ff;
+    border-radius: 999px;
+    padding: 2px 8px;
+  }
+}
+
+.schedule-item {
+  border: 1px solid #ecf0f6;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: flex-start;
+  background: #fff;
+}
+
+.schedule-item__info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  strong {
+    font-size: 13px;
+    color: #24435e;
+  }
+
+  span {
+    font-size: 13px;
+    color: #475467;
+  }
+}
+
+.doctor-block-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.doctor-block-card {
+  border: 1px solid #d7e3f0;
+  border-radius: 12px;
+  padding: 0.9rem;
+  background: #fff;
+  box-shadow: 0 3px 10px rgba(17, 67, 111, 0.06);
+
+  h3 {
+    margin: 0.15rem 0;
+    color: #183f63;
+  }
+
+  p {
+    margin: 0;
+    color: #5b7490;
+  }
+}
+
+.doctor-block-card__index {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #6786a7;
+}
+
+.doctor-block-card__reason {
+  margin-top: 0.35rem !important;
+  color: #31587f !important;
+}
+
+.doctor-week-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.8rem;
+}
+
+.doctor-week-day-card {
+  border: 1px solid #d7e3f0;
+  border-radius: 12px;
+  padding: 0.8rem;
+  background: #fff;
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.55rem;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 0.96rem;
+    color: #1f466a;
+  }
+
+  span {
+    font-size: 0.78rem;
+    color: #6c839b;
+  }
+}
+
+.doctor-week-day-card__list {
+  display: grid;
+  gap: 0.35rem;
+
+  p {
+    margin: 0;
+    padding: 0.45rem 0.55rem;
+    border-radius: 8px;
+    background: #f2f7fd;
+    color: #274b6f;
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .week-quick-nav {
+    width: 100%;
+  }
+}
