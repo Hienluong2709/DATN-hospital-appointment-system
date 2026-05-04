@@ -1,0 +1,238 @@
+.patient-landing {
+  display: grid;
+  gap: 1rem;
+}
+
+.hero-card {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr);
+  border-radius: 18px;
+  padding: 1.2rem;
+  background: linear-gradient(135deg, #0f3f66 0%, #0d5475 52%, #0e7b83 100%);
+  color: #eaf7ff;
+}
+
+.eyebrow {
+  margin: 0;
+  color: #b9ecff;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.hero-content h1 {
+  margin: 0.35rem 0 0.6rem;
+  font-size: clamp(1.55rem, 2.5vw, 2.2rem);
+  line-height: 1.2;
+}
+
+.hero-description {
+  margin: 0;
+  max-width: 60ch;
+  color: #d7f1ff;
+  line-height: 1.55;
+}
+
+.hero-actions {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.btn-primary,
+.btn-secondary {
+  min-height: 46px;
+  border-radius: 999px;
+  padding: 0 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.btn-primary {
+  background: #f1fbff;
+  color: #0e456b;
+}
+
+.btn-secondary {
+  border-color: #9fdae6;
+  color: #d7f3ff;
+  background: transparent;
+}
+
+.hero-highlight {
+  display: grid;
+  gap: 0.6rem;
+  align-content: start;
+}
+
+.hero-highlight article {
+  border-radius: 12px;
+  padding: 0.72rem 0.8rem;
+  border: 1px solid #5ea8be;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.hero-highlight strong {
+  display: block;
+  font-size: 1.25rem;
+  color: #ffffff;
+}
+
+.hero-highlight span {
+  display: block;
+  margin-top: 0.2rem;
+  color: #c5ebf7;
+  font-size: 0.82rem;
+}
+
+.section-block {
+  border: 1px solid #d4e5f5;
+  border-radius: 18px;
+  background: #ffffff;
+  padding: 1.1rem;
+}
+
+.section-block header h2,
+.callout h2 {
+  margin: 0;
+  color: #153450;
+}
+
+.section-block header p,
+.callout p {
+  margin: 0.5rem 0 0;
+  color: #466683;
+}
+
+.feature-grid {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.doctor-section {
+  background: linear-gradient(180deg, #ffffff 0%, #f7fcff 100%);
+}
+
+.doctor-grid {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.doctor-card {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 0.8rem;
+  align-items: start;
+  border-radius: 14px;
+  border: 1px solid #d8e7f5;
+  padding: 0.9rem;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(17, 68, 112, 0.05);
+}
+
+.doctor-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f5f89 0%, #0d9488 100%);
+  color: #ffffff;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.doctor-card h3 {
+  margin: 0;
+  color: #173f62;
+}
+
+.doctor-specialty {
+  margin: 0.18rem 0 0;
+  color: #0d6b88;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.doctor-card p:last-child {
+  margin: 0.45rem 0 0;
+  color: #567593;
+  line-height: 1.45;
+}
+
+.feature-item {
+  border-radius: 14px;
+  border: 1px solid #dceaf7;
+  padding: 0.85rem;
+  background: #f8fbff;
+}
+
+.feature-item h3,
+.department-card h3 {
+  margin: 0;
+  color: #1d4265;
+}
+
+.feature-item p,
+.department-card p {
+  margin: 0.45rem 0 0;
+  color: #567593;
+  line-height: 1.45;
+}
+
+.soft {
+  background: linear-gradient(180deg, #fbfeff 0%, #f2f8fe 100%);
+}
+
+.department-grid {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.department-card {
+  border: 1px solid #d2e5f6;
+  border-radius: 14px;
+  padding: 0.85rem;
+  background: #ffffff;
+}
+
+.callout {
+  text-align: center;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at top, #ecfbff 0%, #f8fcff 58%, #ffffff 100%);
+}
+
+.callout .hero-actions {
+  justify-content: center;
+}
+
+.callout .btn-primary {
+  background: #0f5f89;
+  color: #ffffff;
+}
+
+.callout .btn-secondary {
+  border-color: #97b9d6;
+  color: #1f4a72;
+  background: #ffffff;
+}
+
+@media (max-width: 900px) {
+  .hero-card {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,87 @@
+<section class="patient-landing">
+  <div class="hero-card">
+    <div class="hero-content">
+      <p class="eyebrow">Bệnh viện Đa khoa Sofitech</p>
+      <h1>Chăm sóc sức khỏe gia đình tận tâm, an toàn và hiện đại</h1>
+      <p class="hero-description">
+        Từ khoa khám tổng quát đến các chuyên khoa chuyên sâu, bệnh viện mang đến trải nghiệm
+        khám chữa bệnh thân thiện, rõ ràng chi phí và tối ưu thời gian cho bệnh nhân.
+      </p>
+
+      <div class="hero-actions">
+        <a class="btn-primary" [routerLink]="'/patient/appointments'">Đăng nhập để đặt lịch</a>
+        <a class="btn-secondary" [routerLink]="'/register'">Đăng ký tài khoản bệnh nhân</a>
+      </div>
+    </div>
+
+    <div class="hero-highlight">
+      @for (item of trustIndicators; track item.label) {
+        <article>
+          <strong>{{ item.value }}</strong>
+          <span>{{ item.label }}</span>
+        </article>
+      }
+    </div>
+  </div>
+
+  <section class="section-block">
+    <header>
+      <h2>Vì sao bệnh nhân lựa chọn chúng tôi</h2>
+      <p>Quy trình gọn gàng, đội ngũ tận tâm và hệ thống hỗ trợ liên tục từ đặt lịch đến tái khám.</p>
+    </header>
+
+    <div class="feature-grid">
+      @for (item of featuredBenefits; track item.title) {
+        <article class="feature-item">
+          <h3>{{ item.title }}</h3>
+          <p>{{ item.description }}</p>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section class="section-block doctor-section">
+    <header>
+      <h2>Giới thiệu bác sĩ</h2>
+      <p>Đội ngũ bác sĩ có kinh nghiệm, luôn đồng hành cùng bệnh nhân trong khám, chẩn đoán và tái khám.</p>
+    </header>
+
+    <div class="doctor-grid">
+      @for (doctor of doctors; track doctor.name) {
+        <article class="doctor-card">
+          <div class="doctor-avatar">{{ doctor.initials }}</div>
+          <div>
+            <h3>{{ doctor.name }}</h3>
+            <p class="doctor-specialty">{{ doctor.specialty }}</p>
+            <p>{{ doctor.description }}</p>
+          </div>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section class="section-block soft">
+    <header>
+      <h2>Chuyên khoa nổi bật</h2>
+      <p>Hệ thống chuyên khoa được bố trí theo nhu cầu khám phổ biến, dễ tiếp cận và dễ theo dõi.</p>
+    </header>
+
+    <div class="department-grid">
+      @for (item of departments; track item.name) {
+        <article class="department-card">
+          <h3>{{ item.name }}</h3>
+          <p>{{ item.note }}</p>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section class="section-block callout">
+    <h2>Cần hỗ trợ ngay hôm nay?</h2>
+    <p>Đăng nhập hoặc đăng ký tài khoản bệnh nhân để đặt lịch khám và theo dõi lịch hẹn trực tuyến.</p>
+    <div class="hero-actions">
+      <a class="btn-primary" [routerLink]="'/login'">Đăng nhập bệnh nhân</a>
+      <a class="btn-secondary" [routerLink]="'/staff/login'">Cổng nội bộ nhân viên</a>
+    </div>
+  </section>
+</section>
