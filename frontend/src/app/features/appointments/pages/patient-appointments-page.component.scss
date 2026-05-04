@@ -10,6 +10,10 @@
 }
 
 .patient-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
   padding: 1.35rem 1.45rem;
   border-radius: 24px;
   background: linear-gradient(135deg, #0f3f60 0%, #135d75 52%, #1d8c83 100%);
@@ -37,6 +41,32 @@
   max-width: 720px;
   color: rgba(243, 251, 255, 0.9);
   line-height: 1.6;
+}
+
+.patient-hero__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+}
+
+.patient-hero__back-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(223, 244, 255, 0.28);
+  background: rgba(255, 255, 255, 0.12);
+  color: #f3fbff;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.patient-hero__back-link:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(223, 244, 255, 0.48);
 }
 
 .overview-shell,
@@ -710,7 +740,13 @@
 
 @media (max-width: 640px) {
   .patient-hero {
+    flex-direction: column;
     padding: 1.15rem;
+  }
+
+  .patient-hero__actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .patient-hero h1 {

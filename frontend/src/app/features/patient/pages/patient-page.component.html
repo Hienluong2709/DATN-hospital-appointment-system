@@ -7,10 +7,20 @@
         Từ khoa khám tổng quát đến các chuyên khoa chuyên sâu, bệnh viện mang đến trải nghiệm
         khám chữa bệnh thân thiện, rõ ràng chi phí và tối ưu thời gian cho bệnh nhân.
       </p>
+      <p class="hero-note">
+        Bạn có thể xem thông tin bệnh viện ngay tại đây. Tài khoản bệnh nhân chỉ cần thiết khi bắt đầu đặt lịch hoặc tra cứu lịch hẹn.
+      </p>
 
       <div class="hero-actions">
-        <a class="btn-primary" [routerLink]="'/patient/appointments'">Đăng nhập để đặt lịch</a>
-        <a class="btn-secondary" [routerLink]="'/register'">Đăng ký tài khoản bệnh nhân</a>
+        <a class="btn-primary" [routerLink]="'/login'">Đăng nhập để đặt lịch</a>
+        <a class="btn-secondary" [routerLink]="'/register'">Tạo tài khoản bệnh nhân</a>
+      </div>
+
+      <div class="hero-links">
+        <a [routerLink]="'/register'">Chưa có tài khoản? Đăng ký ngay</a>
+        <a href="#booking-flow">Xem quy trình đặt lịch</a>
+        <a href="#doctor-section">Xem bác sĩ</a>
+        <a href="#department-section">Xem chuyên khoa</a>
       </div>
     </div>
 
@@ -23,6 +33,23 @@
       }
     </div>
   </div>
+
+  <section class="section-block soft" id="booking-flow">
+    <header>
+      <h2>Quy trình đặt lịch cho bệnh nhân</h2>
+      <p>Luồng sử dụng được tách rõ: xem thông tin công khai trước, chỉ đăng nhập khi thực sự cần đặt lịch khám.</p>
+    </header>
+
+    <div class="booking-step-grid">
+      @for (item of bookingSteps; track item.step) {
+        <article class="booking-step-card">
+          <span class="booking-step-card__index">{{ item.step }}</span>
+          <h3>{{ item.title }}</h3>
+          <p>{{ item.description }}</p>
+        </article>
+      }
+    </div>
+  </section>
 
   <section class="section-block">
     <header>
@@ -40,7 +67,7 @@
     </div>
   </section>
 
-  <section class="section-block doctor-section">
+  <section class="section-block doctor-section" id="doctor-section">
     <header>
       <h2>Giới thiệu bác sĩ</h2>
       <p>Đội ngũ bác sĩ có kinh nghiệm, luôn đồng hành cùng bệnh nhân trong khám, chẩn đoán và tái khám.</p>
@@ -60,7 +87,7 @@
     </div>
   </section>
 
-  <section class="section-block soft">
+  <section class="section-block soft" id="department-section">
     <header>
       <h2>Chuyên khoa nổi bật</h2>
       <p>Hệ thống chuyên khoa được bố trí theo nhu cầu khám phổ biến, dễ tiếp cận và dễ theo dõi.</p>
@@ -77,11 +104,11 @@
   </section>
 
   <section class="section-block callout">
-    <h2>Cần hỗ trợ ngay hôm nay?</h2>
-    <p>Đăng nhập hoặc đăng ký tài khoản bệnh nhân để đặt lịch khám và theo dõi lịch hẹn trực tuyến.</p>
+    <h2>Sẵn sàng đặt lịch khám?</h2>
+    <p>Đăng nhập nếu bạn đã có tài khoản, hoặc tạo tài khoản mới để bắt đầu đặt lịch và theo dõi lịch hẹn trực tuyến.</p>
     <div class="hero-actions">
       <a class="btn-primary" [routerLink]="'/login'">Đăng nhập bệnh nhân</a>
-      <a class="btn-secondary" [routerLink]="'/staff/login'">Cổng nội bộ nhân viên</a>
+      <a class="btn-secondary" [routerLink]="'/register'">Đăng ký tài khoản</a>
     </div>
   </section>
 </section>

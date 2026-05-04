@@ -18,6 +18,8 @@ const dateFrom = formatArgValue("--date-from");
 const dateTo = formatArgValue("--date-to");
 const outputPath = formatArgValue("--output");
 const format = (formatArgValue("--format") || "json").toLowerCase();
+const latestModelVersion = formatArgValue("--latest-model-version");
+const latestPredictionSource = formatArgValue("--latest-prediction-source");
 
 const parseDateTime = (value) => {
   if (!value) {
@@ -101,6 +103,11 @@ const main = async () => {
         model: WaitPrediction,
         as: "WaitPrediction",
         attributes: ["id", "predicted_wait_time", "predicted_start", "prediction_source", "model_version", "created_at"],
+        required: Boolean(latestModelVersion || latestPredictionSource),
+        where: {
+          ...(latestModelVersion ? { model_version: latestModelVersion } : {}),
+          ...(latestPredictionSource ? { prediction_source: latestPredictionSource } : {}),
+        },
       },
     ],
     order: [
@@ -165,7 +172,15 @@ const main = async () => {
     const resolvedOutputPath = path.resolve(outputPath);
     fs.mkdirSync(path.dirname(resolvedOutputPath), { recursive: true });
     fs.writeFileSync(resolvedOutputPath, content, "utf8");
-    console.info(`[training export] wrote ${rows.length} row(s) to ${resolvedOutputPath}`);
+    console.info(
+      [
+        `[training export] wrote ${rows.length} row(s) to ${resolvedOutputPath}`,
+        latestModelVersion ? `latest_model_version=${latestModelVersion}` : null,
+        latestPredictionSource ? `latest_prediction_source=${latestPredictionSource}` : null,
+      ]
+        .filter(Boolean)
+        .join(" "),
+    );
     return;
   }
 

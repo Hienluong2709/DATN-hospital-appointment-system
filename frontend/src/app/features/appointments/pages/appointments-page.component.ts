@@ -1,6 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Subscription } from 'rxjs';
 
 import { BackendRole } from '../../../core/models/auth-role.model';
 import { TokenService } from '../../../core/services/token.service';
@@ -22,6 +24,9 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
 
   private readonly appointmentsApiService = inject(AppointmentsApiService);
   private readonly tokenService = inject(TokenService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly subscriptions = new Subscription();
   private alertTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private pollIntervalId: ReturnType<typeof setInterval> | null = null;
 
@@ -39,11 +44,22 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
   readonly currentRole: BackendRole | null = this.tokenService.getCurrentRole();
 
   ngOnInit(): void {
-    this.loadAppointments();
+    this.subscriptions.add(
+      this.route.queryParamMap.subscribe((params) => {
+        this.selectedDate = params.get('date') || this.getTodayDateString();
+        this.selectedDoctorId = this.parsePositiveQueryParam(params.get('doctor_id'));
+        this.selectedStatus = this.parseStatusParam(params.get('status'));
+        this.viewMode = params.get('view') === 'week' ? 'week' : 'day';
+        this.activeDoctorDayTab = this.parseDoctorDayTab(params.get('tab'));
+        this.loadAppointments();
+      })
+    );
+
     this.startPolling();
   }
 
   ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
     this.clearAlertTimeout();
     this.stopPolling();
   }
@@ -56,46 +72,55 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
     this.selectedDate = this.getTodayDateString();
     this.selectedDoctorId = 0;
     this.selectedStatus = 'ALL';
+    this.updateQueryParams(true);
   }
 
   updateSelectedDate(value: string): void {
     this.selectedDate = value || this.getTodayDateString();
+    this.updateQueryParams(true);
   }
 
   updateSelectedDoctor(value: string): void {
     const parsed = Number(value);
     this.selectedDoctorId = Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
+    this.updateQueryParams(true);
   }
 
   updateSelectedStatus(value: string): void {
     if (value === 'Pending' || value === 'Confirmed' || value === 'CheckedIn' || value === 'Cancelled' || value === 'Completed' || value === 'NoShow') {
       this.selectedStatus = value;
-      return;
+    } else {
+      this.selectedStatus = 'ALL';
     }
 
-    this.selectedStatus = 'ALL';
+    this.updateQueryParams(true);
   }
 
   setViewMode(mode: 'day' | 'week'): void {
     this.viewMode = mode;
+    this.updateQueryParams(true);
   }
 
   setDoctorDayTab(tab: 'schedule' | 'in-progress' | 'completed'): void {
     this.activeDoctorDayTab = tab;
+    this.updateQueryParams(true);
   }
 
   goToPreviousWeek(): void {
     this.shiftSelectedDateByDays(-7);
     this.viewMode = 'week';
+    this.updateQueryParams(true);
   }
 
   goToNextWeek(): void {
     this.shiftSelectedDateByDays(7);
     this.viewMode = 'week';
+    this.updateQueryParams(true);
   }
 
   goToToday(): void {
     this.selectedDate = this.getTodayDateString();
+    this.updateQueryParams(true);
   }
 
   get filteredAppointments(): Appointment[] {
@@ -408,7 +433,14 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
       this.successMessage = '';
     }
 
-    this.appointmentsApiService.getAll().subscribe({
+    const dateRange = this.getActiveDateRange();
+
+    this.appointmentsApiService.getAll({
+      doctor_id: this.selectedDoctorId || undefined,
+      status: this.selectedStatus,
+      date_from: dateRange.dateFrom,
+      date_to: dateRange.dateTo
+    }).subscribe({
       next: (response) => {
         this.appointments = response.data;
       },
@@ -449,6 +481,24 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  private getActiveDateRange(): { dateFrom: string; dateTo: string } {
+    if (this.viewMode === 'week') {
+      const weekStart = this.getWeekStart(this.selectedDateObject);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+
+      return {
+        dateFrom: this.toDateInputValue(weekStart),
+        dateTo: this.toDateInputValue(weekEnd)
+      };
+    }
+
+    return {
+      dateFrom: this.selectedDate,
+      dateTo: this.selectedDate
+    };
   }
 
   private showSuccess(message: string): void {
@@ -497,5 +547,36 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
       clearInterval(this.pollIntervalId);
       this.pollIntervalId = null;
     }
+  }
+
+  private updateQueryParams(replaceUrl = true): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        date: this.selectedDate || null,
+        doctor_id: this.selectedDoctorId > 0 ? this.selectedDoctorId : null,
+        status: this.selectedStatus !== 'ALL' ? this.selectedStatus : null,
+        view: this.viewMode !== 'day' ? this.viewMode : null,
+        tab: this.activeDoctorDayTab !== 'schedule' ? this.activeDoctorDayTab : null
+      },
+      replaceUrl
+    });
+  }
+
+  private parsePositiveQueryParam(value: string | null): number {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
+  }
+
+  private parseStatusParam(value: string | null): AppointmentStatusFilter {
+    if (value === 'Pending' || value === 'Confirmed' || value === 'CheckedIn' || value === 'Cancelled' || value === 'Completed' || value === 'NoShow') {
+      return value;
+    }
+
+    return 'ALL';
+  }
+
+  private parseDoctorDayTab(value: string | null): 'schedule' | 'in-progress' | 'completed' {
+    return value === 'in-progress' || value === 'completed' ? value : 'schedule';
   }
 }

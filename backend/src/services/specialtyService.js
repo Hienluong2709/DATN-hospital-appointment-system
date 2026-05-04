@@ -1,4 +1,12 @@
 import db from "../models/index.js";
+import {
+  buildPaginationMeta,
+  createPaginatedListResult,
+  createListResult,
+  filterItemsByLooseSearch,
+  normalizeOptionalQueryString,
+  parsePaginationQuery,
+} from "../utils/queryUtils.js";
 
 const { Specialty, Doctor, Room } = db;
 
@@ -29,9 +37,54 @@ const normalizeName = (name) => {
   return trimmed;
 };
 
-export const getAllSpecialtiesService = async () => {
-  return Specialty.findAll({
+export const getAllSpecialtiesService = async (filters = {}) => {
+  const pagination = parsePaginationQuery(filters);
+  const q = normalizeOptionalQueryString(filters?.q);
+  const where = {};
+
+  if (!q && !pagination.enabled) {
+    const items = await Specialty.findAll({
+      where,
+      order: [["id", "ASC"]],
+    });
+
+    return createListResult({
+      items,
+      pagination: null,
+    });
+  }
+
+  if (!q && pagination.enabled) {
+    const { rows, count } = await Specialty.findAndCountAll({
+      where,
+      order: [["id", "ASC"]],
+      limit: pagination.limit,
+      offset: pagination.offset,
+    });
+
+    return createListResult({
+      items: rows,
+      pagination: buildPaginationMeta({
+        page: pagination.page,
+        page_size: pagination.page_size,
+        total_items: count,
+      }),
+    });
+  }
+
+  const items = await Specialty.findAll({
+    where,
     order: [["id", "ASC"]],
+  });
+
+  const filteredItems = filterItemsByLooseSearch(items, q, (specialty) => [
+    specialty.name,
+    specialty.description,
+  ]);
+
+  return createPaginatedListResult({
+    items: filteredItems,
+    pagination,
   });
 };
 

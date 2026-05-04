@@ -1,4 +1,12 @@
 import db from "../models/index.js";
+import {
+  buildPaginationMeta,
+  createPaginatedListResult,
+  createListResult,
+  filterItemsByLooseSearch,
+  normalizeOptionalQueryString,
+  parsePaginationQuery,
+} from "../utils/queryUtils.js";
 
 const { Room, Specialty, Doctor } = db;
 
@@ -83,8 +91,78 @@ const roomQueryOptions = {
   order: [["id", "ASC"]],
 };
 
-export const getAllRoomsService = async () => {
-  return Room.findAll(roomQueryOptions);
+export const getAllRoomsService = async (filters = {}) => {
+  const pagination = parsePaginationQuery(filters);
+  const q = normalizeOptionalQueryString(filters?.q);
+  const status = normalizeStatus(filters?.status);
+  const specialtyId =
+    filters?.specialty_id !== undefined && filters?.specialty_id !== null && filters?.specialty_id !== ""
+      ? parseId(filters.specialty_id)
+      : undefined;
+  const floor =
+    filters?.floor !== undefined && filters?.floor !== null && filters?.floor !== ""
+      ? normalizeFloor(filters.floor)
+      : undefined;
+  const where = {};
+
+  if (status) {
+    where.status = status;
+  }
+
+  if (specialtyId) {
+    where.specialty_id = specialtyId;
+  }
+
+  if (floor !== undefined) {
+    where.floor = floor;
+  }
+
+  if (!q && !pagination.enabled) {
+    const items = await Room.findAll({
+      ...roomQueryOptions,
+      where,
+    });
+
+    return createListResult({
+      items,
+      pagination: null,
+    });
+  }
+
+  if (!q && pagination.enabled) {
+    const { rows, count } = await Room.findAndCountAll({
+      ...roomQueryOptions,
+      where,
+      distinct: true,
+      limit: pagination.limit,
+      offset: pagination.offset,
+    });
+
+    return createListResult({
+      items: rows,
+      pagination: buildPaginationMeta({
+        page: pagination.page,
+        page_size: pagination.page_size,
+        total_items: count,
+      }),
+    });
+  }
+
+  const items = await Room.findAll({
+    ...roomQueryOptions,
+    where,
+  });
+
+  const filteredItems = filterItemsByLooseSearch(items, q, (room) => [
+    room.name,
+    room.description,
+    room.Specialty?.name,
+  ]);
+
+  return createPaginatedListResult({
+    items: filteredItems,
+    pagination,
+  });
 };
 
 export const getRoomByIdService = async (id) => {

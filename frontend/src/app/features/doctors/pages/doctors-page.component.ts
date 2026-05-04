@@ -1,6 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component, HostListener, OnDestroy, OnInit, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Subject, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { BackendRole } from '../../../core/models/auth-role.model';
 import { TokenService } from '../../../core/services/token.service';
@@ -17,7 +20,7 @@ import { SharedPaginationComponent } from '../../../shared/components/pagination
 @Component({
   selector: 'app-doctors-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, DoctorFormModalComponent, DoctorDetailModalComponent, SharedPaginationComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, DoctorFormModalComponent, DoctorDetailModalComponent, SharedPaginationComponent],
   templateUrl: './doctors-page.component.html',
   styleUrl: './doctors-page.component.scss'
 })
@@ -27,6 +30,10 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
   private readonly specialtiesApiService = inject(SpecialtiesApiService);
   private readonly roomsApiService = inject(RoomsApiService);
   private readonly tokenService = inject(TokenService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly searchTermChanges = new Subject<string>();
+  private readonly subscriptions = new Subscription();
 
   doctors: Doctor[] = [];
   specialties: Specialty[] = [];
@@ -47,8 +54,13 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
   feedbackMessage = '';
   private bodyOverflowBeforeModal = '';
 
+  searchTerm = '';
+  selectedStatus: DoctorStatus | 'ALL' = 'ALL';
+  selectedSpecialtyId = 0;
+  selectedRoomId = 0;
   currentPage = 1;
   pageSize = 10;
+  totalItems = 0;
   readonly pageSizeOptions = [10, 20, 50];
   readonly currentRole: BackendRole | null = this.tokenService.getCurrentRole();
 
@@ -88,12 +100,31 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.loadList();
+    this.subscriptions.add(
+      this.route.queryParamMap.subscribe((params) => {
+        this.searchTerm = params.get('q') ?? '';
+        this.selectedStatus = this.parseStatusParam(params.get('status'));
+        this.selectedSpecialtyId = this.parsePositiveQueryParam(params.get('specialty_id'));
+        this.selectedRoomId = this.parsePositiveQueryParam(params.get('room_id'));
+        this.currentPage = this.parsePositiveQueryParam(params.get('page'), 1);
+        this.pageSize = this.parsePositiveQueryParam(params.get('page_size'), this.pageSizeOptions[0]);
+        this.loadList();
+      })
+    );
+
+    this.subscriptions.add(
+      this.searchTermChanges.pipe(debounceTime(400), distinctUntilChanged()).subscribe(() => {
+        this.currentPage = 1;
+        this.updateQueryParams(true);
+      })
+    );
+
     this.loadSpecialties();
     this.loadRooms();
   }
 
   ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
     this.unlockBodyScroll();
   }
 
@@ -115,6 +146,25 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
 
   reload(): void {
     this.loadList();
+  }
+
+  onSearchTermChange(value: string): void {
+    this.searchTerm = value;
+    this.searchTermChanges.next(value);
+  }
+
+  applyFilters(): void {
+    this.currentPage = 1;
+    this.updateQueryParams(true);
+  }
+
+  resetFilters(): void {
+    this.searchTerm = '';
+    this.selectedStatus = 'ALL';
+    this.selectedSpecialtyId = 0;
+    this.selectedRoomId = 0;
+    this.currentPage = 1;
+    this.updateQueryParams(true);
   }
 
   openCreateModal(): void {
@@ -300,32 +350,37 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
     return doctor.User?.fullname || doctor.User?.username || doctor.User?.email || `Doctor ${doctor.id}`;
   }
 
-  get pagedDoctors(): Doctor[] {
-    const startIndex = (this.currentPage - 1) * this.pageSize;
-    return this.doctors.slice(startIndex, startIndex + this.pageSize);
-  }
-
   get rowOffset(): number {
     return (this.currentPage - 1) * this.pageSize;
   }
 
   onPageChange(page: number): void {
     this.currentPage = page;
+    this.updateQueryParams(true);
   }
 
   onPageSizeChange(pageSize: number): void {
     this.pageSize = pageSize;
     this.currentPage = 1;
+    this.updateQueryParams(true);
   }
 
   private loadList(): void {
     this.isLoadingList = true;
     this.feedbackMessage = '';
 
-    this.doctorsApiService.getAll().subscribe({
+    this.doctorsApiService.getAll({
+      q: this.searchTerm,
+      status: this.selectedStatus,
+      specialty_id: this.selectedSpecialtyId || undefined,
+      room_id: this.selectedRoomId || undefined,
+      page: this.currentPage,
+      page_size: this.pageSize
+    }).subscribe({
       next: (response) => {
         this.doctors = response.data;
-        this.ensureValidPage();
+        this.totalItems = response.pagination?.total_items ?? response.data.length;
+        this.currentPage = response.pagination?.page ?? this.currentPage;
       },
       error: (error: { error?: { message?: string } }) => {
         this.showFeedback('error', error.error?.message ?? 'Không thể tải danh sách bác sĩ.');
@@ -438,10 +493,27 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
     this.bodyOverflowBeforeModal = '';
   }
 
-  private ensureValidPage(): void {
-    const totalPages = Math.max(1, Math.ceil(this.doctors.length / this.pageSize));
-    if (this.currentPage > totalPages) {
-      this.currentPage = totalPages;
-    }
+  private updateQueryParams(replaceUrl = true): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        q: this.searchTerm.trim() || null,
+        status: this.selectedStatus !== 'ALL' ? this.selectedStatus : null,
+        specialty_id: this.selectedSpecialtyId > 0 ? this.selectedSpecialtyId : null,
+        room_id: this.selectedRoomId > 0 ? this.selectedRoomId : null,
+        page: this.currentPage > 1 ? this.currentPage : null,
+        page_size: this.pageSize !== this.pageSizeOptions[0] ? this.pageSize : null
+      },
+      replaceUrl
+    });
+  }
+
+  private parsePositiveQueryParam(value: string | null, fallback = 0): number {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+  }
+
+  private parseStatusParam(value: string | null): DoctorStatus | 'ALL' {
+    return this.statusOptions.includes(value as DoctorStatus) ? (value as DoctorStatus) : 'ALL';
   }
 }

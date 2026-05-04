@@ -1,6 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component, HostListener, OnDestroy, OnInit, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Subject, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { BackendRole } from '../../../core/models/auth-role.model';
 import { TokenService } from '../../../core/services/token.service';
@@ -13,7 +16,7 @@ import { SharedPaginationComponent } from '../../../shared/components/pagination
 @Component({
   selector: 'app-specialties-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, SpecialtyFormModalComponent, SpecialtyDetailModalComponent, SharedPaginationComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, SpecialtyFormModalComponent, SpecialtyDetailModalComponent, SharedPaginationComponent],
   templateUrl: './specialties-page.component.html',
   styleUrl: './specialties-page.component.scss'
 })
@@ -21,6 +24,10 @@ export class SpecialtiesPageComponent implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly specialtiesApiService = inject(SpecialtiesApiService);
   private readonly tokenService = inject(TokenService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly searchTermChanges = new Subject<string>();
+  private readonly subscriptions = new Subscription();
 
   specialties: Specialty[] = [];
   selectedSpecialty: Specialty | null = null;
@@ -36,8 +43,10 @@ export class SpecialtiesPageComponent implements OnInit, OnDestroy {
   feedbackMessage = '';
   private bodyOverflowBeforeModal = '';
 
+  searchTerm = '';
   currentPage = 1;
   pageSize = 10;
+  totalItems = 0;
   readonly pageSizeOptions = [10, 20, 50];
   readonly currentRole: BackendRole | null = this.tokenService.getCurrentRole();
 
@@ -55,10 +64,25 @@ export class SpecialtiesPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.loadList();
+    this.subscriptions.add(
+      this.route.queryParamMap.subscribe((params) => {
+        this.searchTerm = params.get('q') ?? '';
+        this.currentPage = this.parsePositiveQueryParam(params.get('page'), 1);
+        this.pageSize = this.parsePositiveQueryParam(params.get('page_size'), this.pageSizeOptions[0]);
+        this.loadList();
+      })
+    );
+
+    this.subscriptions.add(
+      this.searchTermChanges.pipe(debounceTime(400), distinctUntilChanged()).subscribe(() => {
+        this.currentPage = 1;
+        this.updateQueryParams(true);
+      })
+    );
   }
 
   ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
     this.unlockBodyScroll();
   }
 
@@ -80,6 +104,22 @@ export class SpecialtiesPageComponent implements OnInit, OnDestroy {
 
   reload(): void {
     this.loadList();
+  }
+
+  onSearchTermChange(value: string): void {
+    this.searchTerm = value;
+    this.searchTermChanges.next(value);
+  }
+
+  applyFilters(): void {
+    this.currentPage = 1;
+    this.updateQueryParams(true);
+  }
+
+  resetFilters(): void {
+    this.searchTerm = '';
+    this.currentPage = 1;
+    this.updateQueryParams(true);
   }
 
   openCreateModal(): void {
@@ -225,32 +265,34 @@ export class SpecialtiesPageComponent implements OnInit, OnDestroy {
     return value.length > 70 ? `${value.slice(0, 70)}...` : value;
   }
 
-  get pagedSpecialties(): Specialty[] {
-    const startIndex = (this.currentPage - 1) * this.pageSize;
-    return this.specialties.slice(startIndex, startIndex + this.pageSize);
-  }
-
   get rowOffset(): number {
     return (this.currentPage - 1) * this.pageSize;
   }
 
   onPageChange(page: number): void {
     this.currentPage = page;
+    this.updateQueryParams(true);
   }
 
   onPageSizeChange(pageSize: number): void {
     this.pageSize = pageSize;
     this.currentPage = 1;
+    this.updateQueryParams(true);
   }
 
   private loadList(): void {
     this.isLoadingList = true;
     this.feedbackMessage = '';
 
-    this.specialtiesApiService.getAll().subscribe({
+    this.specialtiesApiService.getAll({
+      q: this.searchTerm,
+      page: this.currentPage,
+      page_size: this.pageSize
+    }).subscribe({
       next: (response) => {
         this.specialties = response.data;
-        this.ensureValidPage();
+        this.totalItems = response.pagination?.total_items ?? response.data.length;
+        this.currentPage = response.pagination?.page ?? this.currentPage;
       },
       error: (error: { error?: { message?: string } }) => {
         this.showFeedback('error', error.error?.message ?? 'Không thể tải danh sách chuyên khoa.');
@@ -331,10 +373,20 @@ export class SpecialtiesPageComponent implements OnInit, OnDestroy {
     this.bodyOverflowBeforeModal = '';
   }
 
-  private ensureValidPage(): void {
-    const totalPages = Math.max(1, Math.ceil(this.specialties.length / this.pageSize));
-    if (this.currentPage > totalPages) {
-      this.currentPage = totalPages;
-    }
+  private updateQueryParams(replaceUrl = true): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        q: this.searchTerm.trim() || null,
+        page: this.currentPage > 1 ? this.currentPage : null,
+        page_size: this.pageSize !== this.pageSizeOptions[0] ? this.pageSize : null
+      },
+      replaceUrl
+    });
+  }
+
+  private parsePositiveQueryParam(value: string | null, fallback: number): number {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
   }
 }

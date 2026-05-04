@@ -46,6 +46,74 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "patient-production": {
+              "outputPath": "dist/frontend/patient",
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.patient.ts"
+                }
+              ],
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kb",
+                  "maximumError": "1mb"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "6kb",
+                  "maximumError": "10kb"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "staff-production": {
+              "outputPath": "dist/frontend/staff",
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.staff.ts"
+                }
+              ],
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kb",
+                  "maximumError": "1mb"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "6kb",
+                  "maximumError": "10kb"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "patient-development": {
+              "outputPath": "dist/frontend/patient",
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.patient.ts"
+                }
+              ],
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            },
+            "staff-development": {
+              "outputPath": "dist/frontend/staff",
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.staff.ts"
+                }
+              ],
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
             }
           },
           "defaultConfiguration": "production"
@@ -61,6 +129,14 @@
             },
             "development": {
               "buildTarget": "frontend:build:development"
+            },
+            "patient": {
+              "buildTarget": "frontend:build:patient-development",
+              "port": 4200
+            },
+            "staff": {
+              "buildTarget": "frontend:build:staff-development",
+              "port": 4201
             }
           },
           "defaultConfiguration": "development"

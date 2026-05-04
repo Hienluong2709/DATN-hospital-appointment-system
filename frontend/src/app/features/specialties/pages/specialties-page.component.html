@@ -7,6 +7,51 @@
     <p class="feedback" [class.feedback--error]="feedbackType === 'error'">{{ feedbackMessage }}</p>
   }
 
+  <article class="feature-card filters-card">
+    <div class="filters-grid">
+      <label class="filter-field">
+        <span>Tìm kiếm</span>
+        <input
+          type="text"
+          [ngModel]="searchTerm"
+          (ngModelChange)="onSearchTermChange($event)"
+          placeholder="Tên hoặc mô tả chuyên khoa"
+        />
+      </label>
+
+      <div class="filter-actions">
+        <button
+          class="button-primary filter-icon-button"
+          type="button"
+          (click)="applyFilters()"
+          [disabled]="isLoadingList || isSubmitting"
+          title="Áp dụng bộ lọc"
+          aria-label="Áp dụng bộ lọc"
+        >
+          <svg class="filter-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="6" />
+            <path d="M20 20l-4.2-4.2" />
+          </svg>
+          <span class="sr-only">Áp dụng</span>
+        </button>
+        <button
+          class="button-secondary filter-icon-button"
+          type="button"
+          (click)="resetFilters()"
+          [disabled]="isLoadingList || isSubmitting"
+          title="Đặt lại bộ lọc"
+          aria-label="Đặt lại bộ lọc"
+        >
+          <svg class="filter-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 11a8 8 0 1 0 2 5.5" />
+            <path d="M20 4v7h-7" />
+          </svg>
+          <span class="sr-only">Đặt lại</span>
+        </button>
+      </div>
+    </div>
+  </article>
+
   <article class="feature-card table-card">
     <div class="table-header">
       <h2>Danh sách chuyên khoa</h2>
@@ -21,7 +66,7 @@
     @if (isLoadingList) {
       <p class="state-text">Đang tải danh sách...</p>
     } @else if (!specialties.length) {
-      <p class="state-text">Chưa có chuyên khoa nào.</p>
+      <p class="state-text">Không có chuyên khoa phù hợp với bộ lọc hiện tại.</p>
     } @else {
       <div class="table-wrapper">
         <table>
@@ -34,7 +79,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (specialty of pagedSpecialties; track specialty.id; let index = $index) {
+            @for (specialty of specialties; track specialty.id; let index = $index) {
               <tr>
                 <td>{{ rowOffset + index + 1 }}</td>
                 <td>{{ specialty.name }}</td>
@@ -74,7 +119,7 @@
       </div>
 
       <app-shared-pagination
-        [totalItems]="specialties.length"
+        [totalItems]="totalItems"
         [page]="currentPage"
         [pageSize]="pageSize"
         [pageSizeOptions]="pageSizeOptions"

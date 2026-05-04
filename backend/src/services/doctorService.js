@@ -1,5 +1,13 @@
 import db from "../models/index.js";
 import { Op } from "sequelize";
+import {
+  buildPaginationMeta,
+  createPaginatedListResult,
+  createListResult,
+  filterItemsByLooseSearch,
+  normalizeOptionalQueryString,
+  parsePaginationQuery,
+} from "../utils/queryUtils.js";
 
 const { Doctor, User, Specialty, Room, WorkSchedule, WorkScheduleBlock, Appointment } = db;
 
@@ -320,8 +328,90 @@ const doctorQueryOptions = {
   order: [["id", "ASC"]],
 };
 
-export const getAllDoctorsService = async () => {
-  return Doctor.findAll(doctorQueryOptions);
+export const getAllDoctorsService = async (filters = {}) => {
+  const pagination = parsePaginationQuery(filters);
+  const q = normalizeOptionalQueryString(filters?.q);
+  const status = normalizeStatus(filters?.status);
+  const specialtyId =
+    filters?.specialty_id !== undefined && filters?.specialty_id !== null && filters?.specialty_id !== ""
+      ? parseId(filters.specialty_id)
+      : undefined;
+  const roomId =
+    filters?.room_id !== undefined && filters?.room_id !== null && filters?.room_id !== ""
+      ? parseId(filters.room_id)
+      : undefined;
+  const userId =
+    filters?.user_id !== undefined && filters?.user_id !== null && filters?.user_id !== ""
+      ? parseId(filters.user_id)
+      : undefined;
+  const where = {};
+
+  if (status) {
+    where.status = status;
+  }
+
+  if (specialtyId) {
+    where.specialty_id = specialtyId;
+  }
+
+  if (roomId) {
+    where.room_id = roomId;
+  }
+
+  if (userId) {
+    where.user_id = userId;
+  }
+
+  if (!q && !pagination.enabled) {
+    const items = await Doctor.findAll({
+      ...doctorQueryOptions,
+      where,
+    });
+
+    return createListResult({
+      items,
+      pagination: null,
+    });
+  }
+
+  if (!q && pagination.enabled) {
+    const { rows, count } = await Doctor.findAndCountAll({
+      ...doctorQueryOptions,
+      where,
+      distinct: true,
+      limit: pagination.limit,
+      offset: pagination.offset,
+    });
+
+    return createListResult({
+      items: rows,
+      pagination: buildPaginationMeta({
+        page: pagination.page,
+        page_size: pagination.page_size,
+        total_items: count,
+      }),
+    });
+  }
+
+  const items = await Doctor.findAll({
+    ...doctorQueryOptions,
+    where,
+  });
+
+  const filteredItems = filterItemsByLooseSearch(items, q, (doctor) => [
+    doctor.User?.username,
+    doctor.User?.fullname,
+    doctor.User?.email,
+    doctor.User?.phone,
+    doctor.Specialty?.name,
+    doctor.Room?.name,
+    doctor.description,
+  ]);
+
+  return createPaginatedListResult({
+    items: filteredItems,
+    pagination,
+  });
 };
 
 export const getDoctorsBySpecialtyAndDateService = async (query, currentUser) => {

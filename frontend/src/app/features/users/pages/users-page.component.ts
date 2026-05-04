@@ -1,6 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component, HostListener, OnDestroy, OnInit, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Subject, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { SharedPaginationComponent } from '../../../shared/components/pagination/pagination.component';
 import { User, UserGender, UserRole, UserUpsertPayload } from '../models/users.model';
@@ -11,13 +14,17 @@ import { UsersApiService } from '../services/users.api';
 @Component({
   selector: 'app-users-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, UserFormModalComponent, UserDetailModalComponent, SharedPaginationComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, UserFormModalComponent, UserDetailModalComponent, SharedPaginationComponent],
   templateUrl: './users-page.component.html',
   styleUrl: './users-page.component.scss'
 })
 export class UsersPageComponent implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly usersApiService = inject(UsersApiService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly searchTermChanges = new Subject<string>();
+  private readonly subscriptions = new Subscription();
 
   users: User[] = [];
   selectedUser: User | null = null;
@@ -34,8 +41,12 @@ export class UsersPageComponent implements OnInit, OnDestroy {
   feedbackMessage = '';
   private bodyOverflowBeforeModal = '';
 
+  searchTerm = '';
+  selectedRole: UserRole | 'ALL' = 'ALL';
+  selectedGender: UserGender | 'ALL' = 'ALL';
   currentPage = 1;
   pageSize = 10;
+  totalItems = 0;
   readonly pageSizeOptions = [10, 20, 50];
   readonly roleOptions: UserRole[] = ['ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATIENT'];
   readonly genderOptions: Array<{ value: UserGender; label: string }> = [
@@ -87,20 +98,32 @@ export class UsersPageComponent implements OnInit, OnDestroy {
     return value.length > 0 && value.length < 6;
   }
 
-  get pagedUsers(): User[] {
-    const startIndex = (this.currentPage - 1) * this.pageSize;
-    return this.users.slice(startIndex, startIndex + this.pageSize);
-  }
-
   get rowOffset(): number {
     return (this.currentPage - 1) * this.pageSize;
   }
 
   ngOnInit(): void {
-    this.loadList();
+    this.subscriptions.add(
+      this.route.queryParamMap.subscribe((params) => {
+        this.searchTerm = params.get('q') ?? '';
+        this.selectedRole = this.parseRoleParam(params.get('role'));
+        this.selectedGender = this.parseGenderParam(params.get('gender'));
+        this.currentPage = this.parsePositiveQueryParam(params.get('page'), 1);
+        this.pageSize = this.parsePositiveQueryParam(params.get('page_size'), this.pageSizeOptions[0]);
+        this.loadList();
+      })
+    );
+
+    this.subscriptions.add(
+      this.searchTermChanges.pipe(debounceTime(400), distinctUntilChanged()).subscribe(() => {
+        this.currentPage = 1;
+        this.updateQueryParams(true);
+      })
+    );
   }
 
   ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
     this.unlockBodyScroll();
   }
 
@@ -124,14 +147,33 @@ export class UsersPageComponent implements OnInit, OnDestroy {
     this.loadList();
   }
 
+  onSearchTermChange(value: string): void {
+    this.searchTerm = value;
+    this.searchTermChanges.next(value);
+  }
+
+  applyFilters(): void {
+    this.currentPage = 1;
+    this.updateQueryParams(true);
+  }
+
+  resetFilters(): void {
+    this.searchTerm = '';
+    this.selectedRole = 'ALL';
+    this.selectedGender = 'ALL';
+    this.currentPage = 1;
+    this.updateQueryParams(true);
+  }
+
   onPageChange(page: number): void {
     this.currentPage = page;
+    this.updateQueryParams(true);
   }
 
   onPageSizeChange(pageSize: number): void {
     this.pageSize = pageSize;
     this.currentPage = 1;
-    this.ensureValidPage();
+    this.updateQueryParams(true);
   }
 
   openCreateModal(): void {
@@ -304,10 +346,17 @@ export class UsersPageComponent implements OnInit, OnDestroy {
     this.isLoadingList = true;
     this.feedbackMessage = '';
 
-    this.usersApiService.getAll().subscribe({
+    this.usersApiService.getAll({
+      q: this.searchTerm,
+      role: this.selectedRole,
+      gender: this.selectedGender,
+      page: this.currentPage,
+      page_size: this.pageSize
+    }).subscribe({
       next: (response) => {
         this.users = response.data;
-        this.ensureValidPage();
+        this.totalItems = response.pagination?.total_items ?? response.data.length;
+        this.currentPage = response.pagination?.page ?? this.currentPage;
       },
       error: (error: { error?: { message?: string } }) => {
         this.showFeedback('error', error.error?.message ?? 'Không thể tải danh sách người dùng.');
@@ -388,10 +437,30 @@ export class UsersPageComponent implements OnInit, OnDestroy {
     this.bodyOverflowBeforeModal = '';
   }
 
-  private ensureValidPage(): void {
-    const totalPages = Math.max(1, Math.ceil(this.users.length / this.pageSize));
-    if (this.currentPage > totalPages) {
-      this.currentPage = totalPages;
-    }
+  private updateQueryParams(replaceUrl = true): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        q: this.searchTerm.trim() || null,
+        role: this.selectedRole !== 'ALL' ? this.selectedRole : null,
+        gender: this.selectedGender !== 'ALL' ? this.selectedGender : null,
+        page: this.currentPage > 1 ? this.currentPage : null,
+        page_size: this.pageSize !== this.pageSizeOptions[0] ? this.pageSize : null
+      },
+      replaceUrl
+    });
+  }
+
+  private parsePositiveQueryParam(value: string | null, fallback: number): number {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+  }
+
+  private parseRoleParam(value: string | null): UserRole | 'ALL' {
+    return this.roleOptions.includes(value as UserRole) ? (value as UserRole) : 'ALL';
+  }
+
+  private parseGenderParam(value: string | null): UserGender | 'ALL' {
+    return this.genderOptions.some((gender) => gender.value === value) ? (value as UserGender) : 'ALL';
   }
 }

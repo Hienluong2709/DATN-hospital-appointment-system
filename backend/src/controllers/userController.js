@@ -17,11 +17,12 @@ const handleError = (res, error, fallbackMessage) => {
 
 export const getAllUsers = async (req, res) => {
   try {
-    const data = await getAllUsersService();
+    const { items, pagination } = await getAllUsersService(req.query);
 
     return res.json({
       message: "Lấy danh sách người dùng thành công",
-      data,
+      data: items,
+      ...(pagination ? { pagination } : {}),
     });
   } catch (error) {
     return handleError(res, error, "Không thể lấy danh sách người dùng");

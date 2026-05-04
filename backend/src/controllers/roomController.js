@@ -15,11 +15,12 @@ const handleError = (res, error, fallbackMessage) => {
 
 export const getAllRooms = async (req, res) => {
   try {
-    const data = await getAllRoomsService();
+    const { items, pagination } = await getAllRoomsService(req.query);
 
     return res.json({
       message: "Lấy danh sách phòng thành công",
-      data,
+      data: items,
+      ...(pagination ? { pagination } : {}),
     });
   } catch (error) {
     return handleError(res, error, "Không thể lấy danh sách phòng");

@@ -1,3 +1,4 @@
+import { Op } from "sequelize";
 import db from "../models/index.js";
 import { getAppointmentByIdService } from "./appointmentService.js";
 import {
@@ -5,6 +6,11 @@ import {
   recalculateQueueForecastForDoctorDateService,
 } from "./queueForecastService.js";
 import { enqueueCheckInEstimateNotificationForQueue } from "./notificationService.js";
+import {
+  buildPaginationMeta,
+  createListResult,
+  parsePaginationQuery,
+} from "../utils/queryUtils.js";
 
 const { sequelize, Queue, Appointment, User, Doctor, Specialty, Room, EQueueNumber, WaitPrediction } = db;
 const BUSINESS_TIMEZONE_OFFSET = process.env.BUSINESS_TIMEZONE_OFFSET || "+07:00";
@@ -559,6 +565,7 @@ export const reindexQueuesForDoctorDateService = async (doctorId, date, transact
 };
 
 export const getAllQueuesService = async (currentUser, filters = {}) => {
+  const pagination = parsePaginationQuery(filters);
   const queryOptions = createQueueQueryOptions();
   const where = {};
   const appointmentInclude = queryOptions.include[0];
@@ -567,6 +574,18 @@ export const getAllQueuesService = async (currentUser, filters = {}) => {
   const filterDate = normalizeOptionalQueueDate(filters?.date);
   const filterDoctorId = normalizeOptionalDoctorId(filters?.doctor_id);
   const filterStatus = normalizeOptionalAppointmentStatus(filters?.status);
+  const filterAppointmentId =
+    filters?.appointment_id !== undefined &&
+    filters?.appointment_id !== null &&
+    filters?.appointment_id !== ""
+      ? parseId(filters.appointment_id)
+      : undefined;
+  const filterQueueNumber =
+    filters?.queue_number !== undefined &&
+    filters?.queue_number !== null &&
+    filters?.queue_number !== ""
+      ? parseId(filters.queue_number)
+      : undefined;
 
   if (filterDate) {
     where.date = filterDate;
@@ -583,6 +602,14 @@ export const getAllQueuesService = async (currentUser, filters = {}) => {
     appointmentWhere.status = filterStatus;
   }
 
+  if (filterAppointmentId) {
+    where.appointment_id = filterAppointmentId;
+  }
+
+  if (filterQueueNumber) {
+    where.queue_number = filterQueueNumber;
+  }
+
   if (Object.keys(where).length > 0) {
     queryOptions.where = where;
   }
@@ -591,9 +618,29 @@ export const getAllQueuesService = async (currentUser, filters = {}) => {
     appointmentInclude.where = appointmentWhere;
   }
 
-  const queues = await Queue.findAll(queryOptions);
-  queues.sort(compareQueuesByServiceOrder);
-  return queues.map(serializeQueueDateTimes);
+  const queueRows = pagination.enabled
+    ? await Queue.findAndCountAll({
+        ...queryOptions,
+        distinct: true,
+        limit: pagination.limit,
+        offset: pagination.offset,
+      })
+    : {
+        rows: await Queue.findAll(queryOptions),
+        count: null,
+      };
+
+  queueRows.rows.sort(compareQueuesByServiceOrder);
+  return createListResult({
+    items: queueRows.rows.map(serializeQueueDateTimes),
+    pagination: pagination.enabled
+      ? buildPaginationMeta({
+          page: pagination.page,
+          page_size: pagination.page_size,
+          total_items: queueRows.count,
+        })
+      : null,
+  });
 };
 
 export const getQueueByIdService = async (id, currentUser) => {

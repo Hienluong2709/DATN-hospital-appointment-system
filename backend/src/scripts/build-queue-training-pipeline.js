@@ -13,7 +13,18 @@ const limitArg = formatArgValue("--limit");
 const dateFrom = formatArgValue("--date-from");
 const dateTo = formatArgValue("--date-to");
 const outputJson = path.resolve(formatArgValue("--output-json") || "./exports/queue-training-data.json");
-const outputFeatures = path.resolve(formatArgValue("--output-features") || "./exports/queue-features.csv");
+const outputFeaturesFull = path.resolve(
+  formatArgValue("--output-features") || "./exports/queue-features.csv"
+);
+const outputTrainFeatures = path.resolve(
+  formatArgValue("--output-train-features") || "./exports/queue-train-x.csv"
+);
+const outputTrainTargets = path.resolve(
+  formatArgValue("--output-train-targets") || "./exports/queue-train-y.csv"
+);
+const outputMetadata = path.resolve(
+  formatArgValue("--output-metadata") || "./exports/queue-train-meta.csv"
+);
 
 const runNodeScript = (scriptRelativePath, args = []) =>
   new Promise((resolve, reject) => {
@@ -50,7 +61,13 @@ const main = async () => {
     exportArgs.push(`--date-to=${dateTo}`);
   }
 
-  const featureArgs = [`--input=${outputJson}`, `--output=${outputFeatures}`];
+  const featureArgs = [
+    `--input=${outputJson}`,
+    `--output=${outputFeaturesFull}`,
+    `--output-train-features=${outputTrainFeatures}`,
+    `--output-train-targets=${outputTrainTargets}`,
+    `--output-metadata=${outputMetadata}`,
+  ];
 
   console.info("[training pipeline] step 1/4: backfill queue forecast history");
   await runNodeScript("./src/scripts/backfill-queue-forecast-history.js", sharedBackfillArgs);
@@ -65,7 +82,14 @@ const main = async () => {
   await runNodeScript("./src/scripts/build-queue-features-dataset.js", featureArgs);
 
   console.info(
-    `[training pipeline] done. json=${outputJson} features=${outputFeatures}${isDryRun ? " (backfill dry-run)" : ""}`
+    [
+      `[training pipeline] done.`,
+      `json=${outputJson}`,
+      `features_full=${outputFeaturesFull}`,
+      `train_x=${outputTrainFeatures}`,
+      `train_y=${outputTrainTargets}`,
+      `metadata=${outputMetadata}${isDryRun ? " (backfill dry-run)" : ""}`,
+    ].join(" ")
   );
 };
 

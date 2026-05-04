@@ -1,11 +1,15 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import { Op } from "sequelize";
 import db from "../models/index.js";
+import { assertPhoneOtpVerifiedService } from "./otpService.js";
 
 const { User } = db;
 const INVALID_CREDENTIALS_MESSAGE = "Thông tin đăng nhập không hợp lệ";
 const ALLOWED_ROLES = ["ADMIN", "DOCTOR", "PATIENT", "RECEPTIONIST"];
 const DEFAULT_JWT_EXPIRES_IN = "1d";
+const AUTH_REQUIRE_OTP_ON_REGISTER =
+  process.env.AUTH_REQUIRE_OTP_ON_REGISTER === "true";
 
 const normalizeRequiredString = (value, fieldName) => {
   if (typeof value !== "string") {
@@ -37,6 +41,47 @@ const normalizeOptionalString = (value) => {
 
   const trimmed = value.trim();
   return trimmed || null;
+};
+
+const normalizeOptionalPhone = (value) => {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return null;
+  }
+
+  const digits = normalized.replace(/\D/g, "");
+  if (digits.startsWith("0") && digits.length === 10) {
+    return digits;
+  }
+
+  if (digits.startsWith("84") && digits.length === 11) {
+    return `0${digits.slice(2)}`;
+  }
+
+  const error = new Error("Số điện thoại không hợp lệ");
+  error.statusCode = 400;
+  throw error;
+};
+
+const normalizeOptionalOtpCode = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    const error = new Error("OTP không hợp lệ");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const trimmed = value.trim();
+  if (!/^\d{6}$/.test(trimmed)) {
+    const error = new Error("OTP phải gồm 6 chữ số");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return trimmed;
 };
 
 const normalizeRole = (role) => {
@@ -126,7 +171,8 @@ export const registerUserService = async (payload) => {
   }
 
   const email = normalizeOptionalString(payload?.email);
-  const phone = normalizeOptionalString(payload?.phone);
+  const phone = normalizeOptionalPhone(payload?.phone);
+  const otpCode = normalizeOptionalOtpCode(payload?.otp_code);
   if (payload?.role !== undefined && payload?.role !== null && payload?.role !== "" && payload.role !== "PATIENT") {
     const error = new Error("Chỉ được đăng ký tài khoản bệnh nhân");
     error.statusCode = 403;
@@ -135,9 +181,44 @@ export const registerUserService = async (payload) => {
 
   const role = "PATIENT";
 
-  const existed = await User.findOne({ where: { username } });
+  if (phone && (AUTH_REQUIRE_OTP_ON_REGISTER || otpCode)) {
+    if (!otpCode) {
+      const error = new Error("Vui lòng nhập OTP để xác thực số điện thoại");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    await assertPhoneOtpVerifiedService({
+      phone,
+      code: otpCode,
+      purpose: "REGISTER",
+    });
+  } else if (AUTH_REQUIRE_OTP_ON_REGISTER && !phone) {
+    const error = new Error("Cần số điện thoại để đăng ký có OTP");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const existed = await User.findOne({
+    where: {
+      [Op.or]: [
+        { username },
+        ...(email ? [{ email }] : []),
+        ...(phone ? [{ phone }] : []),
+      ],
+    },
+  });
   if (existed) {
-    const error = new Error("Username đã tồn tại");
+    let message = "Username đã tồn tại";
+    if (existed.username === username) {
+      message = "Username đã tồn tại";
+    } else if (email && existed.email === email) {
+      message = "Email đã tồn tại";
+    } else if (phone && existed.phone === phone) {
+      message = "Số điện thoại đã tồn tại";
+    }
+
+    const error = new Error(message);
     error.statusCode = 409;
     throw error;
   }

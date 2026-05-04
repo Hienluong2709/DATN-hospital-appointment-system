@@ -5,6 +5,14 @@ import {
   recalculateQueueForecastForDoctorDateService,
   simulateEstimatedStartForAppointmentService,
 } from "./queueForecastService.js";
+import {
+  buildPaginationMeta,
+  createPaginatedListResult,
+  createListResult,
+  filterItemsByLooseSearch,
+  normalizeOptionalQueryString,
+  parsePaginationQuery,
+} from "../utils/queryUtils.js";
 
 const { Appointment, User, Doctor, Specialty, Room, WorkSchedule, WorkScheduleBlock, Queue, WaitPrediction } = db;
 const RETRYABLE_TRANSACTION_ERROR_CODES = new Set(["1213", "1205", "40P01"]);
@@ -200,6 +208,48 @@ const normalizeDate = (value) => {
   }
 
   return trimmed;
+};
+
+const normalizeOptionalFilterDate = (value, fieldName) => {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  if (typeof value !== "string") {
+    const error = new Error(`${fieldName} không hợp lệ`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const trimmed = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const error = new Error(`${fieldName} không hợp lệ`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  parseDateParts(trimmed);
+  return trimmed;
+};
+
+const normalizeOptionalAppointmentStatusFilter = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  if (typeof value !== "string") {
+    const error = new Error("status không hợp lệ");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!Object.values(APPOINTMENT_STATUS).includes(value)) {
+    const error = new Error("status không hợp lệ");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return value;
 };
 
 const normalizeTime = (value) => {
@@ -1047,29 +1097,118 @@ const appointmentQueryOptions = {
   ],
 };
 
-export const getAllAppointmentsService = async (currentUser) => {
-  const queryOptions = { ...appointmentQueryOptions };
+export const getAllAppointmentsService = async (currentUser, filters = {}) => {
+  const pagination = parsePaginationQuery(filters);
+  const queryOptions = {
+    ...appointmentQueryOptions,
+    include: appointmentQueryOptions.include.map((item) => ({ ...item })),
+  };
+  const where = {};
+  const patientInclude = queryOptions.include[0];
+  const doctorInclude = queryOptions.include[1];
+  const doctorUserInclude = doctorInclude.include[0];
+
+  const status = normalizeOptionalAppointmentStatusFilter(filters?.status);
+  const doctorId =
+    filters?.doctor_id !== undefined && filters?.doctor_id !== null && filters?.doctor_id !== ""
+      ? parseId(filters.doctor_id)
+      : undefined;
+  const patientId =
+    filters?.patient_id !== undefined && filters?.patient_id !== null && filters?.patient_id !== ""
+      ? parseId(filters.patient_id)
+      : undefined;
+  const specialtyId =
+    filters?.specialty_id !== undefined && filters?.specialty_id !== null && filters?.specialty_id !== ""
+      ? parseId(filters.specialty_id)
+      : undefined;
+  const dateFrom = normalizeOptionalFilterDate(filters?.date_from, "date_from");
+  const dateTo = normalizeOptionalFilterDate(filters?.date_to, "date_to");
+  const q = normalizeOptionalQueryString(filters?.q);
 
   if (currentUser?.role === "DOCTOR") {
     const doctor = await Doctor.findOne({ where: { user_id: currentUser.id }, attributes: ["id"] });
     if (!doctor) {
-      return [];
+      return createListResult({
+        items: [],
+        pagination: pagination.enabled
+          ? buildPaginationMeta({
+              page: pagination.page,
+              page_size: pagination.page_size,
+              total_items: 0,
+            })
+          : null,
+      });
     }
 
-    queryOptions.where = {
-      doctor_id: doctor.id,
-    };
+    where.doctor_id = doctor.id;
+  } else if (doctorId) {
+    where.doctor_id = doctorId;
   }
 
   if (currentUser?.role === "PATIENT") {
-    queryOptions.where = {
-      patient_id: currentUser.id,
+    where.patient_id = currentUser.id;
+  } else if (patientId) {
+    where.patient_id = patientId;
+  }
+
+  if (status) {
+    where.status = status;
+  }
+
+  if (dateFrom || dateTo) {
+    where.date = {};
+    if (dateFrom) {
+      where.date[Op.gte] = dateFrom;
+    }
+    if (dateTo) {
+      where.date[Op.lte] = dateTo;
+    }
+  }
+
+  if (specialtyId) {
+    doctorInclude.where = {
+      ...(doctorInclude.where || {}),
+      specialty_id: specialtyId,
     };
   }
 
-  const appointments = await Appointment.findAll(queryOptions);
+  if (Object.keys(where).length > 0) {
+    queryOptions.where = where;
+  }
+
+  if (q) {
+    patientInclude.required = false;
+    doctorInclude.required = false;
+    doctorUserInclude.required = false;
+  }
+
+  const appointmentResult = !q && pagination.enabled
+    ? await Appointment.findAndCountAll({
+        ...queryOptions,
+        distinct: true,
+        limit: pagination.limit,
+        offset: pagination.offset,
+      })
+    : null;
+
+  const appointmentRows = appointmentResult?.rows ?? await Appointment.findAll(queryOptions);
+
+  const filteredAppointments = filterItemsByLooseSearch(appointmentRows, q, (appointment) => [
+    appointment.reason,
+    appointment.patient?.fullname,
+    appointment.patient?.username,
+    appointment.patient?.phone,
+    appointment.Doctor?.User?.fullname,
+    appointment.Doctor?.User?.username,
+    appointment.Doctor?.Specialty?.name,
+  ]);
+
+  const pagedAppointments = q && pagination.enabled
+    ? filteredAppointments.slice(pagination.offset, pagination.offset + pagination.limit)
+    : filteredAppointments;
+
   const estimatedAppointments = await Promise.all(
-    appointments.map(async (appointment) => {
+    pagedAppointments.map(async (appointment) => {
       const serialized = serializeAppointment(appointment);
       if (serialized?.estimated_start) {
         return serialized;
@@ -1082,7 +1221,19 @@ export const getAllAppointmentsService = async (currentUser) => {
     })
   );
 
-  return estimatedAppointments;
+  return createListResult({
+    items: estimatedAppointments,
+    pagination: !q && pagination.enabled
+      ? buildPaginationMeta({
+          page: pagination.page,
+          page_size: pagination.page_size,
+          total_items: appointmentResult?.count ?? filteredAppointments.length,
+        })
+      : createPaginatedListResult({
+          items: filteredAppointments,
+          pagination,
+        }).pagination,
+  });
 };
 
 export const getAppointmentByIdService = async (id, transaction) => {

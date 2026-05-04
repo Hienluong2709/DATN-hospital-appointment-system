@@ -15,6 +15,24 @@ export class PatientPageComponent {
     { value: '24/7', label: 'Hỗ trợ đặt lịch và chăm sóc sau khám' }
   ];
 
+  bookingSteps = [
+    {
+      step: '01',
+      title: 'Xem thông tin công khai',
+      description: 'Tìm hiểu chuyên khoa, bác sĩ và các lưu ý trước khi khám ngay trên trang bệnh viện.'
+    },
+    {
+      step: '02',
+      title: 'Đăng nhập hoặc tạo tài khoản',
+      description: 'Bệnh nhân chỉ cần đăng nhập khi bắt đầu đặt lịch hoặc muốn theo dõi lịch hẹn trực tuyến.'
+    },
+    {
+      step: '03',
+      title: 'Đặt lịch và theo dõi lịch hẹn',
+      description: 'Chọn chuyên khoa, ngày khám và bác sĩ còn nhận lịch, sau đó quản lý lịch khám trong cổng bệnh nhân.'
+    }
+  ];
+
   featuredBenefits = [
     {
       title: 'Không gian khám thân thiện',

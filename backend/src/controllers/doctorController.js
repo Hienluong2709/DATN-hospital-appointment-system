@@ -16,11 +16,12 @@ const handleError = (res, error, fallbackMessage) => {
 
 export const getAllDoctors = async (req, res) => {
   try {
-    const data = await getAllDoctorsService();
+    const { items, pagination } = await getAllDoctorsService(req.query);
 
     return res.json({
       message: "Lấy danh sách bác sĩ thành công",
-      data,
+      data: items,
+      ...(pagination ? { pagination } : {}),
     });
   } catch (error) {
     return handleError(res, error, "Không thể lấy danh sách bác sĩ");

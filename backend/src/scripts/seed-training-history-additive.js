@@ -23,8 +23,102 @@ const BUSINESS_TIMEZONE_OFFSET = process.env.BUSINESS_TIMEZONE_OFFSET || "+07:00
 const SLOT_MINUTES = 30;
 const DEFAULT_LOOKBACK_DAYS = 90;
 const DEFAULT_BUFFER_DAYS = 21;
-const TRAINING_PREDICTION_SOURCE = "demo_training_seed";
-const TRAINING_MODEL_VERSION = "demo_training_seed_v1";
+const TRAINING_PREDICTION_SOURCE = "synthetic_queue_realistic_seed";
+const TRAINING_MODEL_VERSION = "synthetic_queue_realistic_v2";
+
+const defaultSimulationProfile = {
+  avgVisitMinutes: 24,
+  visitSpreadMinutes: 8,
+  occupancyBase: 0.54,
+  noShowRate: 0.04,
+  maxEarlyStartMinutes: 8,
+  maxEarlyCheckInMinutes: 35,
+  maxLateCheckInMinutes: 10,
+};
+
+const specialtySimulationProfiles = {
+  "Tim mạch": {
+    avgVisitMinutes: 28,
+    visitSpreadMinutes: 10,
+    occupancyBase: 0.63,
+    noShowRate: 0.03,
+    maxEarlyStartMinutes: 6,
+    maxEarlyCheckInMinutes: 40,
+    maxLateCheckInMinutes: 8,
+  },
+  "Da liễu": {
+    avgVisitMinutes: 18,
+    visitSpreadMinutes: 7,
+    occupancyBase: 0.56,
+    noShowRate: 0.06,
+    maxEarlyStartMinutes: 10,
+    maxEarlyCheckInMinutes: 30,
+    maxLateCheckInMinutes: 12,
+  },
+  "Nhi khoa": {
+    avgVisitMinutes: 22,
+    visitSpreadMinutes: 9,
+    occupancyBase: 0.66,
+    noShowRate: 0.05,
+    maxEarlyStartMinutes: 7,
+    maxEarlyCheckInMinutes: 28,
+    maxLateCheckInMinutes: 15,
+  },
+  "Nội tổng quát": {
+    avgVisitMinutes: 24,
+    visitSpreadMinutes: 8,
+    occupancyBase: 0.6,
+    noShowRate: 0.04,
+    maxEarlyStartMinutes: 8,
+    maxEarlyCheckInMinutes: 36,
+    maxLateCheckInMinutes: 10,
+  },
+  "Tai mũi họng": {
+    avgVisitMinutes: 20,
+    visitSpreadMinutes: 7,
+    occupancyBase: 0.58,
+    noShowRate: 0.05,
+    maxEarlyStartMinutes: 10,
+    maxEarlyCheckInMinutes: 32,
+    maxLateCheckInMinutes: 10,
+  },
+  "Sản phụ khoa": {
+    avgVisitMinutes: 26,
+    visitSpreadMinutes: 9,
+    occupancyBase: 0.62,
+    noShowRate: 0.04,
+    maxEarlyStartMinutes: 6,
+    maxEarlyCheckInMinutes: 35,
+    maxLateCheckInMinutes: 8,
+  },
+  "Chấn thương chỉnh hình": {
+    avgVisitMinutes: 27,
+    visitSpreadMinutes: 11,
+    occupancyBase: 0.57,
+    noShowRate: 0.03,
+    maxEarlyStartMinutes: 5,
+    maxEarlyCheckInMinutes: 35,
+    maxLateCheckInMinutes: 10,
+  },
+  "Thần kinh": {
+    avgVisitMinutes: 30,
+    visitSpreadMinutes: 10,
+    occupancyBase: 0.53,
+    noShowRate: 0.03,
+    maxEarlyStartMinutes: 5,
+    maxEarlyCheckInMinutes: 42,
+    maxLateCheckInMinutes: 8,
+  },
+  "Tiêu hóa": {
+    avgVisitMinutes: 25,
+    visitSpreadMinutes: 9,
+    occupancyBase: 0.58,
+    noShowRate: 0.04,
+    maxEarlyStartMinutes: 7,
+    maxEarlyCheckInMinutes: 34,
+    maxLateCheckInMinutes: 9,
+  },
+};
 
 const specialtyReasonPool = {
   "Tim mạch": [
@@ -168,10 +262,24 @@ const hashString = (value) => {
 };
 
 const ratioFromKey = (key) => hashString(key) / 0xffffffff;
+const smoothRatioFromKey = (key) =>
+  (
+    ratioFromKey(`${key}|a`) +
+    ratioFromKey(`${key}|b`) +
+    ratioFromKey(`${key}|c`)
+  ) / 3;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const roundToNearestMinute = (value) => Math.round(value);
+const minutesToMs = (minutes) => minutes * 60 * 1000;
+const addMinutes = (dateValue, minutes) => new Date(dateValue.getTime() + minutesToMs(minutes));
+const diffMinutes = (start, end) => Math.round((end.getTime() - start.getTime()) / 60000);
+const randomBetween = (key, min, max) => min + smoothRatioFromKey(key) * (max - min);
+const randomIntBetween = (key, min, max) => roundToNearestMinute(randomBetween(key, min, max));
 
 const buildDoctorDateKey = (doctorId, dateValue) => `${doctorId}|${dateValue}`;
+const getSimulationProfile = (specialtyName) =>
+  specialtySimulationProfiles[specialtyName] || defaultSimulationProfile;
 
 const enumerateDateRange = (startDate, endDate) => {
   const results = [];
@@ -252,6 +360,105 @@ const buildCandidateSlotsForDate = (schedules, blockEntries) => {
 const chooseReason = (specialtyName, key) => {
   const pool = specialtyReasonPool[specialtyName] || ["Tai kham dinh ky"];
   return pool[hashString(key) % pool.length];
+};
+
+const estimateOccupancyTarget = ({
+  doctor,
+  specialtyName,
+  slotTime,
+  dateValue,
+  dailyLoadFactor,
+}) => {
+  const profile = getSimulationProfile(specialtyName);
+  const slotMinutes = timeToMinutes(slotTime);
+  const isMorningPeak = slotMinutes >= 8 * 60 && slotMinutes <= 10 * 60 + 30;
+  const isAfternoonPeak = slotMinutes >= 13 * 60 && slotMinutes <= 15 * 60;
+  const weekday = getDayOfWeekFromDate(dateValue);
+  const weekdayBoost = weekday >= 1 && weekday <= 5 ? 0.04 : -0.06;
+  const peakBoost = isMorningPeak || isAfternoonPeak ? 0.08 : -0.03;
+  const doctorBias = ((hashString(`${doctor.id}|${specialtyName}|occupancy`) % 9) - 4) / 100;
+
+  return clamp(
+    profile.occupancyBase + weekdayBoost + peakBoost + doctorBias + dailyLoadFactor,
+    0.18,
+    0.92,
+  );
+};
+
+const buildCheckInLeadMinutes = ({ slotKey, profile, queueNumber, dailyLoadFactor }) => {
+  const lateChance =
+    profile.noShowRate * 1.6 +
+    Math.max(0, dailyLoadFactor) * 0.18 +
+    (queueNumber > 6 ? 0.05 : 0);
+  const isLateArrival = ratioFromKey(`${slotKey}|late-arrival`) < lateChance;
+
+  if (isLateArrival) {
+    return -randomIntBetween(
+      `${slotKey}|late-checkin-minutes`,
+      1,
+      profile.maxLateCheckInMinutes,
+    );
+  }
+
+  const earlyLead = randomBetween(
+    `${slotKey}|early-checkin-minutes`,
+    4,
+    profile.maxEarlyCheckInMinutes,
+  );
+  const queueAdjustment = queueNumber > 5 ? Math.min(10, queueNumber - 4) : 0;
+
+  return roundToNearestMinute(earlyLead + queueAdjustment);
+};
+
+const buildVisitDurationMinutes = ({
+  slotKey,
+  profile,
+  queueNumber,
+  dayPaceFactor,
+  backlogMinutes,
+}) => {
+  const complexityMinutes = randomBetween(
+    `${slotKey}|complexity`,
+    -profile.visitSpreadMinutes,
+    profile.visitSpreadMinutes * 1.7,
+  );
+  const overrunBoost =
+    ratioFromKey(`${slotKey}|overrun-flag`) < 0.24
+      ? randomBetween(`${slotKey}|overrun-minutes`, 6, 22)
+      : 0;
+  const quickCaseReduction =
+    ratioFromKey(`${slotKey}|quick-case-flag`) < 0.14
+      ? randomBetween(`${slotKey}|quick-case-minutes`, 4, 12)
+      : 0;
+  const backlogPressure = backlogMinutes > 20 ? -Math.min(6, backlogMinutes * 0.08) : 0;
+  const queueFatigue = queueNumber > 7 ? Math.min(8, (queueNumber - 7) * 1.2) : 0;
+
+  return clamp(
+    roundToNearestMinute(
+      (profile.avgVisitMinutes + complexityMinutes + overrunBoost - quickCaseReduction + queueFatigue) *
+        dayPaceFactor +
+        backlogPressure,
+    ),
+    8,
+    85,
+  );
+};
+
+const buildExpectedVisitDurationMinutes = ({ slotKey, profile, queueNumber, dayPaceFactor }) => {
+  const forecastNoise = randomBetween(`${slotKey}|forecast-duration-noise`, -5, 7);
+  const queueAdjustment = queueNumber > 6 ? Math.min(4, (queueNumber - 6) * 0.7) : 0;
+
+  return clamp(
+    roundToNearestMinute(profile.avgVisitMinutes * (0.95 + (dayPaceFactor - 1) * 0.45) + forecastNoise + queueAdjustment),
+    10,
+    55,
+  );
+};
+
+const buildTurnaroundMinutes = ({ slotKey, visitDurationMinutes }) => {
+  const base = randomBetween(`${slotKey}|turnaround`, 1, 6);
+  const durationInfluence = visitDurationMinutes > 35 ? 2 : 0;
+  return clamp(roundToNearestMinute(base + durationInfluence), 1, 8);
 };
 
 const ensureTrainingPatients = async () => {
@@ -476,16 +683,42 @@ async function seedTrainingHistoryAdditive() {
         let maxQueueNumberForDoctorDate = usedQueueNumbers.size
           ? Math.max(...usedQueueNumbers)
           : 0;
+        const specialtyName = doctor.Specialty?.name || "Nội tổng quát";
+        const profile = getSimulationProfile(specialtyName);
+        const dailyLoadFactor = randomBetween(`${doctorDateKey}|daily-load`, -0.08, 0.14);
+        const openingOffsetMinutes = randomIntBetween(
+          `${doctorDateKey}|opening-offset`,
+          -7,
+          18,
+        );
+        const dayPaceFactor = randomBetween(`${doctorDateKey}|pace-factor`, 0.88, 1.26);
+        const forecastBiasMinutes = randomBetween(`${doctorDateKey}|forecast-bias`, -6, 12);
+        const openingSlotDateTime = buildDateTime(dateValue, candidateSlots[0]);
+        let actualDoctorAvailableAt = addMinutes(openingSlotDateTime, openingOffsetMinutes);
+        let forecastDoctorAvailableAt = addMinutes(
+          openingSlotDateTime,
+          roundToNearestMinute(openingOffsetMinutes + forecastBiasMinutes),
+        );
 
         for (const slotTime of candidateSlots) {
           const slotKey = `${doctor.id}|${dateValue}|${slotTime}`;
           const fillRatio = ratioFromKey(`${slotKey}|fill`);
-          const specialtyName = doctor.Specialty?.name || "Nội tổng quát";
-          const occupancyTarget = 0.32 + (hashString(`${doctor.id}|${specialtyName}`) % 12) / 100;
+          const occupancyTarget = estimateOccupancyTarget({
+            doctor,
+            specialtyName,
+            slotTime,
+            dateValue,
+            dailyLoadFactor,
+          });
 
           if (fillRatio > occupancyTarget) {
             continue;
           }
+
+          if (ratioFromKey(`${slotKey}|no-show`) < profile.noShowRate) {
+            continue;
+          }
+
           const patient = patientResult.patients[hashString(`${slotKey}|patient`) % patientResult.patients.length];
           const reasonLabel = chooseReason(specialtyName, `${slotKey}|reason`);
           const reason = `${DEMO_REASON_PREFIX}:${doctor.id}:${dateValue}:${slotTime}:${reasonLabel}`;
@@ -509,33 +742,69 @@ async function seedTrainingHistoryAdditive() {
           const createdAt = new Date(slotDateTime.getTime() - bookingLeadDays * 24 * 60 * 60 * 1000);
           createdAt.setMinutes(createdAt.getMinutes() + (hashString(`${slotKey}|created-minutes`) % 120));
 
-          const earlyCheckInMinutes = 8 + (hashString(`${slotKey}|checkin`) % 28);
-          const checkedInAt = new Date(slotDateTime.getTime() - earlyCheckInMinutes * 60 * 1000);
-
-          const forecastDelayMinutes = clamp(
-            queueNumber * 2 - 4 + (hashString(`${slotKey}|forecast-delay`) % 8) - 3,
-            -8,
-            18,
+          const checkInLeadMinutes = buildCheckInLeadMinutes({
+            slotKey,
+            profile,
+            queueNumber,
+            dailyLoadFactor,
+          });
+          const checkedInAt = addMinutes(slotDateTime, -checkInLeadMinutes);
+          const forecastUpdatedAt = addMinutes(
+            checkedInAt,
+            randomIntBetween(`${slotKey}|forecast-updated-delay`, 1, 4),
           );
-          const estimatedStart = new Date(slotDateTime.getTime() + forecastDelayMinutes * 60 * 1000);
-          const forecastUpdatedAt = new Date(checkedInAt.getTime() + 2 * 60 * 1000);
 
-          const actualDelayMinutes = clamp(
-            forecastDelayMinutes + (hashString(`${slotKey}|actual-delay`) % 9) - 4,
-            -10,
-            24,
+          const expectedVisitDurationMinutes = buildExpectedVisitDurationMinutes({
+            slotKey,
+            profile,
+            queueNumber,
+            dayPaceFactor,
+          });
+          const earlyStartAllowanceMinutes =
+            checkInLeadMinutes > 0
+              ? Math.min(
+                  profile.maxEarlyStartMinutes,
+                  Math.max(0, checkInLeadMinutes - 2),
+                )
+              : 0;
+          const predictedStartFloor = addMinutes(
+            slotDateTime,
+            -Math.min(4, Math.floor(earlyStartAllowanceMinutes / 2)),
           );
-          const actualStart = new Date(slotDateTime.getTime() + actualDelayMinutes * 60 * 1000);
-          if (actualStart <= checkedInAt) {
-            actualStart.setTime(checkedInAt.getTime() + 2 * 60 * 1000);
+          let estimatedStart = new Date(
+            Math.max(forecastDoctorAvailableAt.getTime(), predictedStartFloor.getTime()),
+          );
+          estimatedStart = addMinutes(
+            estimatedStart,
+            randomIntBetween(`${slotKey}|forecast-error`, -4, 7),
+          );
+          if (estimatedStart < addMinutes(checkedInAt, 1)) {
+            estimatedStart = addMinutes(checkedInAt, randomIntBetween(`${slotKey}|forecast-floor`, 1, 5));
           }
 
-          const visitDurationMinutes = 10 + (hashString(`${slotKey}|visit-duration`) % 18);
-          const actualEnd = new Date(actualStart.getTime() + visitDurationMinutes * 60 * 1000);
-          const predictedWaitMinutes = Math.max(
-            0,
-            Math.round((estimatedStart.getTime() - checkedInAt.getTime()) / 60000),
+          const actualStartFloor = addMinutes(slotDateTime, -earlyStartAllowanceMinutes);
+          const patientReadyAt =
+            checkInLeadMinutes >= 0
+              ? checkedInAt
+              : addMinutes(checkedInAt, randomIntBetween(`${slotKey}|registration-delay`, 2, 6));
+          const actualStart = new Date(
+            Math.max(
+              actualDoctorAvailableAt.getTime(),
+              patientReadyAt.getTime(),
+              actualStartFloor.getTime(),
+            ),
           );
+          const backlogMinutes = Math.max(0, diffMinutes(slotDateTime, actualStart));
+          const visitDurationMinutes = buildVisitDurationMinutes({
+            slotKey,
+            profile,
+            queueNumber,
+            dayPaceFactor,
+            backlogMinutes,
+          });
+          const actualEnd = addMinutes(actualStart, visitDurationMinutes);
+          const predictedWaitMinutes = Math.max(0, diffMinutes(checkedInAt, estimatedStart));
+          const turnaroundMinutes = buildTurnaroundMinutes({ slotKey, visitDurationMinutes });
 
           const appointmentValues = {
             patient_id: patient.id,
@@ -590,6 +859,11 @@ async function seedTrainingHistoryAdditive() {
 
           await syncLatestPrediction(queue, predictedWaitMinutes, estimatedStart);
           waitPredictionsCreatedOrUpdated += 1;
+          actualDoctorAvailableAt = addMinutes(actualEnd, turnaroundMinutes);
+          forecastDoctorAvailableAt = addMinutes(
+            estimatedStart,
+            expectedVisitDurationMinutes + Math.max(1, turnaroundMinutes - 1),
+          );
         }
 
         if (maxQueueNumberForDoctorDate > 0) {

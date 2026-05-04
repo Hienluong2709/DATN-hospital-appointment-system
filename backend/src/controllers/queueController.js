@@ -13,11 +13,12 @@ const handleError = (res, error, fallbackMessage) => {
 
 export const getAllQueues = async (req, res) => {
   try {
-    const data = await getAllQueuesService(req.user, req.query);
+    const { items, pagination } = await getAllQueuesService(req.user, req.query);
 
     return res.json({
       message: "Lấy danh sách số thứ tự thành công",
-      data,
+      data: items,
+      ...(pagination ? { pagination } : {}),
     });
   } catch (error) {
     return handleError(res, error, "Không thể lấy danh sách số thứ tự");

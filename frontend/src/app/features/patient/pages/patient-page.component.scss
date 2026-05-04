@@ -35,11 +35,35 @@
   line-height: 1.55;
 }
 
+.hero-note {
+  margin: 0.75rem 0 0;
+  max-width: 58ch;
+  color: #c3ebff;
+  line-height: 1.55;
+}
+
 .hero-actions {
   margin-top: 1rem;
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
+}
+
+.hero-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-top: 0.9rem;
+}
+
+.hero-links a {
+  color: #d9f6ff;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.hero-links a:hover {
+  text-decoration: underline;
 }
 
 .btn-primary,
@@ -115,6 +139,45 @@
   display: grid;
   gap: 0.7rem;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.booking-step-grid {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.booking-step-card {
+  border: 1px solid #d2e5f6;
+  border-radius: 16px;
+  padding: 1rem;
+  background: #ffffff;
+}
+
+.booking-step-card__index {
+  display: inline-flex;
+  min-width: 42px;
+  min-height: 42px;
+  padding: 0 0.65rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #0f5f89 0%, #0d9488 100%);
+  color: #ffffff;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.booking-step-card h3 {
+  margin: 0.85rem 0 0;
+  color: #1d4265;
+}
+
+.booking-step-card p {
+  margin: 0.45rem 0 0;
+  color: #567593;
+  line-height: 1.5;
 }
 
 .doctor-section {

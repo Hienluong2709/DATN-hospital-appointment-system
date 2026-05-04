@@ -1,6 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Subscription } from 'rxjs';
 
 import { BackendRole } from '../../../core/models/auth-role.model';
 import { TokenService } from '../../../core/services/token.service';
@@ -28,6 +30,9 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   private readonly queuesApiService = inject(QueuesApiService);
   private readonly appointmentsApiService = inject(AppointmentsApiService);
   private readonly tokenService = inject(TokenService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly subscriptions = new Subscription();
   private alertTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private pollIntervalId: ReturnType<typeof setInterval> | null = null;
   private countdownIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -49,12 +54,23 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   readonly currentRole: BackendRole | null = this.tokenService.getCurrentRole();
 
   ngOnInit(): void {
-    this.loadData();
+    this.subscriptions.add(
+      this.route.queryParamMap.subscribe((params) => {
+        this.selectedDate = params.get('date') || this.getTodayDateString();
+        this.selectedDoctorId = this.parsePositiveQueryParam(params.get('doctor_id'));
+        this.selectedStatus = this.parseAppointmentStatusParam(params.get('status'));
+        this.selectedWorkflowStatus = this.parseWorkflowStatusParam(params.get('workflow'));
+        this.activeTab = params.get('tab') === 'queue' ? 'queue' : 'waiting';
+        this.loadData();
+      })
+    );
+
     this.startPolling();
     this.startCountdown();
   }
 
   ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
     this.clearAlertTimeout();
     this.stopPolling();
     this.stopCountdown();
@@ -135,13 +151,13 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
 
   updateSelectedDate(value: string): void {
     this.selectedDate = value || this.getTodayDateString();
-    this.loadData();
+    this.updateQueryParams(true);
   }
 
   updateSelectedDoctor(value: string): void {
     const parsed = Number(value);
     this.selectedDoctorId = Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
-    this.loadData();
+    this.updateQueryParams(true);
   }
 
   updateSelectedStatus(value: string): void {
@@ -151,7 +167,7 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
       this.selectedStatus = 'ALL';
     }
 
-    this.loadData();
+    this.updateQueryParams(true);
   }
 
   updateSelectedWorkflowStatus(value: string): void {
@@ -165,10 +181,11 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
       value === 'InProgress'
     ) {
       this.selectedWorkflowStatus = value;
-      return;
+    } else {
+      this.selectedWorkflowStatus = 'ALL';
     }
 
-    this.selectedWorkflowStatus = 'ALL';
+    this.updateQueryParams(true);
   }
 
   resetFilters(): void {
@@ -176,7 +193,7 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
     this.selectedDoctorId = 0;
     this.selectedStatus = 'ALL';
     this.selectedWorkflowStatus = 'ALL';
-    this.loadData();
+    this.updateQueryParams(true);
   }
 
   reload(): void {
@@ -185,6 +202,7 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
 
   setActiveTab(tab: 'waiting' | 'queue'): void {
     this.activeTab = tab;
+    this.updateQueryParams(true);
   }
 
   getDoctorNameForAppointment(appointment: Appointment): string {
@@ -472,7 +490,12 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   }
 
   private loadAppointments(): void {
-    this.appointmentsApiService.getAll().subscribe({
+    this.appointmentsApiService.getAll({
+      doctor_id: !this.isDoctorView && this.selectedDoctorId > 0 ? this.selectedDoctorId : undefined,
+      status: 'Confirmed',
+      date_from: this.selectedDate,
+      date_to: this.selectedDate
+    }).subscribe({
       next: (response) => {
         this.appointments = response.data.filter((appointment) => appointment.status === 'Confirmed' && !appointment.Queue?.id);
       },
@@ -567,6 +590,49 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
       clearInterval(this.countdownIntervalId);
       this.countdownIntervalId = null;
     }
+  }
+
+  private updateQueryParams(replaceUrl = true): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        date: this.selectedDate || null,
+        doctor_id: this.selectedDoctorId > 0 ? this.selectedDoctorId : null,
+        status: this.selectedStatus !== 'ALL' ? this.selectedStatus : null,
+        workflow: this.selectedWorkflowStatus !== 'ALL' ? this.selectedWorkflowStatus : null,
+        tab: this.activeTab !== 'waiting' ? this.activeTab : null
+      },
+      replaceUrl
+    });
+  }
+
+  private parsePositiveQueryParam(value: string | null): number {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
+  }
+
+  private parseAppointmentStatusParam(value: string | null): QueueStatusFilter {
+    if (value === 'Pending' || value === 'Confirmed' || value === 'CheckedIn' || value === 'Cancelled' || value === 'Completed' || value === 'NoShow') {
+      return value;
+    }
+
+    return 'ALL';
+  }
+
+  private parseWorkflowStatusParam(value: string | null): QueueWorkflowFilter {
+    if (
+      value === 'Pending' ||
+      value === 'Confirmed' ||
+      value === 'CheckedIn' ||
+      value === 'Cancelled' ||
+      value === 'Completed' ||
+      value === 'NoShow' ||
+      value === 'InProgress'
+    ) {
+      return value;
+    }
+
+    return 'ALL';
   }
 
   private getAppointmentPredictedStart(appointment: Appointment): string | null {

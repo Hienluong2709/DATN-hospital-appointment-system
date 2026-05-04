@@ -1,6 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component, HostListener, OnDestroy, OnInit, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Subject, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { BackendRole } from '../../../core/models/auth-role.model';
 import { TokenService } from '../../../core/services/token.service';
@@ -15,7 +18,7 @@ import { SharedPaginationComponent } from '../../../shared/components/pagination
 @Component({
   selector: 'app-rooms-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RoomFormModalComponent, RoomDetailModalComponent, SharedPaginationComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RoomFormModalComponent, RoomDetailModalComponent, SharedPaginationComponent],
   templateUrl: './rooms-page.component.html',
   styleUrl: './rooms-page.component.scss'
 })
@@ -24,6 +27,10 @@ export class RoomsPageComponent implements OnInit, OnDestroy {
   private readonly roomsApiService = inject(RoomsApiService);
   private readonly specialtiesApiService = inject(SpecialtiesApiService);
   private readonly tokenService = inject(TokenService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly searchTermChanges = new Subject<string>();
+  private readonly subscriptions = new Subscription();
 
   rooms: Room[] = [];
   specialties: Specialty[] = [];
@@ -42,8 +49,13 @@ export class RoomsPageComponent implements OnInit, OnDestroy {
   feedbackMessage = '';
   private bodyOverflowBeforeModal = '';
 
+  searchTerm = '';
+  selectedStatus: RoomStatus | 'ALL' = 'ALL';
+  selectedSpecialtyId = 0;
+  selectedFloor = '';
   currentPage = 1;
   pageSize = 10;
+  totalItems = 0;
   readonly pageSizeOptions = [10, 20, 50];
   readonly currentRole: BackendRole | null = this.tokenService.getCurrentRole();
 
@@ -68,11 +80,30 @@ export class RoomsPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.loadList();
+    this.subscriptions.add(
+      this.route.queryParamMap.subscribe((params) => {
+        this.searchTerm = params.get('q') ?? '';
+        this.selectedStatus = this.parseStatusParam(params.get('status'));
+        this.selectedSpecialtyId = this.parsePositiveQueryParam(params.get('specialty_id'));
+        this.selectedFloor = params.get('floor') ?? '';
+        this.currentPage = this.parsePositiveQueryParam(params.get('page'), 1);
+        this.pageSize = this.parsePositiveQueryParam(params.get('page_size'), this.pageSizeOptions[0]);
+        this.loadList();
+      })
+    );
+
+    this.subscriptions.add(
+      this.searchTermChanges.pipe(debounceTime(400), distinctUntilChanged()).subscribe(() => {
+        this.currentPage = 1;
+        this.updateQueryParams(true);
+      })
+    );
+
     this.loadSpecialties();
   }
 
   ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
     this.unlockBodyScroll();
   }
 
@@ -94,6 +125,25 @@ export class RoomsPageComponent implements OnInit, OnDestroy {
 
   reload(): void {
     this.loadList();
+  }
+
+  onSearchTermChange(value: string): void {
+    this.searchTerm = value;
+    this.searchTermChanges.next(value);
+  }
+
+  applyFilters(): void {
+    this.currentPage = 1;
+    this.updateQueryParams(true);
+  }
+
+  resetFilters(): void {
+    this.searchTerm = '';
+    this.selectedStatus = 'ALL';
+    this.selectedSpecialtyId = 0;
+    this.selectedFloor = '';
+    this.currentPage = 1;
+    this.updateQueryParams(true);
   }
 
   openCreateModal(): void {
@@ -270,32 +320,40 @@ export class RoomsPageComponent implements OnInit, OnDestroy {
     return value.length > 70 ? `${value.slice(0, 70)}...` : value;
   }
 
-  get pagedRooms(): Room[] {
-    const startIndex = (this.currentPage - 1) * this.pageSize;
-    return this.rooms.slice(startIndex, startIndex + this.pageSize);
-  }
-
   get rowOffset(): number {
     return (this.currentPage - 1) * this.pageSize;
   }
 
   onPageChange(page: number): void {
     this.currentPage = page;
+    this.updateQueryParams(true);
   }
 
   onPageSizeChange(pageSize: number): void {
     this.pageSize = pageSize;
     this.currentPage = 1;
+    this.updateQueryParams(true);
   }
 
   private loadList(): void {
     this.isLoadingList = true;
     this.feedbackMessage = '';
 
-    this.roomsApiService.getAll().subscribe({
+    const floor = this.selectedFloor.trim();
+    const parsedFloor = floor === '' ? undefined : Number(floor);
+
+    this.roomsApiService.getAll({
+      q: this.searchTerm,
+      status: this.selectedStatus,
+      specialty_id: this.selectedSpecialtyId || undefined,
+      floor: typeof parsedFloor === 'number' && Number.isInteger(parsedFloor) ? parsedFloor : undefined,
+      page: this.currentPage,
+      page_size: this.pageSize
+    }).subscribe({
       next: (response) => {
         this.rooms = response.data;
-        this.ensureValidPage();
+        this.totalItems = response.pagination?.total_items ?? response.data.length;
+        this.currentPage = response.pagination?.page ?? this.currentPage;
       },
       error: (error: { error?: { message?: string } }) => {
         this.showFeedback('error', error.error?.message ?? 'Không thể tải danh sách phòng.');
@@ -392,10 +450,29 @@ export class RoomsPageComponent implements OnInit, OnDestroy {
     this.bodyOverflowBeforeModal = '';
   }
 
-  private ensureValidPage(): void {
-    const totalPages = Math.max(1, Math.ceil(this.rooms.length / this.pageSize));
-    if (this.currentPage > totalPages) {
-      this.currentPage = totalPages;
-    }
+  private updateQueryParams(replaceUrl = true): void {
+    const floor = this.selectedFloor.trim();
+
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        q: this.searchTerm.trim() || null,
+        status: this.selectedStatus !== 'ALL' ? this.selectedStatus : null,
+        specialty_id: this.selectedSpecialtyId > 0 ? this.selectedSpecialtyId : null,
+        floor: floor || null,
+        page: this.currentPage > 1 ? this.currentPage : null,
+        page_size: this.pageSize !== this.pageSizeOptions[0] ? this.pageSize : null
+      },
+      replaceUrl
+    });
+  }
+
+  private parsePositiveQueryParam(value: string | null, fallback = 0): number {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+  }
+
+  private parseStatusParam(value: string | null): RoomStatus | 'ALL' {
+    return value === 'Available' || value === 'Maintenance' ? value : 'ALL';
   }
 }

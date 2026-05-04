@@ -1,5 +1,14 @@
 import bcrypt from "bcrypt";
+import { Op } from "sequelize";
 import db from "../models/index.js";
+import {
+  buildPaginationMeta,
+  createPaginatedListResult,
+  createListResult,
+  filterItemsByLooseSearch,
+  normalizeOptionalQueryString,
+  parsePaginationQuery,
+} from "../utils/queryUtils.js";
 
 const { User } = db;
 
@@ -47,6 +56,26 @@ const normalizeOptionalString = (value) => {
 
   const trimmed = value.trim();
   return trimmed || null;
+};
+
+const normalizeOptionalPhone = (value) => {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) {
+    return null;
+  }
+
+  const digits = normalized.replace(/\D/g, "");
+  if (digits.startsWith("0") && digits.length === 10) {
+    return digits;
+  }
+
+  if (digits.startsWith("84") && digits.length === 11) {
+    return `0${digits.slice(2)}`;
+  }
+
+  const error = new Error("Số điện thoại không hợp lệ");
+  error.statusCode = 400;
+  throw error;
 };
 
 const normalizeRole = (role) => {
@@ -114,12 +143,107 @@ const sanitizeUser = (user) => ({
   role: user.role,
 });
 
-export const getAllUsersService = async () => {
+const ensureUniqueUserContacts = async ({ userId = null, email, phone, username }) => {
+  const conditions = [
+    ...(username ? [{ username }] : []),
+    ...(email ? [{ email }] : []),
+    ...(phone ? [{ phone }] : []),
+  ];
+
+  if (conditions.length === 0) {
+    return;
+  }
+
+  const existed = await User.findOne({
+    where: {
+      [Op.and]: [
+        {
+          [Op.or]: conditions,
+        },
+        ...(userId ? [{ id: { [Op.ne]: userId } }] : []),
+      ],
+    },
+  });
+
+  if (!existed) {
+    return;
+  }
+
+  let message = "Thông tin người dùng đã tồn tại";
+  if (username && existed.username === username) {
+    message = "Username đã tồn tại";
+  } else if (email && existed.email === email) {
+    message = "Email đã tồn tại";
+  } else if (phone && existed.phone === phone) {
+    message = "Số điện thoại đã tồn tại";
+  }
+
+  const error = new Error(message);
+  error.statusCode = 409;
+  throw error;
+};
+
+export const getAllUsersService = async (filters = {}) => {
+  const pagination = parsePaginationQuery(filters);
+  const q = normalizeOptionalQueryString(filters?.q);
+  const role = normalizeOptionalQueryString(filters?.role, 30);
+  const gender = normalizeOptionalQueryString(filters?.gender, 30);
+  const where = {};
+
+  if (role) {
+    where.role = normalizeRole(role);
+  }
+
+  if (gender) {
+    where.gender = normalizeOptionalGender(gender);
+  }
+
+  if (!q && !pagination.enabled) {
+    const users = await User.findAll({
+      where,
+      order: [["id", "ASC"]],
+    });
+
+    return createListResult({
+      items: users.map(sanitizeUser),
+      pagination: null,
+    });
+  }
+
+  if (!q && pagination.enabled) {
+    const { rows, count } = await User.findAndCountAll({
+      where,
+      order: [["id", "ASC"]],
+      limit: pagination.limit,
+      offset: pagination.offset,
+    });
+
+    return createListResult({
+      items: rows.map(sanitizeUser),
+      pagination: buildPaginationMeta({
+        page: pagination.page,
+        page_size: pagination.page_size,
+        total_items: count,
+      }),
+    });
+  }
+
   const users = await User.findAll({
+    where,
     order: [["id", "ASC"]],
   });
 
-  return users.map(sanitizeUser);
+  const filteredUsers = filterItemsByLooseSearch(users, q, (user) => [
+    user.username,
+    user.fullname,
+    user.email,
+    user.phone,
+  ]);
+
+  return createPaginatedListResult({
+    items: filteredUsers.map(sanitizeUser),
+    pagination,
+  });
 };
 
 export const getUserByIdService = async (id) => {
@@ -153,7 +277,7 @@ export const createUserService = async (payload) => {
   const password = normalizeRequiredString(payload?.password, "Password");
   const fullname = normalizeRequiredString(payload?.fullname, "Fullname");
   const email = normalizeOptionalString(payload?.email);
-  const phone = normalizeOptionalString(payload?.phone);
+  const phone = normalizeOptionalPhone(payload?.phone);
   const date_of_birth = normalizeOptionalDateOnly(payload?.date_of_birth, "Ngày sinh");
   const gender = normalizeOptionalGender(payload?.gender);
   const address = normalizeOptionalString(payload?.address);
@@ -165,12 +289,7 @@ export const createUserService = async (payload) => {
     throw error;
   }
 
-  const existed = await User.findOne({ where: { username } });
-  if (existed) {
-    const error = new Error("Username đã tồn tại");
-    error.statusCode = 409;
-    throw error;
-  }
+  await ensureUniqueUserContacts({ username, email, phone });
 
   const created = await User.create({
     username,
@@ -200,21 +319,19 @@ export const updateUserService = async (id, payload) => {
   const username = normalizeRequiredString(payload?.username, "Username");
   const fullname = normalizeRequiredString(payload?.fullname, "Fullname");
   const email = normalizeOptionalString(payload?.email);
-  const phone = normalizeOptionalString(payload?.phone);
+  const phone = normalizeOptionalPhone(payload?.phone);
   const date_of_birth = normalizeOptionalDateOnly(payload?.date_of_birth, "Ngày sinh");
   const gender = normalizeOptionalGender(payload?.gender);
   const address = normalizeOptionalString(payload?.address);
   const role = normalizeRole(payload?.role);
   const rawPassword = payload?.password;
 
-  if (user.username !== username) {
-    const existed = await User.findOne({ where: { username } });
-    if (existed) {
-      const error = new Error("Username đã tồn tại");
-      error.statusCode = 409;
-      throw error;
-    }
-  }
+  await ensureUniqueUserContacts({
+    userId: user.id,
+    username,
+    email,
+    phone,
+  });
 
   user.username = username;
   user.fullname = fullname;
@@ -260,10 +377,16 @@ export const updateCurrentUserService = async (currentUser, payload) => {
 
   const fullname = normalizeRequiredString(payload?.fullname, "Họ tên");
   const email = normalizeOptionalString(payload?.email);
-  const phone = normalizeOptionalString(payload?.phone);
+  const phone = normalizeOptionalPhone(payload?.phone);
   const date_of_birth = normalizeOptionalDateOnly(payload?.date_of_birth, "Ngày sinh");
   const gender = normalizeOptionalGender(payload?.gender);
   const address = normalizeOptionalString(payload?.address);
+
+  await ensureUniqueUserContacts({
+    userId: user.id,
+    email,
+    phone,
+  });
 
   user.fullname = fullname;
   user.email = email;

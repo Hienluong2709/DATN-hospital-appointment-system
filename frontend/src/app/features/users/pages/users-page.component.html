@@ -8,6 +8,71 @@
     <p class="feedback" [class.feedback--error]="feedbackType === 'error'">{{ feedbackMessage }}</p>
   }
 
+  <article class="feature-card filters-card">
+    <div class="filters-grid">
+      <label class="filter-field">
+        <span>Tìm kiếm</span>
+        <input
+          type="text"
+          [ngModel]="searchTerm"
+          (ngModelChange)="onSearchTermChange($event)"
+          placeholder="Username, họ tên, email, số điện thoại"
+        />
+      </label>
+
+      <label class="filter-field">
+        <span>Vai trò</span>
+        <select [(ngModel)]="selectedRole">
+          <option value="ALL">Tất cả vai trò</option>
+          @for (role of roleOptions; track role) {
+            <option [value]="role">{{ role }}</option>
+          }
+        </select>
+      </label>
+
+      <label class="filter-field">
+        <span>Giới tính</span>
+        <select [(ngModel)]="selectedGender">
+          <option value="ALL">Tất cả giới tính</option>
+          @for (gender of genderOptions; track gender.value) {
+            <option [value]="gender.value">{{ gender.label }}</option>
+          }
+        </select>
+      </label>
+
+      <div class="filter-actions">
+        <button
+          class="button-primary filter-icon-button"
+          type="button"
+          (click)="applyFilters()"
+          [disabled]="isLoadingList || isSubmitting"
+          title="Áp dụng bộ lọc"
+          aria-label="Áp dụng bộ lọc"
+        >
+          <svg class="filter-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="6" />
+            <path d="M20 20l-4.2-4.2" />
+          </svg>
+          <span class="sr-only">Áp dụng</span>
+        </button>
+        <button
+          class="button-secondary filter-icon-button"
+          type="button"
+          (click)="resetFilters()"
+          [disabled]="isLoadingList || isSubmitting"
+          title="Đặt lại bộ lọc"
+          aria-label="Đặt lại bộ lọc"
+        >
+          <svg class="filter-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 11a8 8 0 1 0 2 5.5" />
+            <path d="M20 4v7h-7" />
+          </svg>
+          <span class="sr-only">Đặt lại</span>
+        </button>
+      </div>
+    </div>
+  </article>
+
   <article class="feature-card table-card">
     <div class="table-header">
       <h2>Danh sách người dùng</h2>
@@ -22,7 +87,7 @@
     @if (isLoadingList) {
       <p class="state-text">Đang tải danh sách người dùng...</p>
     } @else if (!users.length) {
-      <p class="state-text">Chưa có người dùng nào.</p>
+      <p class="state-text">Không có người dùng phù hợp với bộ lọc hiện tại.</p>
     } @else {
       <div class="table-wrapper">
         <table>
@@ -38,7 +103,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (user of pagedUsers; track user.id; let index = $index) {
+            @for (user of users; track user.id; let index = $index) {
               <tr>
                 <td>{{ rowOffset + index + 1 }}</td>
                 <td>{{ user.username }}</td>
@@ -81,7 +146,7 @@
       </div>
 
       <app-shared-pagination
-        [totalItems]="users.length"
+        [totalItems]="totalItems"
         [page]="currentPage"
         [pageSize]="pageSize"
         [pageSizeOptions]="pageSizeOptions"

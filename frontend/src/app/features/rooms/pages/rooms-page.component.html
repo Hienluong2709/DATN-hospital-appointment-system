@@ -7,6 +7,75 @@
     <p class="feedback" [class.feedback--error]="feedbackType === 'error'">{{ feedbackMessage }}</p>
   }
 
+  <article class="feature-card filters-card">
+    <div class="filters-grid">
+      <label class="filter-field">
+        <span>Tìm kiếm</span>
+        <input
+          type="text"
+          [ngModel]="searchTerm"
+          (ngModelChange)="onSearchTermChange($event)"
+          placeholder="Tên phòng hoặc mô tả"
+        />
+      </label>
+
+      <label class="filter-field">
+        <span>Trạng thái</span>
+        <select [(ngModel)]="selectedStatus">
+          <option value="ALL">Tất cả trạng thái</option>
+          <option value="Available">Available</option>
+          <option value="Maintenance">Maintenance</option>
+        </select>
+      </label>
+
+      <label class="filter-field">
+        <span>Chuyên khoa</span>
+        <select [(ngModel)]="selectedSpecialtyId">
+          <option [ngValue]="0">Tất cả chuyên khoa</option>
+          @for (specialty of specialties; track specialty.id) {
+            <option [ngValue]="specialty.id">{{ specialty.name }}</option>
+          }
+        </select>
+      </label>
+
+      <label class="filter-field">
+        <span>Tầng</span>
+        <input type="number" min="0" [(ngModel)]="selectedFloor" placeholder="Ví dụ: 2" />
+      </label>
+
+      <div class="filter-actions">
+        <button
+          class="button-primary filter-icon-button"
+          type="button"
+          (click)="applyFilters()"
+          [disabled]="isLoadingList || isSubmitting"
+          title="Áp dụng bộ lọc"
+          aria-label="Áp dụng bộ lọc"
+        >
+          <svg class="filter-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="6" />
+            <path d="M20 20l-4.2-4.2" />
+          </svg>
+          <span class="sr-only">Áp dụng</span>
+        </button>
+        <button
+          class="button-secondary filter-icon-button"
+          type="button"
+          (click)="resetFilters()"
+          [disabled]="isLoadingList || isSubmitting"
+          title="Đặt lại bộ lọc"
+          aria-label="Đặt lại bộ lọc"
+        >
+          <svg class="filter-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 11a8 8 0 1 0 2 5.5" />
+            <path d="M20 4v7h-7" />
+          </svg>
+          <span class="sr-only">Đặt lại</span>
+        </button>
+      </div>
+    </div>
+  </article>
+
   <article class="feature-card table-card">
     <div class="table-header">
       <h2>Danh sách phòng</h2>
@@ -21,7 +90,7 @@
     @if (isLoadingList) {
       <p class="state-text">Đang tải danh sách phòng...</p>
     } @else if (!rooms.length) {
-      <p class="state-text">Chưa có phòng nào.</p>
+      <p class="state-text">Không có phòng phù hợp với bộ lọc hiện tại.</p>
     } @else {
       <div class="table-wrapper">
         <table>
@@ -37,7 +106,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (room of pagedRooms; track room.id; let index = $index) {
+            @for (room of rooms; track room.id; let index = $index) {
               <tr>
                 <td>{{ rowOffset + index + 1 }}</td>
                 <td>{{ room.name }}</td>
@@ -84,7 +153,7 @@
       </div>
 
       <app-shared-pagination
-        [totalItems]="rooms.length"
+        [totalItems]="totalItems"
         [page]="currentPage"
         [pageSize]="pageSize"
         [pageSizeOptions]="pageSizeOptions"

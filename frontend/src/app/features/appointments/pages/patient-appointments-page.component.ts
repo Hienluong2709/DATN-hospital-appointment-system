@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
 import { DoctorsApiService } from '../../doctors/services/doctors.api';
@@ -21,7 +22,7 @@ type PatientAppointmentTimeFilter = 'ALL' | 'THIS_MONTH';
 @Component({
   selector: 'app-patient-appointments-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, NotificationModalComponent],
+  imports: [CommonModule, FormsModule, RouterLink, NotificationModalComponent],
   templateUrl: './patient-appointments-page.component.html',
   styleUrls: ['./patient-appointments-page.component.scss']
 })

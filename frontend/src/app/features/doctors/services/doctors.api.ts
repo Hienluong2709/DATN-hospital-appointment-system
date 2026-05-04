@@ -5,12 +5,52 @@ import { API_BASE_URL } from '../../../core/config/api.config';
 import { ApiResponse } from '../../../shared/types/api-response.type';
 import { Doctor, DoctorAvailability, DoctorUpsertPayload } from '../models/doctors.model';
 
+export interface DoctorListFilters {
+  q?: string;
+  status?: Doctor['status'] | 'ALL';
+  specialty_id?: number;
+  room_id?: number;
+  user_id?: number;
+  page?: number;
+  page_size?: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class DoctorsApiService {
   constructor(private readonly http: HttpClient) {}
 
-  getAll() {
-    return this.http.get<ApiResponse<Doctor[]>>(`${API_BASE_URL}/doctors`);
+  getAll(filters?: DoctorListFilters) {
+    let params = new HttpParams();
+
+    if (filters?.q?.trim()) {
+      params = params.set('q', filters.q.trim());
+    }
+
+    if (filters?.status && filters.status !== 'ALL') {
+      params = params.set('status', filters.status);
+    }
+
+    if (typeof filters?.specialty_id === 'number' && filters.specialty_id > 0) {
+      params = params.set('specialty_id', String(filters.specialty_id));
+    }
+
+    if (typeof filters?.room_id === 'number' && filters.room_id > 0) {
+      params = params.set('room_id', String(filters.room_id));
+    }
+
+    if (typeof filters?.user_id === 'number' && filters.user_id > 0) {
+      params = params.set('user_id', String(filters.user_id));
+    }
+
+    if (typeof filters?.page === 'number' && filters.page > 0) {
+      params = params.set('page', String(filters.page));
+    }
+
+    if (typeof filters?.page_size === 'number' && filters.page_size > 0) {
+      params = params.set('page_size', String(filters.page_size));
+    }
+
+    return this.http.get<ApiResponse<Doctor[]>>(`${API_BASE_URL}/doctors`, { params });
   }
 
   getById(id: number) {

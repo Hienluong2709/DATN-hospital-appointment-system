@@ -15,11 +15,12 @@ const handleError = (res, error, fallbackMessage) => {
 
 export const getAllSpecialties = async (req, res) => {
   try {
-    const data = await getAllSpecialtiesService();
+    const { items, pagination } = await getAllSpecialtiesService(req.query);
 
     return res.json({
       message: "Lấy danh sách chuyên khoa thành công",
-      data,
+      data: items,
+      ...(pagination ? { pagination } : {}),
     });
   } catch (error) {
     return handleError(res, error, "Không thể lấy danh sách chuyên khoa");
