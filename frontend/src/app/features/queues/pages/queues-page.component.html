@@ -1,0 +1,259 @@
+<section class="feature-page">
+  <header class="feature-header">
+    <h1 class="feature-title">{{ isDoctorView ? 'Hàng đợi khám của tôi' : 'Điều phối hàng đợi khám' }}</h1>
+    <p class="feature-subtitle">
+      {{
+        isDoctorView
+          ? 'Theo dõi thứ tự khám, thời gian dự kiến và tình trạng tiếp nhận trong ngày.'
+          : 'Theo dõi luồng bệnh nhân theo bác sĩ, thứ tự và thời gian chờ dự kiến.'
+      }}
+    </p>
+  </header>
+
+  <article class="feature-card filters-card">
+    <div class="filters-grid" [class.filters-grid--doctor]="isDoctorView">
+      <label class="filter-field">
+        <span>Ngày khám</span>
+        <input type="date" [value]="selectedDate" (input)="updateSelectedDate($any($event.target).value)" />
+      </label>
+
+      <label class="filter-field" *ngIf="!isDoctorView">
+        <span>Bác sĩ</span>
+        <select [ngModel]="selectedDoctorId" (ngModelChange)="updateSelectedDoctor($event)">
+          <option [ngValue]="0">Tất cả bác sĩ</option>
+          <option *ngFor="let doctor of doctorFilterOptions" [ngValue]="doctor.id">{{ doctor.label }}</option>
+        </select>
+      </label>
+
+      <label class="filter-field">
+        <span>Trạng thái lịch hẹn</span>
+        <select [value]="selectedStatus" (change)="updateSelectedStatus($any($event.target).value)">
+          <option value="ALL">Tất cả trạng thái</option>
+          <option value="Pending">Chờ xác nhận</option>
+          <option value="Confirmed">Đã xác nhận</option>
+          <option value="CheckedIn">Đã check-in</option>
+          <option value="Cancelled">Đã hủy</option>
+          <option value="Completed">Đã hoàn tất</option>
+          <option value="NoShow">Lỡ hẹn</option>
+        </select>
+      </label>
+
+      <label class="filter-field">
+        <span>Trạng thái hàng đợi</span>
+        <select [value]="selectedWorkflowStatus" (change)="updateSelectedWorkflowStatus($any($event.target).value)">
+          <option value="ALL">Tất cả trạng thái</option>
+          <option value="Confirmed">Đã xác nhận</option>
+          <option value="CheckedIn">Đã check-in</option>
+          <option value="InProgress">Đang khám</option>
+          <option value="Completed">Đã hoàn tất</option>
+          <option value="Cancelled">Đã hủy</option>
+          <option value="NoShow">Lỡ hẹn</option>
+        </select>
+      </label>
+
+      <div class="filter-actions">
+        <button type="button" class="button-secondary" (click)="resetFilters()" [disabled]="isLoading">Đặt lại bộ lọc</button>
+        <button type="button" class="button-secondary" (click)="reload()" [disabled]="isLoading">Tải lại</button>
+      </div>
+    </div>
+  </article>
+
+  <article class="feature-card table-card" [class.doctor-table-card]="isDoctorView">
+    <div class="tab-bar" role="tablist" aria-label="Điều phối hàng đợi">
+      <button
+        type="button"
+        class="tab-bar__button"
+        [class.tab-bar__button--active]="activeTab === 'waiting'"
+        (click)="setActiveTab('waiting')"
+      >
+        Lịch chờ check-in
+        <span>{{ pendingCheckInAppointments.length }}</span>
+      </button>
+      <button
+        type="button"
+        class="tab-bar__button"
+        [class.tab-bar__button--active]="activeTab === 'queue'"
+        (click)="setActiveTab('queue')"
+      >
+        Danh sách hàng đợi
+        <span>{{ filteredQueues.length }}</span>
+      </button>
+    </div>
+
+    <p class="state-text">
+      Số tiếp nhận được cấp khi check-in. Thứ tự gọi khám ưu tiên theo giờ hẹn gốc trong nhóm bệnh nhân đã check-in.
+    </p>
+
+    @if (activeTab === 'waiting') {
+    <div class="table-header">
+      <h2>Lịch chờ check-in ngày {{ selectedDate }}</h2>
+      <span class="queue-counter">Chờ tiếp nhận: {{ pendingCheckInAppointments.length }}</span>
+    </div>
+
+    <p *ngIf="errorMessage" class="alert error" role="alert">{{ errorMessage }}</p>
+    <p *ngIf="successMessage" class="alert success">{{ successMessage }}</p>
+    <p *ngIf="isLoading" class="state-text">Đang tải dữ liệu lịch chờ check-in...</p>
+
+    <div *ngIf="!isLoading && !pendingCheckInAppointments.length" class="state-text">
+      Không có lịch hẹn nào đang chờ check-in cho bộ lọc đã chọn.
+    </div>
+
+    <div *ngIf="!isLoading && pendingCheckInAppointments.length > 0" class="queue-list">
+      <article class="queue-card" *ngFor="let appointment of pendingCheckInAppointments">
+        <header class="queue-card__header">
+          <div>
+            <p class="queue-card__number">Chưa cấp số thứ tự</p>
+            <h3>{{ getPatientNameForAppointment(appointment) }}</h3>
+          </div>
+          <span class="status status--confirmed">{{ getAppointmentStatusLabel(appointment.status) }}</span>
+        </header>
+
+        <div class="queue-card__grid">
+          <div class="queue-card__item">
+            <span>Bác sĩ</span>
+            <strong>{{ getDoctorNameForAppointment(appointment) }}</strong>
+          </div>
+          <div class="queue-card__item">
+            <span>Ngày khám</span>
+            <strong>{{ appointment.date }}</strong>
+          </div>
+          <div class="queue-card__item">
+            <span>Giờ hẹn</span>
+            <strong>{{ appointment.time_slot?.slice(0, 5) ?? '--:--' }}</strong>
+          </div>
+          <div class="queue-card__item">
+            <span>Dự kiến vào khám</span>
+            <strong>{{ getQueueEstimateLabel(appointment) }}</strong>
+          </div>
+        </div>
+
+        <div class="queue-card__reason">
+          <span>Lý do khám</span>
+          <p>{{ appointment.reason || 'Không có ghi chú' }}</p>
+        </div>
+
+        <div class="queue-card__actions">
+          <button
+            *ngIf="canUseCheckInAction"
+            type="button"
+            class="button-primary"
+            (click)="checkIn(appointment)"
+            [disabled]="!canCheckIn(appointment) || processingAppointmentId[appointment.id]"
+          >
+            {{ processingAppointmentId[appointment.id] ? 'Đang check-in...' : 'Check-in' }}
+          </button>
+        </div>
+      </article>
+    </div>
+    } @else {
+    <div class="table-header">
+      <h2>Danh sách hàng đợi ngày {{ selectedDate }}</h2>
+      <span class="queue-counter">Tổng số lượt: {{ filteredQueues.length }}</span>
+    </div>
+
+    <p *ngIf="errorMessage" class="alert error" role="alert">{{ errorMessage }}</p>
+    <p *ngIf="successMessage" class="alert success">{{ successMessage }}</p>
+    <p *ngIf="isLoading" class="state-text">Đang tải dữ liệu hàng đợi...</p>
+
+    <div *ngIf="!isLoading && !filteredQueues.length" class="state-text">
+      Không có dữ liệu hàng đợi cho bộ lọc đã chọn.
+    </div>
+
+    <div *ngIf="!isLoading && filteredQueues.length > 0" class="queue-list">
+      <article class="queue-card" *ngFor="let queue of filteredQueues">
+        <header class="queue-card__header">
+          <div>
+            <p class="queue-card__number">Số tiếp nhận #{{ queue.queue_number }}</p>
+            <h3>{{ getPatientName(queue) }}</h3>
+          </div>
+          <span
+            class="status"
+            [class.status--pending]="getWorkflowStatus(queue) === 'Pending'"
+            [class.status--confirmed]="getWorkflowStatus(queue) === 'Confirmed'"
+            [class.status--cancelled]="getWorkflowStatus(queue) === 'Cancelled' || getWorkflowStatus(queue) === 'NoShow'"
+            [class.status--completed]="getWorkflowStatus(queue) === 'Completed'"
+            [class.status--checked-in]="getWorkflowStatus(queue) === 'CheckedIn'"
+            [class.status--in-progress]="getWorkflowStatus(queue) === 'InProgress'"
+          >
+            {{ getWorkflowStatusLabel(queue) }}
+          </span>
+        </header>
+
+        <div class="queue-card__grid">
+          <div class="queue-card__item">
+            <span>Bác sĩ</span>
+            <strong>{{ getDoctorName(queue) }}</strong>
+          </div>
+          <div class="queue-card__item">
+            <span>Chuyên khoa</span>
+            <strong>{{ getSpecialtyName(queue) }}</strong>
+          </div>
+          <div class="queue-card__item">
+            <span>Phòng khám</span>
+            <strong>{{ getRoomLabel(queue) }}</strong>
+          </div>
+          <div class="queue-card__item">
+            <span>Giờ hẹn</span>
+            <strong>{{ queue.Appointment?.time_slot?.slice(0, 5) ?? '--:--' }}</strong>
+          </div>
+          <div class="queue-card__item">
+            <span>Dự kiến vào khám</span>
+            <strong>{{ getPredictedStartLabel(queue) }}</strong>
+          </div>
+          <div class="queue-card__item">
+            <span>Check-in lúc</span>
+            <strong>{{ getTimeLabel(queue.checked_in_at) }}</strong>
+          </div>
+          <div class="queue-card__item">
+            <span>Thời gian chờ dự kiến</span>
+            <strong>{{ getPredictedWaitLabel(queue) }}</strong>
+          </div>
+          <div class="queue-card__item">
+            <span>Bắt đầu thực tế</span>
+            <strong>{{ getTimeLabel(queue.actual_start) }}</strong>
+          </div>
+          <div class="queue-card__item">
+            <span>Kết thúc thực tế</span>
+            <strong>{{ getTimeLabel(queue.actual_end) }}</strong>
+          </div>
+        </div>
+
+        <div class="queue-card__reason">
+          <span>Lý do khám</span>
+          <p>{{ getReason(queue) }}</p>
+        </div>
+
+        <div class="queue-card__actions">
+          <button
+            *ngIf="canUseCancelCheckInAction"
+            type="button"
+            class="button-secondary"
+            (click)="cancelCheckIn(queue)"
+            [disabled]="!canCancelCheckIn(queue) || processingAppointmentId[queue.Appointment?.id ?? 0]"
+          >
+            {{ processingAppointmentId[queue.Appointment?.id ?? 0] ? 'Đang hủy...' : 'Hủy check-in' }}
+          </button>
+          <button
+            *ngIf="canUseStartAction"
+            type="button"
+            class="button-start"
+            (click)="start(queue)"
+            [disabled]="!canStart(queue) || processingAppointmentId[queue.Appointment?.id ?? 0]"
+          >
+            {{ processingAppointmentId[queue.Appointment?.id ?? 0] ? 'Đang bắt đầu...' : 'Bắt đầu khám' }}
+          </button>
+          <button
+            *ngIf="canUseCompleteAction"
+            type="button"
+            class="button-complete"
+            (click)="complete(queue)"
+            [disabled]="!canComplete(queue) || processingAppointmentId[queue.Appointment?.id ?? 0]"
+          >
+            {{ processingAppointmentId[queue.Appointment?.id ?? 0] ? 'Đang hoàn tất...' : 'Hoàn tất khám' }}
+          </button>
+        </div>
+      </article>
+    </div>
+    }
+  </article>
+</section>
