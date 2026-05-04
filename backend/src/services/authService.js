@@ -2,14 +2,21 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { Op } from "sequelize";
 import db from "../models/index.js";
-import { assertPhoneOtpVerifiedService } from "./otpService.js";
+import {
+  assertPhoneOtpVerifiedService,
+  consumeVerifiedPhoneOtpService,
+  sendPhoneOtpCodeService,
+  verifyPhoneOtpCodeService,
+} from "./otpService.js";
 
-const { User } = db;
+const { User, sequelize } = db;
 const INVALID_CREDENTIALS_MESSAGE = "Thông tin đăng nhập không hợp lệ";
 const ALLOWED_ROLES = ["ADMIN", "DOCTOR", "PATIENT", "RECEPTIONIST"];
 const DEFAULT_JWT_EXPIRES_IN = "1d";
 const AUTH_REQUIRE_OTP_ON_REGISTER =
-  process.env.AUTH_REQUIRE_OTP_ON_REGISTER === "true";
+  process.env.AUTH_REQUIRE_OTP_ON_REGISTER !== "false";
+const AUTH_REQUIRE_OTP_ON_CHANGE_PASSWORD =
+  process.env.AUTH_REQUIRE_OTP_ON_CHANGE_PASSWORD !== "false";
 
 const normalizeRequiredString = (value, fieldName) => {
   if (typeof value !== "string") {
@@ -181,20 +188,14 @@ export const registerUserService = async (payload) => {
 
   const role = "PATIENT";
 
-  if (phone && (AUTH_REQUIRE_OTP_ON_REGISTER || otpCode)) {
-    if (!otpCode) {
-      const error = new Error("Vui lòng nhập OTP để xác thực số điện thoại");
-      error.statusCode = 400;
-      throw error;
-    }
+  if (AUTH_REQUIRE_OTP_ON_REGISTER && !phone) {
+    const error = new Error("Cần số điện thoại để đăng ký tài khoản");
+    error.statusCode = 400;
+    throw error;
+  }
 
-    await assertPhoneOtpVerifiedService({
-      phone,
-      code: otpCode,
-      purpose: "REGISTER",
-    });
-  } else if (AUTH_REQUIRE_OTP_ON_REGISTER && !phone) {
-    const error = new Error("Cần số điện thoại để đăng ký có OTP");
+  if (AUTH_REQUIRE_OTP_ON_REGISTER && !otpCode) {
+    const error = new Error("Vui lòng xác thực OTP trước khi đăng ký");
     error.statusCode = 400;
     throw error;
   }
@@ -223,13 +224,42 @@ export const registerUserService = async (payload) => {
     throw error;
   }
 
-  const created = await User.create({
-    username,
-    password,
-    fullname,
-    email,
-    phone,
-    role,
+  const created = await sequelize.transaction(async (transaction) => {
+    if (phone && otpCode) {
+      await assertPhoneOtpVerifiedService(
+        {
+          phone,
+          code: otpCode,
+          purpose: "REGISTER",
+        },
+        { transaction },
+      );
+    }
+
+    const user = await User.create(
+      {
+        username,
+        password,
+        fullname,
+        email,
+        phone,
+        role,
+      },
+      { transaction },
+    );
+
+    if (phone && otpCode) {
+      await consumeVerifiedPhoneOtpService(
+        {
+          phone,
+          code: otpCode,
+          purpose: "REGISTER",
+        },
+        { transaction },
+      );
+    }
+
+    return user;
   });
 
   return {
@@ -253,6 +283,7 @@ export const changePasswordService = async (userId, payload) => {
   const currentPassword = normalizeRequiredString(payload?.currentPassword, "Mật khẩu hiện tại");
   const newPassword = normalizeRequiredString(payload?.newPassword, "Mật khẩu mới");
   const confirmPassword = normalizeRequiredString(payload?.confirmPassword, "Xác nhận mật khẩu mới");
+  const otpCode = normalizeOptionalOtpCode(payload?.otpCode ?? payload?.otp_code);
 
   if (newPassword.length < 6) {
     const error = new Error("Password phải có ít nhất 6 ký tự");
@@ -266,32 +297,122 @@ export const changePasswordService = async (userId, payload) => {
     throw error;
   }
 
-  const user = await User.findByPk(parsedUserId);
+  return sequelize.transaction(async (transaction) => {
+    const user = await User.findByPk(parsedUserId, { transaction, lock: transaction.LOCK.UPDATE });
+    if (!user) {
+      const error = new Error("Không tìm thấy người dùng");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (AUTH_REQUIRE_OTP_ON_CHANGE_PASSWORD) {
+      if (!user.phone) {
+        const error = new Error("Tài khoản chưa có số điện thoại để xác thực OTP");
+        error.statusCode = 400;
+        throw error;
+      }
+
+      if (!otpCode) {
+        const error = new Error("Vui lòng xác thực OTP trước khi đổi mật khẩu");
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    const isCurrentPasswordMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isCurrentPasswordMatch) {
+      const error = new Error("Mật khẩu hiện tại không đúng");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const isSameAsCurrentPassword = await bcrypt.compare(newPassword, user.password);
+    if (isSameAsCurrentPassword) {
+      const error = new Error("Mật khẩu mới phải khác mật khẩu hiện tại");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (user.phone && otpCode) {
+      await assertPhoneOtpVerifiedService(
+        {
+          phone: user.phone,
+          code: otpCode,
+          purpose: "CHANGE_PASSWORD",
+        },
+        { transaction },
+      );
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save({ transaction });
+
+    if (user.phone && otpCode) {
+      await consumeVerifiedPhoneOtpService(
+        {
+          phone: user.phone,
+          code: otpCode,
+          purpose: "CHANGE_PASSWORD",
+        },
+        { transaction },
+      );
+    }
+
+    return {
+      id: user.id,
+      username: user.username,
+    };
+  });
+};
+
+const getCurrentUserPhoneOrThrow = async (userId) => {
+  const parsedUserId = Number(userId);
+  if (!Number.isInteger(parsedUserId) || parsedUserId <= 0) {
+    const error = new Error("Người dùng không hợp lệ");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  const user = await User.findByPk(parsedUserId, {
+    attributes: ["id", "username", "phone"],
+  });
+
   if (!user) {
     const error = new Error("Không tìm thấy người dùng");
     error.statusCode = 404;
     throw error;
   }
 
-  const isCurrentPasswordMatch = await bcrypt.compare(currentPassword, user.password);
-  if (!isCurrentPasswordMatch) {
-    const error = new Error("Mật khẩu hiện tại không đúng");
+  if (!user.phone) {
+    const error = new Error("Tài khoản chưa có số điện thoại để xác thực OTP");
     error.statusCode = 400;
     throw error;
   }
 
-  const isSameAsCurrentPassword = await bcrypt.compare(newPassword, user.password);
-  if (isSameAsCurrentPassword) {
-    const error = new Error("Mật khẩu mới phải khác mật khẩu hiện tại");
-    error.statusCode = 400;
-    throw error;
-  }
+  return user;
+};
 
-  user.password = await bcrypt.hash(newPassword, 10);
-  await user.save();
+export const sendChangePasswordOtpService = async (userId) => {
+  const user = await getCurrentUserPhoneOrThrow(userId);
+
+  const otpDelivery = await sendPhoneOtpCodeService({
+    phone: user.phone,
+    purpose: "CHANGE_PASSWORD",
+  });
 
   return {
-    id: user.id,
+    ...otpDelivery,
     username: user.username,
   };
+};
+
+export const verifyChangePasswordOtpService = async (userId, payload) => {
+  const user = await getCurrentUserPhoneOrThrow(userId);
+  const code = normalizeRequiredString(payload?.code ?? payload?.otpCode, "OTP");
+
+  return verifyPhoneOtpCodeService({
+    phone: user.phone,
+    code,
+    purpose: "CHANGE_PASSWORD",
+  });
 };

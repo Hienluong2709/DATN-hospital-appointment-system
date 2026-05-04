@@ -2,6 +2,8 @@ import {
   changePasswordService,
   loginService,
   registerUserService,
+  sendChangePasswordOtpService,
+  verifyChangePasswordOtpService,
 } from "../services/authService.js";
 import {
   sendPhoneOtpCodeService,
@@ -92,6 +94,44 @@ export const verifyPhoneOtp = async (req, res) => {
 
     res.json({
       message: "Xác thực OTP thành công",
+      data,
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    const message =
+      statusCode === 500 ? "Xác thực OTP thất bại, vui lòng thử lại" : error.message;
+
+    res.status(statusCode).json({
+      message,
+    });
+  }
+};
+
+export const sendChangePasswordOtp = async (req, res) => {
+  try {
+    const data = await sendChangePasswordOtpService(req.user?.id);
+
+    res.status(201).json({
+      message: "Gửi OTP đổi mật khẩu thành công",
+      data,
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    const message =
+      statusCode === 500 ? "Gửi OTP thất bại, vui lòng thử lại" : error.message;
+
+    res.status(statusCode).json({
+      message,
+    });
+  }
+};
+
+export const verifyChangePasswordOtp = async (req, res) => {
+  try {
+    const data = await verifyChangePasswordOtpService(req.user?.id, req.body);
+
+    res.json({
+      message: "Xác thực OTP đổi mật khẩu thành công",
       data,
     });
   } catch (error) {

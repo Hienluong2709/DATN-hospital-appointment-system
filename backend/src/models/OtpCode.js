@@ -15,11 +15,20 @@ const OtpCode = sequelize.define("OtpCode", {
     type: DataTypes.STRING(15),
     allowNull: false,
   },
+  purpose: {
+    type: DataTypes.STRING(30),
+    allowNull: false,
+    defaultValue: "REGISTER",
+  },
   expired_time: {
     type: DataTypes.DATE,
   },
+  consumed_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
   status: {
-    type: DataTypes.ENUM("Pending", "Verified", "Expired"),
+    type: DataTypes.ENUM("Pending", "Verified", "Consumed", "Expired"),
     defaultValue: "Pending",
   },
 }, {
