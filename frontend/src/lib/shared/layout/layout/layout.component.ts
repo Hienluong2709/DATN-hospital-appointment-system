@@ -1,5 +1,5 @@
 import { Component, HostListener, OnInit, inject } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { BackendRole } from '../../../../app/core/models/auth-role.model';
 import {
@@ -19,7 +19,7 @@ import {
   WORK_SCHEDULES_PATH,
   WORK_SCHEDULE_BLOCKS_PATH
 } from '../../../../app/shared/constant/navigator-endpoint.constant';
-import { AccountMenuComponent } from '../../../../app/shared/components/account-menu/account-menu.component';
+import { PortalTopbarComponent } from '../../../../app/shared/components/portal-topbar/portal-topbar.component';
 import { TokenService } from '../../../../app/core/services/token.service';
 
 interface MenuItem {
@@ -40,7 +40,7 @@ interface MenuGroup {
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, AccountMenuComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, PortalTopbarComponent],
   templateUrl: './layout.component.html',
   styleUrls: ['./layout.component.scss']
 })
@@ -51,6 +51,7 @@ export class LayoutComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
 
   isExpanded = true;
+  breadcrumbLabel = 'Overview';
 
   get userName(): string {
     return this.resolveUserName();
@@ -78,6 +79,12 @@ export class LayoutComponent implements OnInit {
 
   ngOnInit(): void {
     this.applySidebarForViewport();
+    this.updateBreadcrumbLabel(this.router.url);
+    this.router.events.subscribe((event) => {
+      if (event instanceof NavigationEnd) {
+        this.updateBreadcrumbLabel(event.urlAfterRedirects);
+      }
+    });
   }
 
   primaryMenu: MenuItem[] = [
@@ -348,6 +355,37 @@ export class LayoutComponent implements OnInit {
 
   private asText(value: unknown, fallback: string): string {
     return typeof value === 'string' && value.trim().length > 0 ? value.trim() : fallback;
+  }
+
+  private updateBreadcrumbLabel(rawUrl: string): void {
+    const path = (rawUrl || '').split('?')[0] || '/';
+    const segments = path.split('/').filter(Boolean);
+
+    if (!segments.length) {
+      this.breadcrumbLabel = 'Overview';
+      return;
+    }
+
+    const [, feature = ''] = segments;
+    const featureMap: Record<string, string> = {
+      [DASHBOARD_PATH]: 'Overview',
+      [APPOINTMENTS_PATH]: 'Lịch khám',
+      [PROFILE_PATH]: 'Hồ sơ của tôi',
+      [CHANGE_PASSWORD_PATH]: 'Đổi mật khẩu',
+      [SPECIALTIES_PATH]: 'Chuyên khoa',
+      [ROOMS_PATH]: 'Phòng khám',
+      [DOCTORS_PATH]: 'Bác sĩ',
+      [USERS_PATH]: 'Người dùng',
+      [WORK_SCHEDULES_PATH]: 'Lịch làm việc',
+      [WORK_SCHEDULE_BLOCKS_PATH]: 'Lịch nghỉ',
+      [QUEUES_PATH]: 'Hàng đợi',
+      [EQUEUE_NUMBERS_PATH]: 'Số thứ tự điện tử',
+      [ADMIN_PATH]: 'Quản trị',
+      [RECEPTIONIST_PATH]: 'Lễ tân',
+      [DOCTOR_PORTAL_PATH]: 'Bác sĩ',
+    };
+
+    this.breadcrumbLabel = featureMap[feature] ?? 'Overview';
   }
 
   private applySidebarForViewport(): void {

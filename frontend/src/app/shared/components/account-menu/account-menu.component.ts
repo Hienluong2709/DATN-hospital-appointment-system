@@ -8,7 +8,13 @@ import { Component, HostListener, input, output } from '@angular/core';
   template: `
     <div class="user-menu" (click)="onMenuClick($event)">
       <button class="user-area" type="button" (click)="toggleMenu($event)">
-        <span class="avatar">{{ userInitials() }}</span>
+        <span class="avatar" [class.guest]="!isAuthenticated()">
+          @if (isAuthenticated()) {
+            {{ userInitials() }}
+          } @else {
+            <span class="material-symbols-outlined avatar-icon">person</span>
+          }
+        </span>
         <div class="user-info">
           <strong>{{ userName() }}</strong>
           <small class="role">{{ userRole() }}</small>
@@ -19,10 +25,16 @@ import { Component, HostListener, input, output } from '@angular/core';
       @if (isMenuOpen) {
         <div class="user-dropdown">
           <div class="user-summary">
-            <span class="avatar large">{{ userInitials() }}</span>
+            <span class="avatar large" [class.guest]="!isAuthenticated()">
+              @if (isAuthenticated()) {
+                {{ userInitials() }}
+              } @else {
+                <span class="material-symbols-outlined avatar-icon">person</span>
+              }
+            </span>
             <div>
               <strong>{{ userName() }}</strong>
-              <small>{{ userEmail() }}</small>
+              <small>{{ summaryText() }}</small>
             </div>
           </div>
 
@@ -45,6 +57,11 @@ import { Component, HostListener, input, output } from '@angular/core';
             <button class="dropdown-item" type="button" (click)="onLoginClick()">
               <span class="material-symbols-outlined">login</span>
               <span>Đăng nhập</span>
+            </button>
+
+            <button class="dropdown-item" type="button" (click)="onRegisterClick()">
+              <span class="material-symbols-outlined">person_add</span>
+              <span>Tạo tài khoản</span>
             </button>
           }
         </div>
@@ -69,13 +86,13 @@ import { Component, HostListener, input, output } from '@angular/core';
         background: #f8fbff;
         color: #17324d;
         min-height: 36px;
-        padding: 0.2rem 0.32rem 0.2rem 0.22rem;
+        padding: 0.14rem 0.34rem 0.14rem 0.18rem;
         cursor: pointer;
       }
 
       .avatar {
-        width: 30px;
-        height: 30px;
+        width: 26px;
+        height: 26px;
         border-radius: 999px;
         display: inline-flex;
         align-items: center;
@@ -83,20 +100,30 @@ import { Component, HostListener, input, output } from '@angular/core';
         background: #edf6ff;
         border: 1px solid #d9ebfb;
         color: #1d6cae;
-        font-size: 0.74rem;
+        font-size: 0.7rem;
         font-weight: 700;
         flex: 0 0 auto;
       }
 
+      .avatar.guest {
+        background: #f4f8fc;
+        color: #62758a;
+      }
+
+      .avatar-icon {
+        font-size: 14px;
+        line-height: 1;
+      }
+
       .user-info {
         display: grid;
-        margin: 0 0.48rem;
-        min-width: 110px;
+        margin: 0 0.42rem;
+        min-width: 132px;
         text-align: left;
       }
 
       .user-info strong {
-        font-size: 0.78rem;
+        font-size: 0.76rem;
         line-height: 1.1;
         white-space: nowrap;
         overflow: hidden;
@@ -105,6 +132,10 @@ import { Component, HostListener, input, output } from '@angular/core';
 
       .role {
         color: #6a8299;
+        font-size: 0.68rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       .user-dropdown {
@@ -135,6 +166,10 @@ import { Component, HostListener, input, output } from '@angular/core';
       .user-summary .avatar.large {
         width: 40px;
         height: 40px;
+      }
+
+      .user-summary .avatar.large .avatar-icon {
+        font-size: 20px;
       }
 
       .user-summary strong {
@@ -194,8 +229,17 @@ export class AccountMenuComponent {
   readonly changePassword = output<void>();
   readonly logout = output<void>();
   readonly login = output<void>();
+  readonly register = output<void>();
 
   isMenuOpen = false;
+
+  summaryText(): string {
+    if (this.isAuthenticated()) {
+      return this.userEmail();
+    }
+
+    return 'Đặt lịch khám và tra cứu hồ sơ trực tuyến';
+  }
 
   @HostListener('document:click')
   onDocumentClick(): void {
@@ -234,5 +278,10 @@ export class AccountMenuComponent {
   onLoginClick(): void {
     this.isMenuOpen = false;
     this.login.emit();
+  }
+
+  onRegisterClick(): void {
+    this.isMenuOpen = false;
+    this.register.emit();
   }
 }

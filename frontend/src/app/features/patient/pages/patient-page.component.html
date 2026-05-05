@@ -1,233 +1,178 @@
 <section class="patient-landing">
-  <header class="landing-topbar">
-    <div class="topbar-left">
-      <div class="topbar-brand">
-        <span class="topbar-brand__logo" aria-hidden="true">
-          <svg viewBox="0 0 24 24" focusable="false">
-            <path d="M12 2 5 5v6c0 4.97 2.98 9.62 7 11 4.02-1.38 7-6.03 7-11V5Zm3.5 10.5h-2v2a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-2h-2a1 1 0 0 1-1-1v-1a1 1 0 0 1 1-1h2v-2a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v2h2a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1Z" />
-          </svg>
-        </span>
-        <div>
-          <strong>Hospital System</strong>
-          <small>Digital Clinic Platform</small>
+  <app-portal-topbar
+    [portal]="'patient'"
+    [isAuthenticated]="isLoggedIn"
+    [breadcrumbLabel]="isLoggedIn ? 'Patient Portal' : 'Welcome'" />
+
+  <div class="patient-landing__content">
+
+    <!-- LOGGED-IN VIEW -->
+    @if (isLoggedIn) {
+      <div class="welcome-card">
+        <div class="welcome-content">
+          <p class="eyebrow">Chào mừng trở lại</p>
+          <h1>Xin chào, {{ accountLabel }}!</h1>
+          <p class="welcome-description">
+            Quản lý lịch khám và theo dõi sức khỏe của bạn một cách dễ dàng.
+          </p>
+          <div class="welcome-actions">
+            <a class="btn-primary" [routerLink]="'/patient/appointments'">Xem lịch khám</a>
+            <a class="btn-secondary" [routerLink]="'/patient/appointments'">Đặt lịch khám mới</a>
+          </div>
         </div>
       </div>
 
-      <div class="topbar-breadcrumb" aria-label="Breadcrumb">
-        <span>Dashboard</span>
-        <span class="topbar-breadcrumb__divider">/</span>
-        <span>{{ isLoggedIn ? 'Patient Portal' : 'Welcome' }}</span>
-      </div>
-    </div>
+      <section class="section-block">
+        <header>
+          <h2>Thông tin nhanh</h2>
+          <p>Các dịch vụ và thông tin cần thiết cho bạn.</p>
+        </header>
 
-    <div class="topbar-actions" aria-label="Tiện ích nhanh">
-      <label class="topbar-search" aria-label="Tìm kiếm nhanh">
-        <span class="topbar-search__icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" focusable="false">
-            <path d="M10 4a6 6 0 1 0 3.87 10.58l4.27 4.27 1.41-1.41-4.27-4.27A6 6 0 0 0 10 4Zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z" />
-          </svg>
-        </span>
-        <input type="text" placeholder="Tìm kiếm ..." />
-      </label>
+        <div class="feature-grid">
+          @for (item of featuredBenefits; track item.title) {
+            <article class="feature-item">
+              <h3>{{ item.title }}</h3>
+              <p>{{ item.description }}</p>
+            </article>
+          }
+        </div>
+      </section>
 
-      @if (isLoggedIn) {
-        <button type="button" class="topbar-icon-button topbar-icon-button--notice">
-          <span class="topbar-icon-button__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" focusable="false">
-              <path d="M12 22a2.23 2.23 0 0 0 2.11-1.5H9.89A2.23 2.23 0 0 0 12 22Zm6-6V11a6 6 0 1 0-12 0v5l-2 2v1h16v-1Z" />
-            </svg>
-          </span>
-          <span class="topbar-icon-button__badge">3</span>
-        </button>
-      }
+      <section class="section-block doctor-section">
+        <header>
+          <h2>Đội ngũ bác sĩ chuyên khoa</h2>
+          <p>Các bác sĩ có kinh nghiệm sẵn sàng phục vụ bạn.</p>
+        </header>
 
-      <button type="button" class="topbar-icon-button">
-        <span class="topbar-icon-button__icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" focusable="false">
-            <path d="M19.14 12.94a7.49 7.49 0 0 0 .05-.94 7.49 7.49 0 0 0-.05-.94l2.03-1.58a.48.48 0 0 0 .11-.61l-1.92-3.32a.49.49 0 0 0-.58-.22l-2.39.96a7.16 7.16 0 0 0-1.63-.94l-.36-2.54A.48.48 0 0 0 13.92 2h-3.84a.48.48 0 0 0-.48.41l-.36 2.54a7.16 7.16 0 0 0-1.63.94l-2.39-.96a.49.49 0 0 0-.58.22L2.72 8.47a.48.48 0 0 0 .11.61l2.03 1.58a7.49 7.49 0 0 0-.05.94 7.49 7.49 0 0 0 .05.94l-2.03 1.58a.48.48 0 0 0-.11.61l1.92 3.32a.49.49 0 0 0 .58.22l2.39-.96a7.16 7.16 0 0 0 1.63.94l.36 2.54a.48.48 0 0 0 .48.41h3.84a.48.48 0 0 0 .48-.41l.36-2.54a7.16 7.16 0 0 0 1.63-.94l2.39.96a.49.49 0 0 0 .58-.22l1.92-3.32a.48.48 0 0 0-.11-.61ZM12 15.5A3.5 3.5 0 1 1 15.5 12 3.5 3.5 0 0 1 12 15.5Z" />
-          </svg>
-        </span>
-      </button>
+        <div class="doctor-grid">
+          @for (doctor of doctors; track doctor.name) {
+            <article class="doctor-card">
+              <div class="doctor-avatar">{{ doctor.initials }}</div>
+              <div>
+                <h3>{{ doctor.name }}</h3>
+                <p class="doctor-specialty">{{ doctor.specialty }}</p>
+                <p>{{ doctor.description }}</p>
+              </div>
+            </article>
+          }
+        </div>
+      </section>
+    }
 
-      <app-account-menu
-        [userName]="accountLabel"
-        [userRole]="accountRoleLabel"
-        [userEmail]="accountEmail"
-        [userInitials]="accountInitials"
-        [isAuthenticated]="isLoggedIn"
-        (profile)="goToProfile()"
-        (changePassword)="goToChangePassword()"
-        (logout)="onLogout()"
-        (login)="goToLogin()" />
-    </div>
-  </header>
+    <!-- PUBLIC VIEW (NOT LOGGED IN) -->
+    @if (!isLoggedIn) {
+      <div class="hero-card">
+        <div class="hero-content">
+          <p class="eyebrow">Bệnh viện Đa khoa Sofitech</p>
+          <h1>Chăm sóc sức khỏe gia đình tận tâm, an toàn và hiện đại</h1>
+          <p class="hero-description">
+            Từ khoa khám tổng quát đến các chuyên khoa chuyên sâu, bệnh viện mang đến trải nghiệm
+            khám chữa bệnh thân thiện, rõ ràng chi phí và tối ưu thời gian cho bệnh nhân.
+          </p>
+          <p class="hero-note">
+            Bạn có thể xem thông tin bệnh viện ngay tại đây. Tài khoản bệnh nhân chỉ cần thiết khi bắt đầu đặt lịch hoặc tra cứu lịch hẹn.
+          </p>
 
-  <!-- LOGGED-IN VIEW -->
-  @if (isLoggedIn) {
-    <div class="welcome-card">
-      <div class="welcome-content">
-        <p class="eyebrow">Chào mừng trở lại</p>
-        <h1>Xin chào, {{ accountLabel }}!</h1>
-        <p class="welcome-description">
-          Quản lý lịch khám và theo dõi sức khỏe của bạn một cách dễ dàng.
-        </p>
-        <div class="welcome-actions">
-          <a class="btn-primary" [routerLink]="'/patient/appointments'">Xem lịch khám</a>
-          <a class="btn-secondary" [routerLink]="'/patient/appointments'">Đặt lịch khám mới</a>
+          <div class="hero-actions">
+            <a class="btn-primary" [routerLink]="'/login'" [queryParams]="{ redirect: '/patient/appointments' }">Đăng nhập để đặt lịch</a>
+            <a class="btn-secondary" [routerLink]="'/register'">Tạo tài khoản bệnh nhân</a>
+          </div>
+
+          <div class="hero-links">
+            <a [routerLink]="'/register'">Chưa có tài khoản? Đăng ký ngay</a>
+            <a href="#booking-flow">Xem quy trình đặt lịch</a>
+            <a href="#doctor-section">Xem bác sĩ</a>
+            <a href="#department-section">Xem chuyên khoa</a>
+          </div>
+        </div>
+
+        <div class="hero-highlight">
+          @for (item of trustIndicators; track item.label) {
+            <article>
+              <strong>{{ item.value }}</strong>
+              <span>{{ item.label }}</span>
+            </article>
+          }
         </div>
       </div>
-    </div>
 
-    <section class="section-block">
-      <header>
-        <h2>Thông tin nhanh</h2>
-        <p>Các dịch vụ và thông tin cần thiết cho bạn.</p>
-      </header>
+      <section class="section-block soft" id="booking-flow">
+        <header>
+          <h2>Quy trình đặt lịch cho bệnh nhân</h2>
+          <p>Luồng sử dụng được tách rõ: xem thông tin công khai trước, chỉ đăng nhập khi thực sự cần đặt lịch khám.</p>
+        </header>
 
-      <div class="feature-grid">
-        @for (item of featuredBenefits; track item.title) {
-          <article class="feature-item">
-            <h3>{{ item.title }}</h3>
-            <p>{{ item.description }}</p>
-          </article>
-        }
-      </div>
-    </section>
+        <div class="booking-step-grid">
+          @for (item of bookingSteps; track item.step) {
+            <article class="booking-step-card">
+              <span class="booking-step-card__index">{{ item.step }}</span>
+              <h3>{{ item.title }}</h3>
+              <p>{{ item.description }}</p>
+            </article>
+          }
+        </div>
+      </section>
 
-    <section class="section-block doctor-section">
-      <header>
-        <h2>Đội ngũ bác sĩ chuyên khoa</h2>
-        <p>Các bác sĩ có kinh nghiệm sẵn sàng phục vụ bạn.</p>
-      </header>
+      <section class="section-block">
+        <header>
+          <h2>Vì sao bệnh nhân lựa chọn chúng tôi</h2>
+          <p>Quy trình gọn gàng, đội ngũ tận tâm và hệ thống hỗ trợ liên tục từ đặt lịch đến tái khám.</p>
+        </header>
 
-      <div class="doctor-grid">
-        @for (doctor of doctors; track doctor.name) {
-          <article class="doctor-card">
-            <div class="doctor-avatar">{{ doctor.initials }}</div>
-            <div>
-              <h3>{{ doctor.name }}</h3>
-              <p class="doctor-specialty">{{ doctor.specialty }}</p>
-              <p>{{ doctor.description }}</p>
-            </div>
-          </article>
-        }
-      </div>
-    </section>
-  }
+        <div class="feature-grid">
+          @for (item of featuredBenefits; track item.title) {
+            <article class="feature-item">
+              <h3>{{ item.title }}</h3>
+              <p>{{ item.description }}</p>
+            </article>
+          }
+        </div>
+      </section>
 
-  <!-- PUBLIC VIEW (NOT LOGGED IN) -->
-  @if (!isLoggedIn) {
-    <div class="hero-card">
-      <div class="hero-content">
-        <p class="eyebrow">Bệnh viện Đa khoa Sofitech</p>
-        <h1>Chăm sóc sức khỏe gia đình tận tâm, an toàn và hiện đại</h1>
-        <p class="hero-description">
-          Từ khoa khám tổng quát đến các chuyên khoa chuyên sâu, bệnh viện mang đến trải nghiệm
-          khám chữa bệnh thân thiện, rõ ràng chi phí và tối ưu thời gian cho bệnh nhân.
-        </p>
-        <p class="hero-note">
-          Bạn có thể xem thông tin bệnh viện ngay tại đây. Tài khoản bệnh nhân chỉ cần thiết khi bắt đầu đặt lịch hoặc tra cứu lịch hẹn.
-        </p>
+      <section class="section-block doctor-section" id="doctor-section">
+        <header>
+          <h2>Giới thiệu bác sĩ</h2>
+          <p>Đội ngũ bác sĩ có kinh nghiệm, luôn đồng hành cùng bệnh nhân trong khám, chẩn đoán và tái khám.</p>
+        </header>
 
+        <div class="doctor-grid">
+          @for (doctor of doctors; track doctor.name) {
+            <article class="doctor-card">
+              <div class="doctor-avatar">{{ doctor.initials }}</div>
+              <div>
+                <h3>{{ doctor.name }}</h3>
+                <p class="doctor-specialty">{{ doctor.specialty }}</p>
+                <p>{{ doctor.description }}</p>
+              </div>
+            </article>
+          }
+        </div>
+      </section>
+
+      <section class="section-block soft" id="department-section">
+        <header>
+          <h2>Chuyên khoa nổi bật</h2>
+          <p>Hệ thống chuyên khoa được bố trí theo nhu cầu khám phổ biến, dễ tiếp cận và dễ theo dõi.</p>
+        </header>
+
+        <div class="department-grid">
+          @for (item of departments; track item.name) {
+            <article class="department-card">
+              <h3>{{ item.name }}</h3>
+              <p>{{ item.note }}</p>
+            </article>
+          }
+        </div>
+      </section>
+
+      <section class="section-block callout">
+        <h2>Sẵn sàng đặt lịch khám?</h2>
+        <p>Đăng nhập nếu bạn đã có tài khoản, hoặc tạo tài khoản mới để bắt đầu đặt lịch và theo dõi lịch hẹn trực tuyến.</p>
         <div class="hero-actions">
-          <a class="btn-primary" [routerLink]="'/login'" [queryParams]="{ redirect: '/patient/appointments' }">Đăng nhập để đặt lịch</a>
-          <a class="btn-secondary" [routerLink]="'/register'">Tạo tài khoản bệnh nhân</a>
+          <a class="btn-primary" [routerLink]="'/login'">Đăng nhập bệnh nhân</a>
+          <a class="btn-secondary" [routerLink]="'/register'">Đăng ký tài khoản</a>
         </div>
-
-        <div class="hero-links">
-          <a [routerLink]="'/register'">Chưa có tài khoản? Đăng ký ngay</a>
-          <a href="#booking-flow">Xem quy trình đặt lịch</a>
-          <a href="#doctor-section">Xem bác sĩ</a>
-          <a href="#department-section">Xem chuyên khoa</a>
-        </div>
-      </div>
-
-      <div class="hero-highlight">
-        @for (item of trustIndicators; track item.label) {
-          <article>
-            <strong>{{ item.value }}</strong>
-            <span>{{ item.label }}</span>
-          </article>
-        }
-      </div>
-    </div>
-
-    <section class="section-block soft" id="booking-flow">
-      <header>
-        <h2>Quy trình đặt lịch cho bệnh nhân</h2>
-        <p>Luồng sử dụng được tách rõ: xem thông tin công khai trước, chỉ đăng nhập khi thực sự cần đặt lịch khám.</p>
-      </header>
-
-      <div class="booking-step-grid">
-        @for (item of bookingSteps; track item.step) {
-          <article class="booking-step-card">
-            <span class="booking-step-card__index">{{ item.step }}</span>
-            <h3>{{ item.title }}</h3>
-            <p>{{ item.description }}</p>
-          </article>
-        }
-      </div>
-    </section>
-
-    <section class="section-block">
-      <header>
-        <h2>Vì sao bệnh nhân lựa chọn chúng tôi</h2>
-        <p>Quy trình gọn gàng, đội ngũ tận tâm và hệ thống hỗ trợ liên tục từ đặt lịch đến tái khám.</p>
-      </header>
-
-      <div class="feature-grid">
-        @for (item of featuredBenefits; track item.title) {
-          <article class="feature-item">
-            <h3>{{ item.title }}</h3>
-            <p>{{ item.description }}</p>
-          </article>
-        }
-      </div>
-    </section>
-
-    <section class="section-block doctor-section" id="doctor-section">
-      <header>
-        <h2>Giới thiệu bác sĩ</h2>
-        <p>Đội ngũ bác sĩ có kinh nghiệm, luôn đồng hành cùng bệnh nhân trong khám, chẩn đoán và tái khám.</p>
-      </header>
-
-      <div class="doctor-grid">
-        @for (doctor of doctors; track doctor.name) {
-          <article class="doctor-card">
-            <div class="doctor-avatar">{{ doctor.initials }}</div>
-            <div>
-              <h3>{{ doctor.name }}</h3>
-              <p class="doctor-specialty">{{ doctor.specialty }}</p>
-              <p>{{ doctor.description }}</p>
-            </div>
-          </article>
-        }
-      </div>
-    </section>
-
-    <section class="section-block soft" id="department-section">
-      <header>
-        <h2>Chuyên khoa nổi bật</h2>
-        <p>Hệ thống chuyên khoa được bố trí theo nhu cầu khám phổ biến, dễ tiếp cận và dễ theo dõi.</p>
-      </header>
-
-      <div class="department-grid">
-        @for (item of departments; track item.name) {
-          <article class="department-card">
-            <h3>{{ item.name }}</h3>
-            <p>{{ item.note }}</p>
-          </article>
-        }
-      </div>
-    </section>
-
-    <section class="section-block callout">
-      <h2>Sẵn sàng đặt lịch khám?</h2>
-      <p>Đăng nhập nếu bạn đã có tài khoản, hoặc tạo tài khoản mới để bắt đầu đặt lịch và theo dõi lịch hẹn trực tuyến.</p>
-      <div class="hero-actions">
-        <a class="btn-primary" [routerLink]="'/login'">Đăng nhập bệnh nhân</a>
-        <a class="btn-secondary" [routerLink]="'/register'">Đăng ký tài khoản</a>
-      </div>
-    </section>
-  }
+      </section>
+    }
+  </div>
 </section>

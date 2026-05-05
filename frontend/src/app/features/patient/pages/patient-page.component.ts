@@ -1,26 +1,40 @@
 import { Component, inject } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 
 import { TokenService } from '../../../core/services/token.service';
-import {
-  CHANGE_PASSWORD_PATH,
-  PROFILE_PATH,
-} from '../../../shared/constant/navigator-endpoint.constant';
-import { AccountMenuComponent } from '../../../shared/components/account-menu/account-menu.component';
+import { PortalTopbarComponent } from '../../../shared/components/portal-topbar/portal-topbar.component';
 
 @Component({
   selector: 'app-patient-page',
   standalone: true,
-  imports: [RouterLink, AccountMenuComponent],
+  imports: [RouterLink, PortalTopbarComponent],
   templateUrl: './patient-page.component.html',
   styleUrl: './patient-page.component.scss',
 })
 export class PatientPageComponent {
   private readonly tokenService = inject(TokenService);
-  private readonly router = inject(Router);
 
   get isLoggedIn(): boolean {
     return !!this.tokenService.getAccessToken();
+  }
+
+  get accountLabel(): string {
+    const currentUser = this.tokenService.getCurrentUser();
+    const candidates = [
+      currentUser?.['fullName'],
+      currentUser?.['fullname'],
+      currentUser?.['name'],
+      currentUser?.['username'],
+      currentUser?.['email'],
+    ];
+
+    const best = candidates.find(
+      (value) => typeof value === 'string' && value.trim().length > 0,
+    );
+
+    return typeof best === 'string' && best.trim().length > 0
+      ? best.trim()
+      : 'bệnh nhân';
   }
 
   trustIndicators = [
@@ -111,80 +125,4 @@ export class PatientPageComponent {
     },
   ];
 
-  get accountLabel(): string {
-    const currentUser = this.tokenService.getCurrentUser();
-    const candidates = [
-      currentUser?.['fullName'],
-      currentUser?.['fullname'],
-      currentUser?.['name'],
-      currentUser?.['username'],
-      currentUser?.['email'],
-    ];
-
-    const best = candidates.find(
-      (value) => typeof value === 'string' && value.trim().length > 0,
-    );
-    return this.asText(best, 'Tài khoản bệnh nhân');
-  }
-
-  get accountRoleLabel(): string {
-    return this.tokenService.getCurrentRole() ?? 'PATIENT';
-  }
-
-  get accountInitials(): string {
-    const value = this.accountLabel.trim();
-    if (!value || value === 'Tài khoản bệnh nhân') {
-      return 'PT';
-    }
-
-    const parts = value.split(/\s+/).filter(Boolean);
-    if (parts.length > 1) {
-      const initials = parts
-        .slice(0, 2)
-        .map((part) => part.charAt(0).toUpperCase())
-        .join('');
-      if (initials) {
-        return initials;
-      }
-    }
-
-    return value.slice(0, 2).toUpperCase() || 'PT';
-  }
-
-  get accountLink(): string {
-    return this.tokenService.getAccessToken()
-      ? '/patient/appointments'
-      : '/login';
-  }
-
-  get accountEmail(): string {
-    const currentUser = this.tokenService.getCurrentUser();
-    const email = currentUser?.['email'];
-    return typeof email === 'string' && email.trim().length > 0
-      ? email.trim()
-      : '';
-  }
-
-  goToProfile(): void {
-    void this.router.navigateByUrl(`/patient/${PROFILE_PATH}`);
-  }
-
-  goToChangePassword(): void {
-    void this.router.navigateByUrl(`/patient/${CHANGE_PASSWORD_PATH}`);
-  }
-
-  onLogout(): void {
-    this.tokenService.clearSession();
-    void this.router.navigateByUrl('/');
-  }
-
-  goToLogin(): void {
-    void this.router.navigateByUrl('/login');
-  }
-
-  private asText(value: unknown, fallback = ''): string {
-    return typeof value === 'string' && value.trim().length > 0
-      ? value.trim()
-      : fallback;
-  }
 }

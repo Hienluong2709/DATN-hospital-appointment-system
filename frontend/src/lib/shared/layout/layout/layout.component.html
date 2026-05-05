@@ -1,52 +1,8 @@
 <div class="shell">
-  <!-- HEADER -->
-  <header class="topbar">
-    <div class="topbar-left">
-      <div class="brand">
-        <span class="material-symbols-outlined logo">health_and_safety</span>
-        <div>
-          <strong>Hospital System</strong>
-          <small>Digital Clinic Platform</small>
-        </div>
-      </div>
-
-      <!-- Breadcrumb -->
-      <div class="breadcrumb">
-        <span>Dashboard</span>
-        <span class="divider">/</span>
-        <span>Overview</span>
-      </div>
-    </div>
-
-    <div class="topbar-right">
-      <!-- Search -->
-      <div class="search-box">
-        <span class="material-symbols-outlined">search</span>
-        <input type="text" placeholder="Tìm kiếm ..." />
-      </div>
-
-      <!-- Notification -->
-      <button class="top-action" type="button">
-        <span class="material-symbols-outlined">notifications</span>
-        <span class="badge">3</span>
-      </button>
-
-      <!-- Settings -->
-      <button class="top-action" type="button">
-        <span class="material-symbols-outlined">settings</span>
-      </button>
-
-      <app-account-menu
-        [userName]="userName"
-        [userRole]="userRole"
-        [userEmail]="userEmail"
-        [userInitials]="userInitials"
-        [isAuthenticated]="true"
-        (profile)="goToProfile()"
-        (changePassword)="goToChangePassword()"
-        (logout)="onLogout()" />
-    </div>
-  </header>
+  <app-portal-topbar
+    [portal]="portalKey"
+    [isAuthenticated]="true"
+    [breadcrumbLabel]="breadcrumbLabel" />
 
   <!-- BODY -->
   <div class="workspace" [class.collapsed]="!isExpanded" [class.no-sidebar]="isPatientPortal">
