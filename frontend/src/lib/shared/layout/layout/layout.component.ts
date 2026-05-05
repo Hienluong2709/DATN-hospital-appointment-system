@@ -19,6 +19,7 @@ import {
   WORK_SCHEDULES_PATH,
   WORK_SCHEDULE_BLOCKS_PATH
 } from '../../../../app/shared/constant/navigator-endpoint.constant';
+import { AccountMenuComponent } from '../../../../app/shared/components/account-menu/account-menu.component';
 import { TokenService } from '../../../../app/core/services/token.service';
 
 interface MenuItem {
@@ -39,7 +40,7 @@ interface MenuGroup {
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, AccountMenuComponent],
   templateUrl: './layout.component.html',
   styleUrls: ['./layout.component.scss']
 })
@@ -50,7 +51,6 @@ export class LayoutComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
 
   isExpanded = true;
-  isUserMenuOpen = false;
 
   get userName(): string {
     return this.resolveUserName();
@@ -270,16 +270,6 @@ export class LayoutComponent implements OnInit {
     return (words[0].slice(0, 1) + words[1].slice(0, 1)).toUpperCase();
   }
 
-  @HostListener('document:click')
-  onDocumentClick(): void {
-    this.isUserMenuOpen = false;
-  }
-
-  @HostListener('document:keydown.escape')
-  onEscapeKey(): void {
-    this.isUserMenuOpen = false;
-  }
-
   @HostListener('window:resize')
   onWindowResize(): void {
     this.applySidebarForViewport();
@@ -289,22 +279,11 @@ export class LayoutComponent implements OnInit {
     this.isExpanded = !this.isExpanded;
   }
 
-  toggleUserMenu(event: MouseEvent): void {
-    event.stopPropagation();
-    this.isUserMenuOpen = !this.isUserMenuOpen;
-  }
-
-  onUserMenuClick(event: MouseEvent): void {
-    event.stopPropagation();
-  }
-
   goToProfile(): void {
-    this.isUserMenuOpen = false;
     void this.router.navigateByUrl(this.portalLink(PROFILE_PATH));
   }
 
   goToChangePassword(): void {
-    this.isUserMenuOpen = false;
     void this.router.navigateByUrl(this.portalLink(CHANGE_PASSWORD_PATH));
   }
 
@@ -322,7 +301,6 @@ export class LayoutComponent implements OnInit {
   }
 
   onLogout(): void {
-    this.isUserMenuOpen = false;
     this.tokenService.clearSession();
     void this.router.navigateByUrl(this.portalKey === 'patient' ? '/' : '/staff/login');
   }

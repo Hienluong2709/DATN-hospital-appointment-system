@@ -36,44 +36,15 @@
         <span class="material-symbols-outlined">settings</span>
       </button>
 
-      <!-- USER -->
-      <div class="user-menu" (click)="onUserMenuClick($event)">
-        <button class="user-area" type="button" (click)="toggleUserMenu($event)">
-          <span class="avatar">{{ userInitials }}</span>
-          <div class="user-info">
-            <strong>{{ userName }}</strong>
-            <small class="role">{{ userRole }}</small>
-          </div>
-          <span class="material-symbols-outlined">expand_more</span>
-        </button>
-
-        @if (isUserMenuOpen) {
-          <div class="user-dropdown">
-            <div class="user-summary">
-              <span class="avatar large">{{ userInitials }}</span>
-              <div>
-                <strong>{{ userName }}</strong>
-                <small>{{ userEmail }}</small>
-              </div>
-            </div>
-
-            <button class="dropdown-item" (click)="goToProfile()">
-              <span class="material-symbols-outlined">person</span>
-              <span>Profile</span>
-            </button>
-
-            <button class="dropdown-item" (click)="goToChangePassword()">
-              <span class="material-symbols-outlined">lock_reset</span>
-              <span>Đổi mật khẩu</span>
-            </button>
-
-            <button class="dropdown-item danger" (click)="onLogout()">
-              <span class="material-symbols-outlined">logout</span>
-              <span>Đăng xuất</span>
-            </button>
-          </div>
-        }
-      </div>
+      <app-account-menu
+        [userName]="userName"
+        [userRole]="userRole"
+        [userEmail]="userEmail"
+        [userInitials]="userInitials"
+        [isAuthenticated]="true"
+        (profile)="goToProfile()"
+        (changePassword)="goToChangePassword()"
+        (logout)="onLogout()" />
     </div>
   </header>
 

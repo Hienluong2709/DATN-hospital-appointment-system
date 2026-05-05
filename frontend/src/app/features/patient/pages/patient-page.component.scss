@@ -3,6 +3,182 @@
   gap: 1rem;
 }
 
+.landing-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: 18px;
+  border: 1px solid #dbe7f3;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: rgba(20, 53, 84, 0.08) 0 8px 20px;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.topbar-brand__logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #edf6ff;
+  border: 1px solid #d9ebfb;
+  color: #1d6cae;
+  flex: 0 0 auto;
+}
+
+.topbar-brand__logo svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.topbar-brand strong {
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.015em;
+  color: #0f385f;
+}
+
+.topbar-brand small {
+  display: block;
+  margin-top: 0.05rem;
+  font-size: 0.74rem;
+  color: #6a8299;
+}
+
+.topbar-breadcrumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 34px;
+  padding: 0 0.68rem;
+  border-radius: 999px;
+  background: #edf6ff;
+  border: 1px solid #d9ebfb;
+  color: #4d6b86;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.topbar-breadcrumb__divider {
+  color: #8aa5bd;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-left: auto;
+  position: relative;
+}
+
+.topbar-search {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 36px;
+  min-width: 240px;
+  background: #f4f8fc;
+  border: 1px solid #d5e3f1;
+  border-radius: 10px;
+  padding: 0 0.68rem;
+  color: #65829d;
+}
+
+.topbar-search__icon {
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+}
+
+.topbar-search__icon svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
+.topbar-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  color: #17324d;
+  height: auto;
+  padding: 0;
+}
+
+.topbar-icon-button {
+  border: 1px solid #d3e2f0;
+  background: #f8fbff;
+  color: #155286;
+  min-height: 36px;
+  border-radius: 10px;
+  transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.topbar-icon-button {
+  width: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+}
+
+.topbar-actions app-account-menu {
+  display: block;
+}
+
+.topbar-icon-button:hover,
+  transform: translateY(1px);
+}
+
+.topbar-icon-button__icon {
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+}
+
+.topbar-icon-button__icon svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
+.topbar-icon-button__badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #d93f4d;
+  color: #fff;
+  font-size: 0.64rem;
+  line-height: 18px;
+  text-align: center;
+  font-weight: 700;
+}
+
 .hero-card {
   display: grid;
   gap: 1rem;
@@ -294,8 +470,79 @@
   background: #ffffff;
 }
 
+/* Welcome Card (Logged In State) */
+.welcome-card {
+  display: grid;
+  gap: 1rem;
+  border-radius: 18px;
+  padding: 1.2rem;
+  background: linear-gradient(135deg, #1a5f7f 0%, #0d7b99 52%, #0a9ba8 100%);
+  color: #e8f7ff;
+}
+
+.welcome-content h1 {
+  margin: 0.35rem 0 0.6rem;
+  font-size: clamp(1.35rem, 2vw, 1.85rem);
+  line-height: 1.2;
+  color: #ffffff;
+}
+
+.welcome-description {
+  margin: 0;
+  max-width: 55ch;
+  color: #d0f0ff;
+  line-height: 1.55;
+}
+
+.welcome-actions {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.welcome-actions .btn-primary {
+  background: #f1fbff;
+  color: #0a5f7f;
+}
+
+.welcome-actions .btn-secondary {
+  border-color: #7fd4e8;
+  color: #e0f8ff;
+  background: transparent;
+}
+
 @media (max-width: 900px) {
+  .landing-topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .topbar-left {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .topbar-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .topbar-search {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  .topbar-user {
+    flex: 1 1 auto;
+  }
+
   .hero-card {
     grid-template-columns: 1fr;
+  }
+
+  .welcome-card {
+    gap: 0.8rem;
+    padding: 1rem;
   }
 }
