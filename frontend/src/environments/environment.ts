@@ -1,0 +1,7 @@
+import type { PortalEnvironment } from './environment.model';
+
+export const environment: PortalEnvironment = {
+  portalMode: 'patient',
+  patientPortalOrigin: 'http://localhost:4200',
+  staffPortalOrigin: 'http://localhost:4201'
+};
