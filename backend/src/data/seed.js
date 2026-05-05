@@ -657,13 +657,17 @@ async function seed() {
       {
         code: "123456",
         phone: userByUsername.get("patient1").phone,
+        purpose: "REGISTER",
         expired_time: new Date(Date.now() + 5 * 60 * 1000),
+        consumed_at: null,
         status: "Pending",
       },
       {
         code: "654321",
         phone: userByUsername.get("patient2").phone,
+        purpose: "REGISTER",
         expired_time: new Date(Date.now() + 5 * 60 * 1000),
+        consumed_at: null,
         status: "Verified",
       },
     ]);
