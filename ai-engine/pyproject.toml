@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "datn-ai-engine"
+version = "0.1.0"
+description = "Queue wait prediction engine for DATN"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+  "catboost>=1.2.5",
+  "joblib>=1.4.2",
+  "numpy>=1.26.4",
+  "pandas>=2.2.2",
+  "scikit-learn>=1.5.1",
+]
+
+[project.scripts]
+ai-engine-train = "ai_engine.train:main"
+ai-engine-predict = "ai_engine.predict:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
