@@ -44,3 +44,5 @@ tmp/
 temp/
 uploads/
 outputs/
+backend/exports/
+ai-engine/artifacts/

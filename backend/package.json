@@ -24,7 +24,8 @@
     "seed:training:history": "node src/scripts/seed-training-history-additive.js",
     "ai:export-queue-training-data": "node src/scripts/export-queue-training-data.js",
     "ai:build-queue-features": "node src/scripts/build-queue-features-dataset.js",
-    "ai:build-queue-training-pipeline": "node src/scripts/build-queue-training-pipeline.js"
+    "ai:build-queue-training-pipeline": "node src/scripts/build-queue-training-pipeline.js",
+    "ai-engine:export-training-data": "node src/scripts/export-ai-engine-training-data.js"
   },
   "keywords": [],
   "author": "",
