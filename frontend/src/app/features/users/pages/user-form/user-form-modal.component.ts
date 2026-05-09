@@ -3,6 +3,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
 
 import { UserGender, UserRole } from '../../models/users.model';
+import { getRoleLabel } from '../../../../shared/enum-label.util';
 
 @Component({
   selector: 'app-user-form-modal',
@@ -36,5 +37,9 @@ export class UserFormModalComponent {
 
   onSubmit(): void {
     this.submitForm.emit();
+  }
+
+  getRoleLabel(role: string | null | undefined): string {
+    return getRoleLabel(role);
   }
 }

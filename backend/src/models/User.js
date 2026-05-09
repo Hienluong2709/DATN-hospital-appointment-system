@@ -48,6 +48,11 @@ const User = sequelize.define(
       defaultValue: "PATIENT",
       allowNull: false,
     },
+    status: {
+      type: DataTypes.ENUM("Active", "Inactive"),
+      defaultValue: "Active",
+      allowNull: false,
+    },
   },
   {
     tableName: "users",

@@ -4,6 +4,7 @@ import {
   getAllUsersService,
   getCurrentUserService,
   getUserByIdService,
+  updateUserStatusService,
   updateCurrentUserService,
   updateUserService,
 } from "../services/userService.js";
@@ -103,5 +104,18 @@ export const deleteUser = async (req, res) => {
     });
   } catch (error) {
     return handleError(res, error, "Không thể xóa người dùng");
+  }
+};
+
+export const updateUserStatus = async (req, res) => {
+  try {
+    const data = await updateUserStatusService(req.params.id, req.body, req.user);
+
+    return res.json({
+      message: data.status === "Inactive" ? "Khóa tài khoản thành công" : "Mở khóa tài khoản thành công",
+      data,
+    });
+  } catch (error) {
+    return handleError(res, error, "Không thể cập nhật trạng thái người dùng");
   }
 };

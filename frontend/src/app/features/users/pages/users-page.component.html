@@ -25,7 +25,7 @@
         <select [(ngModel)]="selectedRole">
           <option value="ALL">Tất cả vai trò</option>
           @for (role of roleOptions; track role) {
-            <option [value]="role">{{ role }}</option>
+            <option [value]="role">{{ getRoleLabel(role) }}</option>
           }
         </select>
       </label>
@@ -36,6 +36,16 @@
           <option value="ALL">Tất cả giới tính</option>
           @for (gender of genderOptions; track gender.value) {
             <option [value]="gender.value">{{ gender.label }}</option>
+          }
+        </select>
+      </label>
+
+      <label class="filter-field">
+        <span>Trạng thái tài khoản</span>
+        <select [(ngModel)]="selectedStatus">
+          <option value="ALL">Tất cả trạng thái</option>
+          @for (status of statusOptions; track status.value) {
+            <option [value]="status.value">{{ status.label }}</option>
           }
         </select>
       </label>
@@ -77,9 +87,8 @@
     <div class="table-header">
       <h2>Danh sách người dùng</h2>
       <div class="table-header-actions">
-        <button class="button-primary" type="button" (click)="openCreateModal()" [disabled]="isSubmitting">Thêm người dùng</button>
-        <button class="button-secondary" type="button" (click)="reload()" [disabled]="isLoadingList || isSubmitting">
-          Tải lại
+        <button class="button-primary" type="button" (click)="openCreateModal()" [disabled]="isSubmitting">
+          Thêm người dùng
         </button>
       </div>
     </div>
@@ -99,6 +108,7 @@
               <th>Email</th>
               <th>Số điện thoại</th>
               <th>Vai trò</th>
+              <th>Trạng thái</th>
               <th>Thao tác</th>
             </tr>
           </thead>
@@ -110,7 +120,12 @@
                 <td>{{ user.fullname }}</td>
                 <td>{{ user.email || '--' }}</td>
                 <td>{{ user.phone || '--' }}</td>
-                <td><span class="role-badge">{{ user.role }}</span></td>
+                <td><span class="role-badge">{{ getRoleLabel(user.role) }}</span></td>
+                <td>
+                  <span class="status-badge" [class.status-badge--inactive]="user.status === 'Inactive'">
+                    {{ getUserStatusLabel(user.status) }}
+                  </span>
+                </td>
                 <td>
                   <div class="actions">
                     <button class="button-secondary action-icon-button" type="button" (click)="onViewMore(user.id)" aria-label="Xem chi tiết" title="Xem chi tiết">
@@ -126,6 +141,27 @@
                         <path d="M13 6l5 5" />
                       </svg>
                       <span class="sr-only">Sửa</span>
+                    </button>
+                    <button
+                      [class]="user.status === 'Active' ? 'button-danger action-icon-button' : 'button-secondary action-icon-button'"
+                      type="button"
+                      (click)="onToggleStatus(user)"
+                      [disabled]="isSubmitting"
+                      [attr.aria-label]="user.status === 'Active' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'"
+                      [attr.title]="user.status === 'Active' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'"
+                    >
+                      <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        @if (user.status === 'Active') {
+                          <path d="M7 11V8a5 5 0 0 1 10 0v3" />
+                          <rect x="5" y="11" width="14" height="10" rx="2" />
+                        } @else {
+                          <path d="M7 11V8a5 5 0 0 1 10 0" />
+                          <path d="M19 11v10H5V11h10" />
+                          <path d="M15 15l4-4" />
+                          <path d="M15 11h4v4" />
+                        }
+                      </svg>
+                      <span class="sr-only">{{ user.status === 'Active' ? 'Khóa tài khoản' : 'Mở khóa tài khoản' }}</span>
                     </button>
                     <button class="button-danger action-icon-button" type="button" (click)="onDelete(user)" [disabled]="isSubmitting" aria-label="Xóa" title="Xóa">
                       <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">

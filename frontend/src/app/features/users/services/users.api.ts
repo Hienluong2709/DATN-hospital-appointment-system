@@ -3,12 +3,13 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 
 import { API_BASE_URL } from '../../../core/config/api.config';
 import { ApiResponse } from '../../../shared/types/api-response.type';
-import { User, UserUpsertPayload } from '../models/users.model';
+import { User, UserStatus, UserUpsertPayload } from '../models/users.model';
 
 export interface UserListFilters {
   q?: string;
   role?: User['role'] | 'ALL';
   gender?: NonNullable<User['gender']> | 'ALL';
+  status?: UserStatus | 'ALL';
   page?: number;
   page_size?: number;
 }
@@ -30,6 +31,10 @@ export class UsersApiService {
 
     if (filters?.gender && filters.gender !== 'ALL') {
       params = params.set('gender', filters.gender);
+    }
+
+    if (filters?.status && filters.status !== 'ALL') {
+      params = params.set('status', filters.status);
     }
 
     if (typeof filters?.page === 'number' && filters.page > 0) {
@@ -57,6 +62,10 @@ export class UsersApiService {
 
   update(id: number, payload: UserUpsertPayload) {
     return this.http.put<ApiResponse<User>>(`${API_BASE_URL}/users/${id}`, payload);
+  }
+
+  updateStatus(id: number, status: UserStatus) {
+    return this.http.patch<ApiResponse<User>>(`${API_BASE_URL}/users/${id}/status`, { status });
   }
 
   updateMe(payload: Pick<UserUpsertPayload, 'fullname' | 'email' | 'phone' | 'date_of_birth' | 'gender' | 'address'>) {

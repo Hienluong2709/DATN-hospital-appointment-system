@@ -14,6 +14,7 @@ const { User } = db;
 
 const ALLOWED_ROLES = ["ADMIN", "DOCTOR", "PATIENT", "RECEPTIONIST"];
 const ALLOWED_GENDERS = ["MALE", "FEMALE", "OTHER"];
+const ALLOWED_USER_STATUSES = ["Active", "Inactive"];
 
 const parseId = (id) => {
   const parsed = Number(id);
@@ -131,6 +132,26 @@ const normalizeOptionalGender = (value) => {
   return value;
 };
 
+const normalizeUserStatus = (value, { fallback = "Active", required = false } = {}) => {
+  if (value === undefined || value === null || value === "") {
+    if (required) {
+      const error = new Error("Trạng thái không hợp lệ");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    return fallback;
+  }
+
+  if (typeof value !== "string" || !ALLOWED_USER_STATUSES.includes(value)) {
+    const error = new Error("Trạng thái không hợp lệ");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return value;
+};
+
 const sanitizeUser = (user) => ({
   id: user.id,
   username: user.username,
@@ -141,6 +162,7 @@ const sanitizeUser = (user) => ({
   gender: user.gender,
   address: user.address,
   role: user.role,
+  status: user.status,
 });
 
 const ensureUniqueUserContacts = async ({ userId = null, email, phone, username }) => {
@@ -188,6 +210,7 @@ export const getAllUsersService = async (filters = {}) => {
   const q = normalizeOptionalQueryString(filters?.q);
   const role = normalizeOptionalQueryString(filters?.role, 30);
   const gender = normalizeOptionalQueryString(filters?.gender, 30);
+  const status = normalizeOptionalQueryString(filters?.status, 30);
   const where = {};
 
   if (role) {
@@ -196,6 +219,10 @@ export const getAllUsersService = async (filters = {}) => {
 
   if (gender) {
     where.gender = normalizeOptionalGender(gender);
+  }
+
+  if (status) {
+    where.status = normalizeUserStatus(status, { required: true });
   }
 
   if (!q && !pagination.enabled) {
@@ -282,6 +309,7 @@ export const createUserService = async (payload) => {
   const gender = normalizeOptionalGender(payload?.gender);
   const address = normalizeOptionalString(payload?.address);
   const role = normalizeRole(payload?.role);
+  const status = normalizeUserStatus(payload?.status);
 
   if (password.length < 6) {
     const error = new Error("Password phải có ít nhất 6 ký tự");
@@ -301,6 +329,7 @@ export const createUserService = async (payload) => {
     gender,
     address,
     role,
+    status,
   });
 
   return sanitizeUser(created);
@@ -324,6 +353,9 @@ export const updateUserService = async (id, payload) => {
   const gender = normalizeOptionalGender(payload?.gender);
   const address = normalizeOptionalString(payload?.address);
   const role = normalizeRole(payload?.role);
+  const status = payload?.status === undefined
+    ? user.status
+    : normalizeUserStatus(payload?.status, { required: true });
   const rawPassword = payload?.password;
 
   await ensureUniqueUserContacts({
@@ -341,6 +373,7 @@ export const updateUserService = async (id, payload) => {
   user.gender = gender;
   user.address = address;
   user.role = role;
+  user.status = status;
 
   if (rawPassword !== undefined && rawPassword !== null) {
     if (typeof rawPassword !== "string") {
@@ -416,4 +449,31 @@ export const deleteUserService = async (id, currentUser) => {
   }
 
   await user.destroy();
+};
+
+export const updateUserStatusService = async (id, payload, currentUser) => {
+  const parsedId = parseId(id);
+  const status = normalizeUserStatus(payload?.status, { required: true });
+
+  if (currentUser?.id === parsedId && status === "Inactive") {
+    const error = new Error("Không thể tự khóa tài khoản đang đăng nhập");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const user = await User.findByPk(parsedId);
+  if (!user) {
+    const error = new Error("Không tìm thấy người dùng");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (user.status === status) {
+    return sanitizeUser(user);
+  }
+
+  user.status = status;
+  await user.save();
+
+  return sanitizeUser(user);
 };

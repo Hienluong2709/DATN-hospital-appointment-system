@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, HostListener, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -6,10 +7,11 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { SharedPaginationComponent } from '../../../shared/components/pagination/pagination.component';
-import { User, UserGender, UserRole, UserUpsertPayload } from '../models/users.model';
+import { User, UserGender, UserRole, UserStatus, UserUpsertPayload } from '../models/users.model';
 import { UserDetailModalComponent } from './user-detail/user-detail-modal.component';
 import { UserFormModalComponent } from './user-form/user-form-modal.component';
 import { UsersApiService } from '../services/users.api';
+import { getRoleLabel, getUserStatusLabel } from '../../../shared/enum-label.util';
 
 @Component({
   selector: 'app-users-page',
@@ -44,6 +46,7 @@ export class UsersPageComponent implements OnInit, OnDestroy {
   searchTerm = '';
   selectedRole: UserRole | 'ALL' = 'ALL';
   selectedGender: UserGender | 'ALL' = 'ALL';
+  selectedStatus: UserStatus | 'ALL' = 'ALL';
   currentPage = 1;
   pageSize = 10;
   totalItems = 0;
@@ -53,6 +56,10 @@ export class UsersPageComponent implements OnInit, OnDestroy {
     { value: 'MALE', label: 'Nam' },
     { value: 'FEMALE', label: 'Nữ' },
     { value: 'OTHER', label: 'Khác' }
+  ];
+  readonly statusOptions: Array<{ value: UserStatus; label: string }> = [
+    { value: 'Active', label: 'Đang hoạt động' },
+    { value: 'Inactive', label: 'Đã khóa' }
   ];
 
   readonly form = this.fb.nonNullable.group({
@@ -102,12 +109,21 @@ export class UsersPageComponent implements OnInit, OnDestroy {
     return (this.currentPage - 1) * this.pageSize;
   }
 
+  getRoleLabel(role: string | null | undefined): string {
+    return getRoleLabel(role);
+  }
+
+  getUserStatusLabel(status: string | null | undefined): string {
+    return getUserStatusLabel(status);
+  }
+
   ngOnInit(): void {
     this.subscriptions.add(
       this.route.queryParamMap.subscribe((params) => {
         this.searchTerm = params.get('q') ?? '';
         this.selectedRole = this.parseRoleParam(params.get('role'));
         this.selectedGender = this.parseGenderParam(params.get('gender'));
+        this.selectedStatus = this.parseStatusParam(params.get('status'));
         this.currentPage = this.parsePositiveQueryParam(params.get('page'), 1);
         this.pageSize = this.parsePositiveQueryParam(params.get('page_size'), this.pageSizeOptions[0]);
         this.loadList();
@@ -161,6 +177,7 @@ export class UsersPageComponent implements OnInit, OnDestroy {
     this.searchTerm = '';
     this.selectedRole = 'ALL';
     this.selectedGender = 'ALL';
+    this.selectedStatus = 'ALL';
     this.currentPage = 1;
     this.updateQueryParams(true);
   }
@@ -342,6 +359,39 @@ export class UsersPageComponent implements OnInit, OnDestroy {
     });
   }
 
+  onToggleStatus(user: User): void {
+    const nextStatus: UserStatus = user.status === 'Active' ? 'Inactive' : 'Active';
+    const actionLabel = nextStatus === 'Inactive' ? 'khóa' : 'mở khóa';
+    const shouldUpdate = globalThis.confirm(`Bạn có chắc chắn muốn ${actionLabel} tài khoản ${user.username}?`);
+
+    if (!shouldUpdate) {
+      return;
+    }
+
+    this.feedbackMessage = '';
+    this.isSubmitting = true;
+
+    this.usersApiService.updateStatus(user.id, nextStatus).subscribe({
+      next: (response) => {
+        this.showFeedback('success', response.message ?? `${actionLabel} tài khoản thành công.`);
+
+        this.users = this.users.map((currentUser) =>
+          currentUser.id === user.id ? response.data : currentUser,
+        );
+
+        if (this.selectedUser?.id === user.id) {
+          this.selectedUser = response.data;
+        }
+      },
+      error: (error: HttpErrorResponse) => {
+        this.showFeedback('error', error.error?.message ?? `Không thể ${actionLabel} tài khoản.`);
+      },
+      complete: () => {
+        this.isSubmitting = false;
+      }
+    });
+  }
+
   private loadList(): void {
     this.isLoadingList = true;
     this.feedbackMessage = '';
@@ -350,6 +400,7 @@ export class UsersPageComponent implements OnInit, OnDestroy {
       q: this.searchTerm,
       role: this.selectedRole,
       gender: this.selectedGender,
+      status: this.selectedStatus,
       page: this.currentPage,
       page_size: this.pageSize
     }).subscribe({
@@ -444,6 +495,7 @@ export class UsersPageComponent implements OnInit, OnDestroy {
         q: this.searchTerm.trim() || null,
         role: this.selectedRole !== 'ALL' ? this.selectedRole : null,
         gender: this.selectedGender !== 'ALL' ? this.selectedGender : null,
+        status: this.selectedStatus !== 'ALL' ? this.selectedStatus : null,
         page: this.currentPage > 1 ? this.currentPage : null,
         page_size: this.pageSize !== this.pageSizeOptions[0] ? this.pageSize : null
       },
@@ -462,5 +514,9 @@ export class UsersPageComponent implements OnInit, OnDestroy {
 
   private parseGenderParam(value: string | null): UserGender | 'ALL' {
     return this.genderOptions.some((gender) => gender.value === value) ? (value as UserGender) : 'ALL';
+  }
+
+  private parseStatusParam(value: string | null): UserStatus | 'ALL' {
+    return this.statusOptions.some((status) => status.value === value) ? (value as UserStatus) : 'ALL';
   }
 }

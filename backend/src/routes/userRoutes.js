@@ -6,6 +6,7 @@ import {
   getAllUsers,
   getCurrentUser,
   getUserById,
+  updateUserStatus,
   updateCurrentUser,
   updateUser,
 } from "../controllers/userController.js";
@@ -17,6 +18,7 @@ router.put("/me", authenticate, authorize(["ADMIN", "PATIENT", "DOCTOR", "RECEPT
 router.get("/", authenticate, authorize(["ADMIN"]), getAllUsers);
 router.get("/:id", authenticate, authorize(["ADMIN"]), getUserById);
 router.post("/", authenticate, authorize(["ADMIN"]), createUser);
+router.patch("/:id/status", authenticate, authorize(["ADMIN"]), updateUserStatus);
 router.put("/:id", authenticate, authorize(["ADMIN"]), updateUser);
 router.delete("/:id", authenticate, authorize(["ADMIN"]), deleteUser);
 

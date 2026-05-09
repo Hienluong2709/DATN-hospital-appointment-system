@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 
 import { User } from '../../models/users.model';
+import { getGenderLabel, getRoleLabel, getUserStatusLabel } from '../../../../shared/enum-label.util';
 
 @Component({
   selector: 'app-user-detail-modal',
@@ -23,5 +24,17 @@ export class UserDetailModalComponent {
 
   onCloseClick(): void {
     this.closeModal.emit();
+  }
+
+  getGenderLabel(gender: string | null | undefined): string {
+    return getGenderLabel(gender);
+  }
+
+  getRoleLabel(role: string | null | undefined): string {
+    return getRoleLabel(role);
+  }
+
+  getUserStatusLabel(status: string | null | undefined): string {
+    return getUserStatusLabel(status);
   }
 }

@@ -32,17 +32,7 @@
           </div>
           <div>
             <dt>Giới tính</dt>
-            <dd>
-              @if (user.gender === 'MALE') {
-                Nam
-              } @else if (user.gender === 'FEMALE') {
-                Nữ
-              } @else if (user.gender === 'OTHER') {
-                Khác
-              } @else {
-                --
-              }
-            </dd>
+            <dd>{{ getGenderLabel(user.gender) }}</dd>
           </div>
           <div>
             <dt>Địa chỉ</dt>
@@ -50,7 +40,11 @@
           </div>
           <div>
             <dt>Vai trò</dt>
-            <dd>{{ user.role }}</dd>
+            <dd>{{ getRoleLabel(user.role) }}</dd>
+          </div>
+          <div>
+            <dt>Trạng thái tài khoản</dt>
+            <dd>{{ getUserStatusLabel(user.status) }}</dd>
           </div>
         </dl>
       } @else {
