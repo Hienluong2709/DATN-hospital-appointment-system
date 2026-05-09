@@ -25,7 +25,7 @@
         <select [(ngModel)]="selectedStatus">
           <option value="ALL">Tất cả trạng thái</option>
           @for (status of statusOptions; track status) {
-            <option [value]="status">{{ status }}</option>
+            <option [value]="status">{{ getDoctorStatusLabel(status) }}</option>
           }
         </select>
       </label>
@@ -86,12 +86,11 @@
   <article class="feature-card table-card">
     <div class="table-header">
       <h2>Danh sách bác sĩ</h2>
-      <div class="table-header-actions">
-        <button *ngIf="canManageDoctors" class="button-primary" type="button" (click)="openCreateModal()" [disabled]="isSubmitting">Thêm bác sĩ</button>
-        <button class="button-secondary" type="button" (click)="reload()" [disabled]="isLoadingList || isSubmitting">
-          Tải lại
-        </button>
-      </div>
+      @if (canManageDoctors) {
+        <div class="table-header-actions">
+          <button class="button-primary" type="button" (click)="openCreateModal()" [disabled]="isSubmitting">Thêm bác sĩ</button>
+        </div>
+      }
     </div>
 
     @if (isLoadingList) {
@@ -122,7 +121,7 @@
                 <td>{{ doctor.Room?.name || '--' }}</td>
                 <td>
                   <span class="status-badge" [class.status-badge--inactive]="doctor.status === 'Inactive'">
-                    {{ doctor.status }}
+                    {{ getDoctorStatusLabel(doctor.status) }}
                   </span>
                 </td>
                 <td>
@@ -178,6 +177,7 @@
     [specialties]="specialties"
     [rooms]="rooms"
     [filteredRooms]="filteredRooms"
+    [doctorUsers]="availableDoctorUsers"
     [nameInvalid]="userControl.invalid && (userControl.touched || userControl.dirty)"
     [specialtyInvalid]="specialtyControl.invalid && (specialtyControl.touched || specialtyControl.dirty)"
     [roomInvalid]="roomControl.invalid && (roomControl.touched || roomControl.dirty)"

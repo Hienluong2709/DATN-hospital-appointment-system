@@ -14,6 +14,7 @@ import { RoomDetailModalComponent } from './room-detail/room-detail-modal.compon
 import { RoomFormModalComponent } from './room-form/room-form-modal.component';
 import { RoomsApiService } from '../services/rooms.api';
 import { SharedPaginationComponent } from '../../../shared/components/pagination/pagination.component';
+import { getRoomStatusLabel } from '../../../shared/enum-label.util';
 
 @Component({
   selector: 'app-rooms-page',
@@ -58,6 +59,7 @@ export class RoomsPageComponent implements OnInit, OnDestroy {
   totalItems = 0;
   readonly pageSizeOptions = [10, 20, 50];
   readonly currentRole: BackendRole | null = this.tokenService.getCurrentRole();
+  readonly roomStatusOptions: RoomStatus[] = ['Available', 'Maintenance'];
 
   readonly form = this.fb.nonNullable.group({
     name: ['', [Validators.required]],
@@ -77,6 +79,10 @@ export class RoomsPageComponent implements OnInit, OnDestroy {
 
   get canManageRooms(): boolean {
     return this.currentRole === 'ADMIN';
+  }
+
+  getRoomStatusLabel(status: string | null | undefined): string {
+    return getRoomStatusLabel(status);
   }
 
   ngOnInit(): void {

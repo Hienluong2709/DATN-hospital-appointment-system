@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 
 import { Doctor, DoctorAvailabilityDay, DoctorAvailabilityPeriod } from '../../models/doctors.model';
 import { DoctorsApiService } from '../../services/doctors.api';
+import { getDoctorStatusLabel } from '../../../../shared/enum-label.util';
 
 @Component({
   selector: 'app-doctor-detail-modal',
@@ -96,6 +97,10 @@ export class DoctorDetailModalComponent implements OnChanges {
     }
 
     return 'Không có lịch';
+  }
+
+  getDoctorStatusLabel(status: string | null | undefined): string {
+    return getDoctorStatusLabel(status);
   }
 
   private loadAvailability(): void {

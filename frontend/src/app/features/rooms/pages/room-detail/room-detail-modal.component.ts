@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 
 import { Room } from '../../models/rooms.model';
+import { getRoomStatusLabel } from '../../../../shared/enum-label.util';
 
 @Component({
   selector: 'app-room-detail-modal',
@@ -23,5 +24,9 @@ export class RoomDetailModalComponent {
 
   onCloseClick(): void {
     this.closeModal.emit();
+  }
+
+  getRoomStatusLabel(status: string | null | undefined): string {
+    return getRoomStatusLabel(status);
   }
 }

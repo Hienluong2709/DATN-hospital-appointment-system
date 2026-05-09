@@ -55,12 +55,11 @@
   <article class="feature-card table-card">
     <div class="table-header">
       <h2>Danh sách chuyên khoa</h2>
-      <div class="table-header-actions">
-        <button *ngIf="canManageSpecialties" class="button-primary" type="button" (click)="openCreateModal()" [disabled]="isSubmitting">Thêm chuyên khoa</button>
-        <button class="button-secondary" type="button" (click)="reload()" [disabled]="isLoadingList || isSubmitting">
-          Tải lại
-        </button>
-      </div>
+      @if (canManageSpecialties) {
+        <div class="table-header-actions">
+          <button class="button-primary" type="button" (click)="openCreateModal()" [disabled]="isSubmitting">Thêm chuyên khoa</button>
+        </div>
+      }
     </div>
 
     @if (isLoadingList) {

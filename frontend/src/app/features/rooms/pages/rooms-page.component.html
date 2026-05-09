@@ -23,8 +23,9 @@
         <span>Trạng thái</span>
         <select [(ngModel)]="selectedStatus">
           <option value="ALL">Tất cả trạng thái</option>
-          <option value="Available">Available</option>
-          <option value="Maintenance">Maintenance</option>
+          @for (status of roomStatusOptions; track status) {
+            <option [value]="status">{{ getRoomStatusLabel(status) }}</option>
+          }
         </select>
       </label>
 
@@ -79,12 +80,11 @@
   <article class="feature-card table-card">
     <div class="table-header">
       <h2>Danh sách phòng</h2>
-      <div class="table-header-actions">
-        <button *ngIf="canManageRooms" class="button-primary" type="button" (click)="openCreateModal()" [disabled]="isSubmitting">Thêm phòng</button>
-        <button class="button-secondary" type="button" (click)="reload()" [disabled]="isLoadingList || isSubmitting">
-          Tải lại
-        </button>
-      </div>
+      @if (canManageRooms) {
+        <div class="table-header-actions">
+          <button class="button-primary" type="button" (click)="openCreateModal()" [disabled]="isSubmitting">Thêm phòng</button>
+        </div>
+      }
     </div>
 
     @if (isLoadingList) {
@@ -114,7 +114,7 @@
                 <td>{{ room.Specialty?.name || '--' }}</td>
                 <td>
                   <span class="status-badge" [class.status-badge--maintenance]="room.status === 'Maintenance'">
-                    {{ room.status }}
+                    {{ getRoomStatusLabel(room.status) }}
                   </span>
                 </td>
                 <!-- <td>{{ shortDescription(room.description) }}</td> -->

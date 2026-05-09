@@ -16,6 +16,9 @@ import { DoctorDetailModalComponent } from './doctor-detail/doctor-detail-modal.
 import { DoctorFormModalComponent } from './doctor-form/doctor-form-modal.component';
 import { DoctorsApiService } from '../services/doctors.api';
 import { SharedPaginationComponent } from '../../../shared/components/pagination/pagination.component';
+import { getDoctorStatusLabel } from '../../../shared/enum-label.util';
+import { UsersApiService } from '../../users/services/users.api';
+import { User } from '../../users/models/users.model';
 
 @Component({
   selector: 'app-doctors-page',
@@ -29,6 +32,7 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
   private readonly doctorsApiService = inject(DoctorsApiService);
   private readonly specialtiesApiService = inject(SpecialtiesApiService);
   private readonly roomsApiService = inject(RoomsApiService);
+  private readonly usersApiService = inject(UsersApiService);
   private readonly tokenService = inject(TokenService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -38,6 +42,7 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
   doctors: Doctor[] = [];
   specialties: Specialty[] = [];
   rooms: Room[] = [];
+  doctorUsers: User[] = [];
   selectedDoctor: Doctor | null = null;
   editingDoctorId: number | null = null;
 
@@ -99,6 +104,20 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
     return this.rooms.filter((room) => room.specialty_id === specialtyId);
   }
 
+  get availableDoctorUsers(): User[] {
+    const assignedUserIds = new Set(
+      this.doctors
+        .filter((doctor) => doctor.id !== this.editingDoctorId)
+        .map((doctor) => doctor.user_id),
+    );
+
+    return this.doctorUsers.filter((user) => !assignedUserIds.has(user.id));
+  }
+
+  getDoctorStatusLabel(status: string | null | undefined): string {
+    return getDoctorStatusLabel(status);
+  }
+
   ngOnInit(): void {
     this.subscriptions.add(
       this.route.queryParamMap.subscribe((params) => {
@@ -121,6 +140,7 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
 
     this.loadSpecialties();
     this.loadRooms();
+    this.loadDoctorUsers();
   }
 
   ngOnDestroy(): void {
@@ -419,6 +439,21 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
       },
       complete: () => {
         this.isLoadingRooms = false;
+      }
+    });
+  }
+
+  private loadDoctorUsers(): void {
+    this.usersApiService.getAll({
+      role: 'DOCTOR',
+      page: 1,
+      page_size: 200,
+    }).subscribe({
+      next: (response) => {
+        this.doctorUsers = response.data;
+      },
+      error: (error: { error?: { message?: string } }) => {
+        this.showFeedback('error', error.error?.message ?? 'Không thể tải danh sách tài khoản bác sĩ.');
       }
     });
   }

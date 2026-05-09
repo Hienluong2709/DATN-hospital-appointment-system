@@ -8,10 +8,48 @@
 
       <form class="doctor-form" [formGroup]="form" (ngSubmit)="onSubmit()">
         <label>
-          <span>User ID</span>
-          <input type="number" formControlName="user_id" min="1" placeholder="Nhap ID nguoi dung co vai tro DOCTOR" />
+          <span>Bác sĩ / tài khoản bác sĩ</span>
+          <div class="search-combobox" (focusout)="onUserSearchBlur()">
+            <div class="search-combobox__control">
+              <input
+                type="text"
+                [value]="userSearchTerm"
+                (focus)="onUserSearchFocus()"
+                (input)="onUserSearchInput($any($event.target).value)"
+                placeholder="Chọn hoặc gõ tên tài khoản bác sĩ"
+                autocomplete="off"
+              />
+              <button
+                class="search-combobox__toggle"
+                type="button"
+                (click)="toggleUserDropdown()"
+                [attr.aria-label]="isUserDropdownOpen ? 'Thu gọn danh sách bác sĩ' : 'Mở danh sách bác sĩ'"
+              >
+                <span class="material-symbols-outlined">expand_more</span>
+              </button>
+            </div>
+
+            @if (isUserDropdownOpen) {
+              <div class="search-combobox__menu">
+                @if (filteredDoctorUsers.length) {
+                  @for (user of filteredDoctorUsers; track user.id) {
+                    <button
+                      class="search-combobox__option"
+                      type="button"
+                      (click)="selectDoctorUser(user)"
+                    >
+                      <span class="search-combobox__option-title">{{ getDoctorUserLabel(user) }}</span>
+                      <span class="search-combobox__option-meta">{{ user.email || user.phone || 'Tài khoản bác sĩ' }}</span>
+                    </button>
+                  }
+                } @else {
+                  <div class="search-combobox__empty">Không tìm thấy tài khoản bác sĩ phù hợp.</div>
+                }
+              </div>
+            }
+          </div>
           @if (userInvalid) {
-            <small>User ID la bat buoc va phai la so hop le.</small>
+            <small>Vui lòng chọn tài khoản bác sĩ.</small>
           }
         </label>
 
@@ -47,7 +85,7 @@
           <span>Trang thai</span>
           <select formControlName="status">
             @for (status of statusOptions; track status) {
-              <option [value]="status">{{ status }}</option>
+              <option [value]="status">{{ getDoctorStatusLabel(status) }}</option>
             }
           </select>
         </label>

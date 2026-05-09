@@ -3,6 +3,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
 
 import { Specialty } from '../../../specialties/models/specialties.model';
+import { getRoomStatusLabel } from '../../../../shared/enum-label.util';
 
 @Component({
   selector: 'app-room-form-modal',
@@ -33,5 +34,9 @@ export class RoomFormModalComponent {
 
   onSubmit(): void {
     this.submitForm.emit();
+  }
+
+  getRoomStatusLabel(status: string | null | undefined): string {
+    return getRoomStatusLabel(status);
   }
 }

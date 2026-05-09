@@ -24,8 +24,8 @@
           <label>
             <span>Trang thai</span>
             <select formControlName="status">
-              <option value="Available">Available</option>
-              <option value="Maintenance">Maintenance</option>
+              <option value="Available">{{ getRoomStatusLabel('Available') }}</option>
+              <option value="Maintenance">{{ getRoomStatusLabel('Maintenance') }}</option>
             </select>
           </label>
         </div>
