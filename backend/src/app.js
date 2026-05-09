@@ -13,6 +13,7 @@ import workScheduleBlockRoutes from "./routes/workScheduleBlockRoutes.js";
 import appointmentRoutes from "./routes/appointmentRoutes.js";
 import queueRoutes from "./routes/queueRoutes.js";
 import equeueNumberRoutes from "./routes/equeueNumberRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
 import { cleanupExpiredPendingAppointmentsService } from "./services/appointmentService.js";
 import { startInProgressQueueReforecastJob } from "./services/inProgressQueueReforecastJobService.js";
 import { startNoShowEndOfDayJob } from "./services/noShowJobService.js";
@@ -88,5 +89,6 @@ app.use("/api/work-schedule-blocks", workScheduleBlockRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/queues", queueRoutes);
 app.use("/api/equeue-numbers", equeueNumberRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 startServer();

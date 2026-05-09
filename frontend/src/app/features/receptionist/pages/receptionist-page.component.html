@@ -1,0 +1,118 @@
+<section class="feature-page">
+  <header class="feature-header">
+    <h1 class="feature-title">Trang chủ lễ tân</h1>
+    <p class="feature-subtitle">
+      Theo dõi tiếp đón trong ngày, các lịch cần check-in và hàng đợi đang chờ phục vụ.
+    </p>
+  </header>
+
+  @if (loading) {
+    <section class="feature-card dashboard-empty-state">
+      <strong>Đang tải dữ liệu lễ tân...</strong>
+      <span>Hệ thống đang đồng bộ lịch hẹn và hàng đợi trong ngày.</span>
+    </section>
+  } @else if (errorMessage) {
+    <section class="feature-card dashboard-empty-state dashboard-empty-state--error">
+      <strong>Không thể tải trang chủ lễ tân</strong>
+      <span>{{ errorMessage }}</span>
+      <button type="button" class="button-secondary" (click)="loadSummary()">Tải lại</button>
+    </section>
+  } @else {
+    @if (summary; as currentSummary) {
+      <section class="feature-card dashboard-kpi-grid">
+        @for (card of currentSummary.kpis; track card.key) {
+          <article
+            class="dashboard-kpi-card"
+            [class.dashboard-kpi-card--success]="card.tone === 'success'"
+            [class.dashboard-kpi-card--warning]="card.tone === 'warning'">
+            <span class="dashboard-kpi-label">{{ card.label }}</span>
+            <strong class="dashboard-kpi-value">{{ card.value }}</strong>
+            @if (card.note) {
+              <p class="dashboard-kpi-note">{{ card.note }}</p>
+            }
+          </article>
+        }
+      </section>
+
+      <section class="dashboard-panel-grid">
+        <article class="feature-card dashboard-panel">
+          <header class="dashboard-panel__header">
+            <div>
+              <h3>Lịch cần tiếp đón tiếp theo</h3>
+              <p>Các lịch hôm nay chưa check-in, sắp tới giờ phục vụ.</p>
+            </div>
+          </header>
+
+          @if (currentSummary.next_appointments.length > 0) {
+            <div class="dashboard-list">
+              @for (appointment of currentSummary.next_appointments; track appointment.id) {
+                <article class="dashboard-list-item">
+                  <div class="dashboard-list-item__main">
+                    <strong>{{ appointment.patient_name }}</strong>
+                    <span>
+                      {{ appointment.time_slot ? formatTime(appointment.time_slot) : 'Chưa có khung giờ' }}
+                      · {{ appointment.doctor_name }}
+                      @if (appointment.specialty_name) { · {{ appointment.specialty_name }} }
+                    </span>
+                  </div>
+                  <span class="status-badge" [ngClass]="getAppointmentStatusBadgeClass(appointment.status)">
+                    {{ getAppointmentStatusLabel(appointment.status) }}
+                  </span>
+                </article>
+              }
+            </div>
+          } @else {
+            <div class="dashboard-empty-inline">Không có lịch hẹn nào đang chờ tiếp đón trong ngày.</div>
+          }
+        </article>
+
+        <article class="feature-card dashboard-panel">
+          <header class="dashboard-panel__header">
+            <div>
+              <h3>Hàng đợi đang chờ khám</h3>
+              <p>Ưu tiên theo thứ tự check-in và ước lượng chờ hiện tại.</p>
+            </div>
+          </header>
+
+          @if (currentSummary.waiting_queues.length > 0) {
+            <div class="dashboard-list">
+              @for (queue of currentSummary.waiting_queues; track queue.id) {
+                <article class="dashboard-list-item">
+                  <div class="dashboard-list-item__main">
+                    <strong>Số {{ queue.queue_number ?? '--' }} · {{ queue.patient_name }}</strong>
+                    <span>
+                      {{ queue.doctor_name }}
+                      @if (queue.specialty_name) { · {{ queue.specialty_name }} }
+                      @if (queue.checked_in_at) { · Check-in {{ formatDateTime(queue.checked_in_at) }} }
+                    </span>
+                  </div>
+                  <span class="dashboard-amount">{{ queue.predicted_wait_minutes ?? 0 }} phút</span>
+                </article>
+              }
+            </div>
+          } @else {
+            <div class="dashboard-empty-inline">Chưa có bệnh nhân nào đang chờ khám.</div>
+          }
+        </article>
+      </section>
+
+      <section class="feature-card dashboard-panel">
+        <header class="dashboard-panel__header">
+          <div>
+            <h3>Thao tác nhanh</h3>
+            <p>Điều hướng trực tiếp đến các khu vực điều phối hằng ngày.</p>
+          </div>
+        </header>
+
+        <nav class="dashboard-link-grid">
+          <a routerLink="/staff/appointments">Lịch hẹn khám</a>
+          <a routerLink="/staff/queues">Hàng đợi</a>
+          <a routerLink="/staff/equeue-numbers">Số thứ tự điện tử</a>
+          <a routerLink="/staff/work-schedules">Lịch làm việc</a>
+          <a routerLink="/staff/work-schedule-blocks">Lịch nghỉ / block</a>
+          <a routerLink="/staff/doctors">Danh sách bác sĩ</a>
+        </nav>
+      </section>
+    }
+  }
+</section>

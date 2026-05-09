@@ -1,76 +1,51 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+
+import { DashboardApiService } from '../../../shared/services/dashboard.api';
+import { getAppointmentStatusLabel } from '../../../shared/enum-label.util';
+import { AdminDashboardSummary } from '../../../shared/types/dashboard.type';
 
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
   imports: [RouterLink],
-  template: `
-    <section class="feature-page">
-      <header class="feature-header">
-        <h1 class="feature-title">Dashboard</h1>
-        <p class="feature-subtitle">Tong quan nhanh ve cac khu vuc nghiep vu va dieu huong thao tac chinh.</p>
-      </header>
-
-      <section class="feature-card feature-card-grid">
-        <article class="feature-stat">
-          <label>Chuyen khoa</label>
-          <strong>12</strong>
-        </article>
-        <article class="feature-stat">
-          <label>Bac si</label>
-          <strong>86</strong>
-        </article>
-        <article class="feature-stat">
-          <label>Lich hen hom nay</label>
-          <strong>214</strong>
-        </article>
-        <article class="feature-stat">
-          <label>So thu tu dang cho</label>
-          <strong>37</strong>
-        </article>
-      </section>
-
-      <section class="feature-card quick-links">
-        <h3>Truy cap nhanh</h3>
-        <nav>
-          <a routerLink="/staff/specialties">Danh muc chuyen khoa</a>
-          <a routerLink="/staff/rooms">Danh muc phong kham</a>
-          <a routerLink="/staff/doctors">Danh sach bac si</a>
-          <a routerLink="/staff/work-schedules">Lich lam viec</a>
-          <a routerLink="/staff/appointments">Lich hen kham</a>
-          <a routerLink="/staff/queues">Hang doi</a>
-          <a routerLink="/staff/equeue-numbers">So thu tu dien tu</a>
-        </nav>
-      </section>
-    </section>
-  `,
-  styles: [
-    `
-      .quick-links {
-        margin-top: 0.9rem;
-      }
-
-      .quick-links h3 {
-        margin: 0 0 0.8rem;
-        color: #153450;
-      }
-
-      .quick-links nav {
-        display: grid;
-        gap: 0.6rem;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      }
-
-      .quick-links a {
-        display: inline-block;
-        padding: 0.65rem 0.75rem;
-        border-radius: 10px;
-        border: 1px solid #d2e2f1;
-        color: #1f4568;
-        background: #f8fcff;
-      }
-    `
-  ]
+  templateUrl: './dashboard-page.component.html',
+  styleUrl: './dashboard-page.component.scss',
 })
-export class DashboardPageComponent {}
+export class DashboardPageComponent {
+  private readonly dashboardApiService = inject(DashboardApiService);
+
+  protected summary: AdminDashboardSummary | null = null;
+  protected loading = true;
+  protected errorMessage = '';
+
+  constructor() {
+    this.loadSummary();
+  }
+
+  protected loadSummary(): void {
+    this.loading = true;
+    this.errorMessage = '';
+
+    this.dashboardApiService.getSummary().subscribe({
+      next: ({ data }) => {
+        if (data.role !== 'ADMIN') {
+          this.errorMessage = 'Dữ liệu trả về không đúng với vai trò quản trị viên.';
+          this.summary = null;
+          this.loading = false;
+          return;
+        }
+
+        this.summary = data;
+        this.loading = false;
+      },
+      error: (error) => {
+        this.errorMessage = error?.error?.message || 'Không thể tải dữ liệu tổng quan.';
+        this.summary = null;
+        this.loading = false;
+      },
+    });
+  }
+
+  protected readonly getAppointmentStatusLabel = getAppointmentStatusLabel;
+}

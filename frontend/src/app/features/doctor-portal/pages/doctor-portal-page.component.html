@@ -1,0 +1,170 @@
+<section class="feature-page">
+  <header class="feature-header">
+    <h1 class="feature-title">Trang chủ bác sĩ</h1>
+    <p class="feature-subtitle">
+      Tập trung vào lịch khám trong ca, bệnh nhân sắp tới và trạng thái hàng đợi theo thời gian thực.
+    </p>
+  </header>
+
+  @if (loading) {
+    <section class="feature-card dashboard-empty-state">
+      <strong>Đang tải dữ liệu bác sĩ...</strong>
+      <span>Hệ thống đang đồng bộ lịch khám và hàng đợi trong ngày.</span>
+    </section>
+  } @else if (errorMessage) {
+    <section class="feature-card dashboard-empty-state dashboard-empty-state--error">
+      <strong>Không thể tải trang chủ bác sĩ</strong>
+      <span>{{ errorMessage }}</span>
+      <button type="button" class="button-secondary" (click)="loadSummary()">Tải lại</button>
+    </section>
+  } @else {
+    @if (summary; as currentSummary) {
+      @if (currentSummary.doctor) {
+        <section class="feature-card dashboard-hero">
+          <div>
+            <p class="dashboard-hero__eyebrow">Hồ sơ đang trực</p>
+            <h2>{{ currentSummary.doctor.name }}</h2>
+            <p>
+              {{ currentSummary.doctor.specialty || 'Chưa gán chuyên khoa' }}
+              · {{ currentSummary.doctor.room || 'Chưa gán phòng khám' }}
+            </p>
+          </div>
+        </section>
+      }
+
+      <section class="feature-card dashboard-kpi-grid">
+        @for (card of currentSummary.kpis; track card.key) {
+          <article
+            class="dashboard-kpi-card"
+            [class.dashboard-kpi-card--success]="card.tone === 'success'"
+            [class.dashboard-kpi-card--warning]="card.tone === 'warning'">
+            <span class="dashboard-kpi-label">{{ card.label }}</span>
+            <strong class="dashboard-kpi-value">{{ card.value }}</strong>
+            @if (card.note) {
+              <p class="dashboard-kpi-note">{{ card.note }}</p>
+            }
+          </article>
+        }
+      </section>
+
+      <section class="dashboard-panel-grid">
+        <article class="feature-card dashboard-panel">
+          <header class="dashboard-panel__header">
+            <div>
+              <h3>Bệnh nhân sắp tới</h3>
+              <p>Danh sách lịch hôm nay còn hiệu lực trong ca khám.</p>
+            </div>
+          </header>
+
+          @if (currentSummary.next_patients.length > 0) {
+            <div class="dashboard-list">
+              @for (item of currentSummary.next_patients; track item.id) {
+                <article class="dashboard-list-item">
+                  <div class="dashboard-list-item__main">
+                    <strong>{{ item.patient_name }}</strong>
+                    <span>{{ item.date }} · {{ item.time_slot ? formatTime(item.time_slot) : 'Chưa có giờ cụ thể' }}</span>
+                  </div>
+                  <span class="status-badge" [ngClass]="getAppointmentStatusBadgeClass(item.status)">
+                    {{ getAppointmentStatusLabel(item.status) }}
+                  </span>
+                </article>
+              }
+            </div>
+          } @else {
+            <div class="dashboard-empty-inline">Không có bệnh nhân nào đang chờ theo lịch hôm nay.</div>
+          }
+        </article>
+
+        <article class="feature-card dashboard-panel">
+          <header class="dashboard-panel__header">
+            <div>
+              <h3>Hàng đợi trong phòng khám</h3>
+              <p>Theo dõi thứ tự đang chờ, thời gian chờ dự kiến và tiến độ khám.</p>
+            </div>
+          </header>
+
+          @if (currentSummary.active_queues.length > 0) {
+            <div class="dashboard-list">
+              @for (queue of currentSummary.active_queues; track queue.id) {
+                <article class="dashboard-list-item">
+                  <div class="dashboard-list-item__main">
+                    <strong>Số {{ queue.queue_number ?? '--' }} · {{ queue.patient_name }}</strong>
+                    <span>
+                      @if (queue.actual_end) {
+                        Đã hoàn tất · {{ formatDateTime(queue.actual_end) }}
+                      } @else if (queue.actual_start) {
+                        Đang khám · {{ formatDateTime(queue.actual_start) }}
+                      } @else if (queue.checked_in_at) {
+                        Chờ khám · Check-in {{ formatDateTime(queue.checked_in_at) }}
+                      } @else {
+                        Chưa check-in
+                      }
+                    </span>
+                  </div>
+                  <span class="dashboard-amount">{{ queue.predicted_wait_minutes ?? 0 }} phút</span>
+                </article>
+              }
+            </div>
+          } @else {
+            <div class="dashboard-empty-inline">Chưa có dữ liệu hàng đợi cho ca khám hôm nay.</div>
+          }
+        </article>
+      </section>
+
+      <section class="dashboard-panel-grid">
+        <article class="feature-card dashboard-panel">
+          <header class="dashboard-panel__header">
+            <div>
+              <h3>Khung giờ làm việc hôm nay</h3>
+              <p>Lịch làm việc đang áp dụng theo ngày trong tuần.</p>
+            </div>
+          </header>
+
+          @if (currentSummary.schedules_today.length > 0) {
+            <div class="dashboard-schedule-grid">
+              @for (schedule of currentSummary.schedules_today; track schedule.id) {
+                <article class="dashboard-chip-card">
+                  <span>Ca làm việc</span>
+                  <strong>{{ formatTime(schedule.start_time) }} - {{ formatTime(schedule.end_time) }}</strong>
+                </article>
+              }
+            </div>
+          } @else {
+            <div class="dashboard-empty-inline">Không có khung giờ làm việc nào được khai báo cho hôm nay.</div>
+          }
+        </article>
+
+        <article class="feature-card dashboard-panel">
+          <header class="dashboard-panel__header">
+            <div>
+              <h3>Điều chỉnh / block trong ngày</h3>
+              <p>Các thay đổi lịch trực tiếp ảnh hưởng tới ca khám hôm nay.</p>
+            </div>
+          </header>
+
+          @if (currentSummary.blocks_today.length > 0) {
+            <div class="dashboard-list">
+              @for (block of currentSummary.blocks_today; track block.id) {
+                <article class="dashboard-list-item">
+                  <div class="dashboard-list-item__main">
+                    <strong>{{ block.is_off ? 'Ngày nghỉ' : 'Khung block thời gian' }}</strong>
+                    <span>
+                      @if (block.is_off) {
+                        {{ block.reason || 'Không tiếp nhận lịch khám trong ngày' }}
+                      } @else {
+                        {{ block.start_time ? formatTime(block.start_time) : '--' }} - {{ block.end_time ? formatTime(block.end_time) : '--' }}
+                        @if (block.reason) { · {{ block.reason }} }
+                      }
+                    </span>
+                  </div>
+                </article>
+              }
+            </div>
+          } @else {
+            <div class="dashboard-empty-inline">Không có điều chỉnh lịch nào cho hôm nay.</div>
+          }
+        </article>
+      </section>
+    }
+  }
+</section>

@@ -1,0 +1,101 @@
+<section class="feature-page">
+  <header class="feature-header">
+    <h1 class="feature-title">Trang chủ quản trị</h1>
+    <p class="feature-subtitle">
+      Theo dõi nhanh quy mô vận hành, lưu lượng lịch khám và tình trạng phục vụ trong ngày.
+    </p>
+  </header>
+
+  @if (loading) {
+    <section class="feature-card dashboard-empty-state">
+      <strong>Đang tải dữ liệu tổng quan...</strong>
+      <span>Hệ thống đang đồng bộ số liệu thực từ backend.</span>
+    </section>
+  } @else if (errorMessage) {
+    <section class="feature-card dashboard-empty-state dashboard-empty-state--error">
+      <strong>Không thể tải dữ liệu trang chủ</strong>
+      <span>{{ errorMessage }}</span>
+      <button type="button" class="button-secondary" (click)="loadSummary()">Tải lại</button>
+    </section>
+  } @else {
+    @if (summary; as currentSummary) {
+      <section class="feature-card dashboard-kpi-grid">
+        @for (card of currentSummary.kpis; track card.key) {
+          <article
+            class="dashboard-kpi-card"
+            [class.dashboard-kpi-card--success]="card.tone === 'success'"
+            [class.dashboard-kpi-card--warning]="card.tone === 'warning'">
+            <span class="dashboard-kpi-label">{{ card.label }}</span>
+            <strong class="dashboard-kpi-value">{{ card.value }}</strong>
+            @if (card.note) {
+              <p class="dashboard-kpi-note">{{ card.note }}</p>
+            }
+          </article>
+        }
+      </section>
+
+      <section class="dashboard-panel-grid">
+        <article class="feature-card dashboard-panel">
+          <header class="dashboard-panel__header">
+            <div>
+              <h3>Phân bố trạng thái lịch hôm nay</h3>
+              <p>Tổng hợp theo trạng thái nghiệp vụ để quản trị luồng vận hành.</p>
+            </div>
+          </header>
+
+          <div class="dashboard-chip-grid">
+            @for (item of currentSummary.appointment_statuses; track item.status) {
+              <article class="dashboard-chip-card">
+                <span>{{ getAppointmentStatusLabel(item.status) }}</span>
+                <strong>{{ item.total }}</strong>
+              </article>
+            }
+          </div>
+        </article>
+
+        <article class="feature-card dashboard-panel">
+          <header class="dashboard-panel__header">
+            <div>
+              <h3>Bác sĩ có nhiều lịch trong ngày</h3>
+              <p>Dùng để theo dõi tải khám và điều phối nguồn lực.</p>
+            </div>
+          </header>
+
+          @if (currentSummary.top_doctors_today.length > 0) {
+            <div class="dashboard-list">
+              @for (doctor of currentSummary.top_doctors_today; track doctor.id) {
+                <article class="dashboard-list-item">
+                  <div class="dashboard-list-item__main">
+                    <strong>{{ doctor.name }}</strong>
+                    <span>{{ doctor.specialty || 'Chưa gán chuyên khoa' }} · {{ doctor.room || 'Chưa gán phòng' }}</span>
+                  </div>
+                  <span class="dashboard-amount">{{ doctor.appointment_count || 0 }} lịch</span>
+                </article>
+              }
+            </div>
+          } @else {
+            <div class="dashboard-empty-inline">Chưa có dữ liệu lịch khám trong ngày để thống kê.</div>
+          }
+        </article>
+      </section>
+
+      <section class="feature-card dashboard-panel">
+        <header class="dashboard-panel__header">
+          <div>
+            <h3>Truy cập nhanh</h3>
+            <p>Điều hướng nhanh đến các khu vực quản trị thường dùng.</p>
+          </div>
+        </header>
+
+        <nav class="dashboard-link-grid">
+          <a routerLink="/staff/users">Quản lý người dùng</a>
+          <a routerLink="/staff/specialties">Quản lý chuyên khoa</a>
+          <a routerLink="/staff/rooms">Quản lý phòng khám</a>
+          <a routerLink="/staff/doctors">Quản lý bác sĩ</a>
+          <a routerLink="/staff/appointments">Quản lý lịch hẹn</a>
+          <a routerLink="/staff/queues">Theo dõi hàng đợi</a>
+        </nav>
+      </section>
+    }
+  }
+</section>
