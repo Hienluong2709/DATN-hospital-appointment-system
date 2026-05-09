@@ -928,6 +928,7 @@ const ensureDoctorWorkingAtTime = async (doctorId, date, timeSlot, transaction) 
     where: {
       doctor_id: doctorId,
       date,
+      status: "Approved",
     },
     attributes: ["is_off", "start_time", "end_time"],
     transaction,
@@ -980,6 +981,7 @@ const ensureDoctorWorkingOnDate = async (
     where: {
       doctor_id: doctorId,
       date,
+      status: "Approved",
     },
     attributes: ["is_off", "start_time", "end_time"],
     transaction,
@@ -1370,6 +1372,7 @@ export const getDoctorAvailabilityService = async (doctorId, query) => {
     where: {
       doctor_id: parsedDoctorId,
       date: { [Op.between]: [startDate, endDate] },
+      status: "Approved",
     },
     attributes: ["date", "is_off", "start_time", "end_time", "reason"],
   });

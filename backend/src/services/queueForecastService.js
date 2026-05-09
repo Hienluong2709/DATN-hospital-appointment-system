@@ -1,6 +1,10 @@
 import { Op } from "sequelize";
 
 import db from "../models/index.js";
+import {
+  createQueueAiForecastContextService,
+  predictCheckedInQueueWaitMinutesService,
+} from "./queueAiForecastService.js";
 
 const { Queue, Appointment, WaitPrediction, WorkSchedule, WorkScheduleBlock } = db;
 
@@ -23,6 +27,8 @@ const MAX_DYNAMIC_FORECAST_VISIT_DURATION_MINUTES =
 const MIN_DYNAMIC_DURATION_SAMPLES =
   Number(process.env.MIN_DYNAMIC_DURATION_SAMPLES) || 3;
 const BUSINESS_TIMEZONE_OFFSET = process.env.BUSINESS_TIMEZONE_OFFSET || "+07:00";
+const QUEUE_AI_COMPARE_WITH_HEURISTIC =
+  process.env.QUEUE_AI_COMPARE_WITH_HEURISTIC === "true";
 const APPOINTMENT_PREFERRED_PERIOD = Object.freeze({
   MORNING: "MORNING",
   AFTERNOON: "AFTERNOON",
@@ -555,14 +561,19 @@ const buildRuleBasedWaitingForecast = ({
 };
 
 const buildAdaptiveWaitingForecast = async ({
+  aiContext,
+  queueLikeItems,
+  queueLike,
   checkedInAt,
   forecastCursor,
   originalScheduledTime,
   earliestWorkingDateTime,
   workingPeriods,
   now,
+  averageVisitDurationMinutes,
+  turnaroundBufferMinutes,
 }) => {
-  return buildRuleBasedWaitingForecast({
+  const ruleBasedForecast = buildRuleBasedWaitingForecast({
     checkedInAt,
     forecastCursor,
     originalScheduledTime,
@@ -570,6 +581,71 @@ const buildAdaptiveWaitingForecast = async ({
     workingPeriods,
     now,
   });
+
+  if (!(checkedInAt instanceof Date) || Number.isNaN(checkedInAt.getTime())) {
+    return ruleBasedForecast;
+  }
+
+  try {
+    const aiPrediction = await predictCheckedInQueueWaitMinutesService({
+      aiContext,
+      queueLikeItems,
+      queueLike,
+      checkedInAt,
+      originalScheduledTime,
+      latestPredictedStart: ruleBasedForecast.estimated_start,
+      ruleBasedWaitMinutes: ruleBasedForecast.predicted_wait_minutes,
+      averageVisitDurationMinutes,
+      turnaroundBufferMinutes,
+    });
+
+    if (
+      !aiPrediction?.available ||
+      typeof aiPrediction.predicted_wait_minutes !== "number" ||
+      aiPrediction.predicted_wait_minutes < 0
+    ) {
+      return ruleBasedForecast;
+    }
+
+    if (QUEUE_AI_COMPARE_WITH_HEURISTIC && aiPrediction?.comparison) {
+      console.info(
+        [
+          `[queue forecast compare] queue#${queueLike?.id ?? "unknown"}`,
+          `provider=${aiPrediction.prediction_source || aiContext?.provider || "unknown"}`,
+          `model_wait=${aiPrediction.predicted_wait_minutes}`,
+          `heuristic_wait=${aiPrediction.comparison.heuristic_predicted_wait_minutes}`,
+          `delta=${aiPrediction.comparison.delta_minutes}`,
+        ].join(" "),
+      );
+    }
+
+    const estimatedStart = derivePredictedStartFromQueueState({
+      checkedInAt,
+      predictedWaitMinutes: aiPrediction.predicted_wait_minutes,
+      minimumStartTime: ruleBasedForecast.base_time,
+      workingPeriods,
+      persistedEstimatedStart: ruleBasedForecast.base_time,
+      originalScheduledTime,
+      fallbackDateTime: ruleBasedForecast.base_time,
+    });
+
+    return {
+      estimated_start: estimatedStart,
+      predicted_wait_minutes: computePredictedWaitMinutesFromAnchor(
+        estimatedStart,
+        checkedInAt,
+      ) ?? aiPrediction.predicted_wait_minutes,
+      prediction_source:
+        aiPrediction.prediction_source || RULE_ENGINE_FORECAST_SOURCE,
+      model_version: aiPrediction.model_version || RULE_ENGINE_MODEL_VERSION,
+      base_time: ruleBasedForecast.base_time,
+    };
+  } catch (error) {
+    console.error(
+      `[queue forecast] AI prediction failed for queue/appointment #${queueLike?.id ?? "unknown"}: ${error.message}`,
+    );
+    return ruleBasedForecast;
+  }
 };
 
 const getEarliestWorkingDateTimeForDoctorDate = async (doctorId, date, transaction) => {
@@ -597,6 +673,7 @@ const getDoctorWorkingPeriodsForDate = async (doctorId, date, transaction) => {
     where: {
       doctor_id: doctorId,
       date,
+      status: "Approved",
     },
     attributes: ["is_off", "start_time", "end_time"],
     transaction,
@@ -682,6 +759,7 @@ const getAvailableSlotsForDoctorDate = async (
     where: {
       doctor_id: doctorId,
       date,
+      status: "Approved",
     },
     attributes: ["is_off", "start_time", "end_time"],
     transaction,
@@ -835,6 +913,10 @@ export const simulateEstimatedStartForAppointmentService = async (appointmentLik
   const originalScheduledTime = await estimateOriginalAppointmentDateTime(appointmentLike, transaction, {
     filterPastSlots: true,
   });
+  const aiContext = await createQueueAiForecastContextService({
+    doctorId: appointmentLike.doctor_id,
+    transaction,
+  });
   const queues = await Queue.findAll({
     where: {
       doctor_id: appointmentLike.doctor_id,
@@ -948,12 +1030,17 @@ export const simulateEstimatedStartForAppointmentService = async (appointmentLik
       );
     } else {
       const adaptiveForecast = await buildAdaptiveWaitingForecast({
+        aiContext,
+        queueLikeItems,
+        queueLike: queue,
         checkedInAt,
         forecastCursor,
         originalScheduledTime: queueOriginalScheduledTime,
         earliestWorkingDateTime,
         workingPeriods,
         now,
+        averageVisitDurationMinutes,
+        turnaroundBufferMinutes: DEFAULT_QUEUE_TURNAROUND_MINUTES,
       });
 
       predictedWaitMinutes = adaptiveForecast.predicted_wait_minutes;
@@ -998,6 +1085,10 @@ export const recalculateQueueForecastForDoctorDateService = async (doctorId, dat
   const now = new Date();
   const workingPeriods = await getDoctorWorkingPeriodsForDate(doctorId, date, transaction);
   const earliestWorkingDateTime = workingPeriods[0]?.start || null;
+  const aiContext = await createQueueAiForecastContextService({
+    doctorId,
+    transaction,
+  });
   const queues = await Queue.findAll({
     where: {
       doctor_id: doctorId,
@@ -1088,12 +1179,17 @@ export const recalculateQueueForecastForDoctorDateService = async (doctorId, dat
       );
     } else {
       const adaptiveForecast = await buildAdaptiveWaitingForecast({
+        aiContext,
+        queueLikeItems: queues,
+        queueLike: queue,
         checkedInAt,
         forecastCursor,
         originalScheduledTime,
         earliestWorkingDateTime,
         workingPeriods,
         now,
+        averageVisitDurationMinutes,
+        turnaroundBufferMinutes: DEFAULT_QUEUE_TURNAROUND_MINUTES,
       });
 
       predictedWaitMinutes = adaptiveForecast.predicted_wait_minutes;

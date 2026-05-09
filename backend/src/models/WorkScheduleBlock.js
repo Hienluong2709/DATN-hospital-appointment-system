@@ -17,9 +17,30 @@ const WorkScheduleBlock = sequelize.define(
         key: "id",
       },
     },
+    requested_by_user_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: "users",
+        key: "id",
+      },
+    },
+    reviewed_by_user_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: "users",
+        key: "id",
+      },
+    },
     date: {
       type: DataTypes.DATEONLY,
       allowNull: false,
+    },
+    status: {
+      type: DataTypes.ENUM("Pending", "Approved", "Rejected"),
+      allowNull: false,
+      defaultValue: "Approved",
     },
     is_off: {
       type: DataTypes.BOOLEAN,
@@ -35,6 +56,14 @@ const WorkScheduleBlock = sequelize.define(
       allowNull: true,
     },
     reason: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    reviewed_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    review_note: {
       type: DataTypes.STRING(255),
       allowNull: true,
     },
@@ -56,9 +85,16 @@ const WorkScheduleBlock = sequelize.define(
     updatedAt: "updated_at",
     validate: {
       validOffOrBlockTime() {
+        const status = this.getDataValue("status");
         const isOff = this.getDataValue("is_off");
         const startTime = this.getDataValue("start_time");
         const endTime = this.getDataValue("end_time");
+        const reviewedAt = this.getDataValue("reviewed_at");
+        const reviewedByUserId = this.getDataValue("reviewed_by_user_id");
+
+        if (!["Pending", "Approved", "Rejected"].includes(status)) {
+          throw new Error("status không hợp lệ");
+        }
 
         if (isOff) {
           if (startTime !== null || endTime !== null) {
@@ -74,6 +110,10 @@ const WorkScheduleBlock = sequelize.define(
 
         if (startTime >= endTime) {
           throw new Error("start_time phải nhỏ hơn end_time");
+        }
+
+        if (status === "Pending" && (reviewedAt !== null || reviewedByUserId !== null)) {
+          throw new Error("Yêu cầu chờ duyệt không được có thông tin xét duyệt");
         }
       },
     },

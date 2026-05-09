@@ -3,7 +3,11 @@ import { HttpClient } from '@angular/common/http';
 
 import { API_BASE_URL } from '../../../core/config/api.config';
 import { ApiResponse } from '../../../shared/types/api-response.type';
-import { WorkScheduleBlock, WorkScheduleBlockUpsertPayload } from '../models/work-schedule-blocks.model';
+import {
+  WorkScheduleBlock,
+  WorkScheduleBlockReviewPayload,
+  WorkScheduleBlockUpsertPayload
+} from '../models/work-schedule-blocks.model';
 
 @Injectable({ providedIn: 'root' })
 export class WorkScheduleBlocksApiService {
@@ -23,6 +27,10 @@ export class WorkScheduleBlocksApiService {
 
   update(id: number, payload: WorkScheduleBlockUpsertPayload) {
     return this.http.put<ApiResponse<WorkScheduleBlock>>(`${API_BASE_URL}/work-schedule-blocks/${id}`, payload);
+  }
+
+  review(id: number, payload: WorkScheduleBlockReviewPayload) {
+    return this.http.patch<ApiResponse<WorkScheduleBlock>>(`${API_BASE_URL}/work-schedule-blocks/${id}/review`, payload);
   }
 
   delete(id: number) {

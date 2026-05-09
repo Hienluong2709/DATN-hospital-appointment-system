@@ -15,6 +15,7 @@ export class WorkScheduleBlockFormModalComponent {
   @Input({ required: true }) isOpen = false;
   @Input({ required: true }) isSubmitting = false;
   @Input({ required: true }) isEditMode = false;
+  @Input({ required: true }) isDoctorView = false;
   @Input({ required: true }) form!: FormGroup;
   @Input({ required: true }) doctors: Doctor[] = [];
   @Input({ required: true }) doctorInvalid = false;

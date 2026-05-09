@@ -5,9 +5,15 @@ import { FormsModule } from '@angular/forms';
 
 import { BackendRole } from '../../../core/models/auth-role.model';
 import { TokenService } from '../../../core/services/token.service';
+import { getWorkScheduleBlockStatusLabel } from '../../../shared/enum-label.util';
 import { Doctor } from '../../doctors/models/doctors.model';
 import { DoctorsApiService } from '../../doctors/services/doctors.api';
-import { WorkScheduleBlock, WorkScheduleBlockUpsertPayload } from '../models/work-schedule-blocks.model';
+import {
+  WorkScheduleBlock,
+  WorkScheduleBlockReviewPayload,
+  WorkScheduleBlockStatus,
+  WorkScheduleBlockUpsertPayload
+} from '../models/work-schedule-blocks.model';
 import { WorkScheduleBlockDetailModalComponent } from './work-schedule-block-detail/work-schedule-block-detail-modal.component';
 import { WorkScheduleBlocksApiService } from '../services/work-schedule-blocks.api';
 import { WorkScheduleBlockFormModalComponent } from './work-schedule-block-form/work-schedule-block-form-modal.component';
@@ -43,8 +49,10 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
   private bodyOverflowBeforeModal = '';
 
   selectedDoctorId = 0;
+  selectedStatus: WorkScheduleBlockStatus | 'ALL' = 'ALL';
+  activeTab: 'requests' | 'approved' = 'requests';
   viewMode: 'day' | 'week' = 'day';
-  selectedDate = this.getTodayValue();
+  selectedDate = '';
   dayCurrentPage = 1;
   dayPageSize = 10;
   readonly dayPageSizeOptions = [10, 20, 50];
@@ -120,12 +128,31 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
     this.loadList();
   }
 
+  updateSelectedStatus(value: WorkScheduleBlockStatus | 'ALL' | string): void {
+    this.selectedStatus = (value as WorkScheduleBlockStatus | 'ALL') || 'ALL';
+    this.dayCurrentPage = 1;
+    this.ensureDayPageValid();
+  }
+
   setViewMode(mode: 'day' | 'week'): void {
     this.viewMode = mode;
     if (mode === 'day') {
       this.dayCurrentPage = 1;
       this.ensureDayPageValid();
     }
+  }
+
+  setActiveTab(tab: 'requests' | 'approved'): void {
+    if (this.isReceptionistView && tab !== 'approved') {
+      return;
+    }
+
+    this.activeTab = tab;
+    if (tab === 'approved') {
+      this.selectedStatus = 'ALL';
+    }
+    this.dayCurrentPage = 1;
+    this.ensureDayPageValid();
   }
 
   updateSelectedDoctor(value: string | number): void {
@@ -135,7 +162,7 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
   }
 
   updateSelectedDate(value: string): void {
-    this.selectedDate = value || this.getTodayValue();
+    this.selectedDate = value || '';
     this.dayCurrentPage = 1;
     this.ensureDayPageValid();
   }
@@ -154,7 +181,16 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
     this.selectedDate = this.getTodayValue();
   }
 
+  clearSelectedDate(): void {
+    this.selectedDate = '';
+    this.dayCurrentPage = 1;
+    this.ensureDayPageValid();
+  }
+
   openCreateModal(): void {
+    if (!this.canCreateBlocks) {
+      return;
+    }
     this.startCreateMode();
     this.isFormModalOpen = true;
     this.updateBodyScrollState();
@@ -192,6 +228,10 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
   }
 
   startEdit(block: WorkScheduleBlock): void {
+    if (!this.canEditBlock(block)) {
+      return;
+    }
+
     this.feedbackMessage = '';
     this.editingBlockId = block.id;
     this.isFormModalOpen = true;
@@ -220,7 +260,7 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
         this.selectedBlock = response.data;
       },
       error: (error: { error?: { message?: string } }) => {
-        this.showFeedback('error', error.error?.message ?? 'Không thể lấy chi tiết chặn lịch làm việc.');
+        this.showFeedback('error', error.error?.message ?? 'Không thể lấy chi tiết lịch nghỉ.');
         this.closeDetailModal();
       },
       complete: () => {
@@ -308,7 +348,11 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
   }
 
   onDelete(block: WorkScheduleBlock): void {
-    const shouldDelete = globalThis.confirm(`Bạn có chắc chắn muốn xóa chặn lịch #${block.id}?`);
+    if (!this.canDeleteBlock(block)) {
+      return;
+    }
+
+    const shouldDelete = globalThis.confirm(`Bạn có chắc chắn muốn xóa yêu cầu nghỉ #${block.id}?`);
     if (!shouldDelete) {
       return;
     }
@@ -318,7 +362,7 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
 
     this.workScheduleBlocksApiService.delete(block.id).subscribe({
       next: (response) => {
-        this.showFeedback('success', response.message ?? 'Xóa chặn lịch làm việc thành công.');
+        this.showFeedback('success', response.message ?? 'Xóa lịch nghỉ thành công.');
 
         if (this.selectedBlock?.id === block.id) {
           this.closeDetailModal();
@@ -331,7 +375,7 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
         this.loadList();
       },
       error: (error: { error?: { message?: string } }) => {
-        this.showFeedback('error', error.error?.message ?? 'Không thể xóa chặn lịch làm việc.');
+        this.showFeedback('error', error.error?.message ?? 'Không thể xóa lịch nghỉ.');
       },
       complete: () => {
         this.isSubmitting = false;
@@ -341,6 +385,10 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
 
   displayDoctorName(block: WorkScheduleBlock): string {
     return block.Doctor?.User?.fullname || block.Doctor?.User?.username || `Doctor ${block.doctor_id}`;
+  }
+
+  getWorkScheduleBlockStatusLabel(status: string | null | undefined): string {
+    return getWorkScheduleBlockStatusLabel(status);
   }
 
   formatDate(value: string): string {
@@ -369,7 +417,12 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
   }
 
   get dayBlocks(): WorkScheduleBlock[] {
-    return this.getFilteredBlocks().filter((block) => block.date === this.selectedDate);
+    const filteredBlocks = this.getFilteredBlocks();
+    if (!this.selectedDate) {
+      return filteredBlocks;
+    }
+
+    return filteredBlocks.filter((block) => block.date === this.selectedDate);
   }
 
   get pagedDayBlocks(): WorkScheduleBlock[] {
@@ -458,8 +511,79 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
     return this.currentRole === 'DOCTOR';
   }
 
-  get canManageBlocks(): boolean {
-    return this.currentRole === 'ADMIN' || this.currentRole === 'DOCTOR';
+  get isAdminView(): boolean {
+    return this.currentRole === 'ADMIN';
+  }
+
+  get isReceptionistView(): boolean {
+    return this.currentRole === 'RECEPTIONIST';
+  }
+
+  get canCreateBlocks(): boolean {
+    return this.isDoctorView;
+  }
+
+  get canReviewBlocks(): boolean {
+    return this.isAdminView;
+  }
+
+  get showRequestTabs(): boolean {
+    return this.isAdminView || this.isDoctorView;
+  }
+
+  get visibleStatusOptions(): Array<{ value: WorkScheduleBlockStatus | 'ALL'; label: string }> {
+    if (!this.isAdminView || this.activeTab !== 'requests') {
+      return [];
+    }
+
+    return [
+      { value: 'ALL', label: 'Tất cả trạng thái yêu cầu' },
+      { value: 'Pending', label: 'Chờ duyệt' },
+      { value: 'Rejected', label: 'Từ chối' },
+    ];
+  }
+
+  get activeTabLabel(): string {
+    return this.activeTab === 'approved' ? 'Lịch nghỉ đã duyệt' : 'Yêu cầu nghỉ';
+  }
+
+  get selectedDateLabel(): string {
+    return this.selectedDate || 'Tất cả ngày';
+  }
+
+  get sectionTitle(): string {
+    if (this.isDoctorView) {
+      return this.activeTab === 'approved' ? 'Lịch nghỉ của tôi' : 'Yêu cầu nghỉ của tôi';
+    }
+
+    if (this.isAdminView) {
+      return this.activeTab === 'approved' ? 'Danh sách lịch nghỉ đã duyệt' : 'Danh sách yêu cầu nghỉ';
+    }
+
+    return 'Lịch nghỉ bác sĩ';
+  }
+
+  canEditBlock(block: WorkScheduleBlock): boolean {
+    return this.isDoctorView && (block.status === 'Pending' || block.status === 'Rejected');
+  }
+
+  canDeleteBlock(block: WorkScheduleBlock): boolean {
+    return this.canEditBlock(block);
+  }
+
+  onApprove(block: WorkScheduleBlock): void {
+    this.reviewBlock(block, {
+      status: 'Approved',
+      review_note: null
+    });
+  }
+
+  onReject(block: WorkScheduleBlock): void {
+    const reviewNote = globalThis.prompt('Nhập lý do từ chối (không bắt buộc):', block.review_note ?? '') ?? null;
+    this.reviewBlock(block, {
+      status: 'Rejected',
+      review_note: reviewNote
+    });
   }
 
   private loadList(): void {
@@ -472,7 +596,7 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
         this.ensureDayPageValid();
       },
       error: (error: { error?: { message?: string } }) => {
-        this.showFeedback('error', error.error?.message ?? 'Không thể tải danh sách chặn lịch làm việc.');
+        this.showFeedback('error', error.error?.message ?? 'Không thể tải danh sách lịch nghỉ.');
       },
       complete: () => {
         this.isLoadingList = false;
@@ -507,15 +631,15 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
 
   private createBlock(payload: WorkScheduleBlockUpsertPayload): void {
     this.workScheduleBlocksApiService.create(payload).subscribe({
-      next: (response) => {
-        this.showFeedback('success', response.message ?? 'Tạo chặn lịch làm việc thành công.');
+      next: () => {
+        this.showFeedback('success', 'Gửi yêu cầu nghỉ thành công. Yêu cầu đang chờ Quản trị viên duyệt.');
         this.isFormModalOpen = false;
         this.startCreateMode();
         this.updateBodyScrollState();
         this.loadList();
       },
       error: (error: { error?: { message?: string } }) => {
-        this.showFeedback('error', error.error?.message ?? 'Không thể tạo chặn lịch làm việc.');
+        this.showFeedback('error', error.error?.message ?? 'Không thể gửi yêu cầu nghỉ.');
       },
       complete: () => {
         this.isSubmitting = false;
@@ -526,7 +650,7 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
   private updateBlock(id: number, payload: WorkScheduleBlockUpsertPayload): void {
     this.workScheduleBlocksApiService.update(id, payload).subscribe({
       next: (response) => {
-        this.showFeedback('success', response.message ?? 'Cập nhật chặn lịch làm việc thành công.');
+        this.showFeedback('success', 'Cập nhật yêu cầu nghỉ thành công. Yêu cầu đã được gửi lại để chờ duyệt.');
         this.isFormModalOpen = false;
         this.startCreateMode();
         this.updateBodyScrollState();
@@ -538,7 +662,45 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
         this.loadList();
       },
       error: (error: { error?: { message?: string } }) => {
-        this.showFeedback('error', error.error?.message ?? 'Không thể cập nhật chặn lịch làm việc.');
+        this.showFeedback('error', error.error?.message ?? 'Không thể cập nhật yêu cầu nghỉ.');
+      },
+      complete: () => {
+        this.isSubmitting = false;
+      }
+    });
+  }
+
+  private reviewBlock(block: WorkScheduleBlock, payload: WorkScheduleBlockReviewPayload): void {
+    if (!this.canReviewBlocks || block.status !== 'Pending') {
+      return;
+    }
+
+    this.feedbackMessage = '';
+    this.isSubmitting = true;
+
+    this.workScheduleBlocksApiService.review(block.id, payload).subscribe({
+      next: (response) => {
+        this.showFeedback(
+          'success',
+          payload.status === 'Approved'
+            ? 'Duyệt yêu cầu nghỉ thành công.'
+            : 'Từ chối yêu cầu nghỉ thành công.'
+        );
+
+        if (this.selectedBlock?.id === block.id) {
+          this.selectedBlock = response.data;
+        }
+
+        this.loadList();
+      },
+      error: (error: { error?: { message?: string } }) => {
+        this.showFeedback(
+          'error',
+          error.error?.message ??
+            (payload.status === 'Approved'
+              ? 'Không thể duyệt yêu cầu nghỉ.'
+              : 'Không thể từ chối yêu cầu nghỉ.')
+        );
       },
       complete: () => {
         this.isSubmitting = false;
@@ -552,9 +714,17 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
   }
 
   private getFilteredBlocks(): WorkScheduleBlock[] {
-    const list = this.selectedDoctorId
+    const byDoctor = this.selectedDoctorId
       ? this.blocks.filter((block) => block.doctor_id === this.selectedDoctorId)
       : this.blocks;
+
+    const byTab = this.activeTab === 'approved'
+      ? byDoctor.filter((block) => block.status === 'Approved')
+      : byDoctor.filter((block) => block.status !== 'Approved');
+
+    const list = this.selectedStatus === 'ALL'
+      ? byTab
+      : byTab.filter((block) => block.status === this.selectedStatus);
 
     return [...list].sort((left, right) => {
       if (left.date !== right.date) {

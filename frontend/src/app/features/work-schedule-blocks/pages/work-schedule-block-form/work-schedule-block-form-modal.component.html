@@ -2,7 +2,7 @@
   <div class="modal-overlay" (click)="onOverlayClick()">
     <article class="modal-card" (click)="$event.stopPropagation()">
       <header class="modal-header">
-        <h2>{{ isEditMode ? 'Cập nhật chặn lịch' : 'Tạo chặn lịch mới' }}</h2>
+        <h2>{{ isEditMode ? 'Cập nhật yêu cầu nghỉ' : (isDoctorView ? 'Đăng ký lịch nghỉ' : 'Tạo lịch nghỉ') }}</h2>
         <button class="icon-close" type="button" (click)="onCloseClick()" [disabled]="isSubmitting">x</button>
       </header>
 
@@ -71,7 +71,7 @@
 
         <div class="form-actions">
           <button class="button-primary" type="submit" [disabled]="isSubmitting || !doctors.length">
-            {{ isSubmitting ? 'Đang xử lý...' : isEditMode ? 'Lưu cập nhật' : 'Thêm chặn lịch' }}
+            {{ isSubmitting ? 'Đang xử lý...' : isEditMode ? 'Gửi lại yêu cầu' : (isDoctorView ? 'Gửi yêu cầu nghỉ' : 'Tạo lịch nghỉ') }}
           </button>
           <button class="button-secondary" type="button" (click)="onCloseClick()" [disabled]="isSubmitting">
             Đóng

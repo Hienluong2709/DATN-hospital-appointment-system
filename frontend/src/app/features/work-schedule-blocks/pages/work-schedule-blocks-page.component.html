@@ -4,8 +4,10 @@
     <p class="feature-subtitle">
       {{
         isDoctorView
-          ? 'Theo dõi và cập nhật các khung nghỉ cá nhân theo ngày hoặc theo tuần.'
-          : 'Tạo các khung nghỉ của bác sĩ theo ngày cụ thể.'
+          ? 'Gửi yêu cầu nghỉ của chính bạn và theo dõi trạng thái duyệt theo ngày hoặc theo tuần.'
+          : isAdminView
+            ? 'Xem, lọc và duyệt các yêu cầu nghỉ của bác sĩ trước khi lịch nghỉ có hiệu lực.'
+            : 'Xem các lịch nghỉ đã được duyệt để hỗ trợ tiếp nhận và điều phối lịch khám.'
       }}
     </p>
   </header>
@@ -15,6 +17,27 @@
   }
 
   <article class="feature-card filters-card">
+    @if (showRequestTabs) {
+      <div class="leave-tabs" role="tablist" aria-label="Phân loại lịch nghỉ bác sĩ">
+        <button
+          type="button"
+          class="leave-tabs__item"
+          [class.leave-tabs__item--active]="activeTab === 'requests'"
+          (click)="setActiveTab('requests')"
+        >
+          Yêu cầu nghỉ
+        </button>
+        <button
+          type="button"
+          class="leave-tabs__item"
+          [class.leave-tabs__item--active]="activeTab === 'approved'"
+          (click)="setActiveTab('approved')"
+        >
+          Lịch nghỉ đã duyệt
+        </button>
+      </div>
+    }
+
     <div class="filters-grid" [class.filters-grid--doctor]="isDoctorView">
       <label class="filter-field" *ngIf="!isDoctorView">
         <span>Bác sĩ</span>
@@ -28,8 +51,24 @@
 
       <label class="filter-field">
         <span>Ngày</span>
-        <input type="date" [value]="selectedDate" (input)="updateSelectedDate($any($event.target).value)" />
+        <div class="date-filter-control">
+          <input type="date" [value]="selectedDate" (input)="updateSelectedDate($any($event.target).value)" />
+          <button class="button-secondary date-filter-control__reset" type="button" (click)="clearSelectedDate()">
+            Tất cả ngày
+          </button>
+        </div>
       </label>
+
+      @if (isAdminView && activeTab === 'requests') {
+        <label class="filter-field">
+          <span>Trạng thái</span>
+          <select [ngModel]="selectedStatus" (ngModelChange)="updateSelectedStatus($event)">
+            @for (option of visibleStatusOptions; track option.value) {
+              <option [value]="option.value">{{ option.label }}</option>
+            }
+          </select>
+        </label>
+      }
 
       <div class="filter-field">
         <span>Chế độ xem</span>
@@ -47,13 +86,9 @@
 
   <article class="feature-card table-card" [class.doctor-table-card]="isDoctorView">
     <div class="table-header">
-      <h2>
-        @if (viewMode === 'day') {
-          Lịch nghỉ theo ngày
-        } @else {
-          Lịch nghỉ theo tuần
-        }
-      </h2>
+      <div class="table-heading">
+        <h2>{{ sectionTitle }}</h2>
+      </div>
       <div class="table-header-actions">
         @if (viewMode === 'week') {
           <div class="week-quick-nav">
@@ -62,23 +97,11 @@
             <button class="button-secondary" type="button" (click)="goToNextWeek()">Tuần sau</button>
           </div>
         }
-        @if (canManageBlocks && isDoctorView) {
+        @if (canCreateBlocks) {
           <button class="button-primary" type="button" (click)="openCreateModal()" [disabled]="isSubmitting">Đăng ký lịch nghỉ</button>
-        } @else if (canManageBlocks) {
-          <button class="button-primary" type="button" (click)="openCreateModal()" [disabled]="isSubmitting">Thêm lịch nghỉ</button>
         }
-        <button class="button-secondary" type="button" (click)="reload()" [disabled]="isLoadingList || isSubmitting">
-          Tải lại
-        </button>
       </div>
     </div>
-
-    <p class="state-text state-text--left">
-      Đang xem: {{ doctorFilterLabel }} • Ngày chọn: {{ selectedDate }}
-      @if (viewMode === 'week') {
-        • Tuần: {{ selectedWeekRangeLabel }}
-      }
-    </p>
 
     @if (isLoadingList) {
       <p class="state-text">Đang tải danh sách lịch nghỉ...</p>
@@ -86,17 +109,46 @@
       <p class="state-text">Chưa có lịch nghỉ nào.</p>
     } @else if (viewMode === 'day') {
       @if (!dayBlocks.length) {
-        <p class="state-text">Không có lịch nghỉ trong ngày đã chọn.</p>
+        <p class="state-text">
+          {{ activeTab === 'approved' ? 'Không có lịch nghỉ đã duyệt trong ngày đã chọn.' : 'Không có yêu cầu nghỉ trong ngày đã chọn.' }}
+        </p>
       } @else if (isDoctorView) {
         <div class="doctor-block-list">
           @for (block of dayBlocks; track block.id; let index = $index) {
             <article class="doctor-block-card">
               <p class="doctor-block-card__index">Lịch nghỉ #{{ index + 1 }}</p>
+              <span class="status-badge" [class.status-badge--pending]="block.status === 'Pending'" [class.status-badge--approved]="block.status === 'Approved'" [class.status-badge--rejected]="block.status === 'Rejected'">
+                {{ getWorkScheduleBlockStatusLabel(block.status) }}
+              </span>
+              <p class="doctor-block-card__date">{{ formatDate(block.date) }}</p>
               <h3>{{ block.is_off ? 'Nghỉ cả ngày' : 'Nghỉ theo giờ' }}</h3>
               <p>{{ formatTime(block.start_time) }} - {{ formatTime(block.end_time) }}</p>
               @if (block.reason) {
                 <p class="doctor-block-card__reason">{{ block.reason }}</p>
               }
+              <div class="actions" *ngIf="canEditBlock(block) || canDeleteBlock(block)">
+                @if (canEditBlock(block)) {
+                  <button class="button-warning action-icon-button" type="button" (click)="startEdit(block)" aria-label="Sửa" title="Sửa yêu cầu">
+                    <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M3 21l3.8-1 10-10a2 2 0 0 0 0-2.8l-1-1a2 2 0 0 0-2.8 0l-10 10L3 21z" />
+                      <path d="M13 6l5 5" />
+                    </svg>
+                    <span class="sr-only">Sửa yêu cầu</span>
+                  </button>
+                }
+                @if (canDeleteBlock(block)) {
+                  <button class="button-danger action-icon-button" type="button" (click)="onDelete(block)" [disabled]="isSubmitting" aria-label="Xóa" title="Xóa yêu cầu">
+                    <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M4 7h16" />
+                      <path d="M10 11v6" />
+                      <path d="M14 11v6" />
+                      <path d="M6 7l1 13h10l1-13" />
+                      <path d="M9 7V4h6v3" />
+                    </svg>
+                    <span class="sr-only">Xóa yêu cầu</span>
+                  </button>
+                }
+              </div>
             </article>
           }
         </div>
@@ -107,7 +159,9 @@
               <tr>
                 <th>STT</th>
                 <th>Bác sĩ</th>
+                <th>Ngày</th>
                 <th>Loại</th>
+                <th>Trạng thái</th>
                 <th>Giờ bắt đầu</th>
                 <th>Giờ kết thúc</th>
                 <th>Thao tác</th>
@@ -118,9 +172,15 @@
                 <tr>
                   <td>{{ dayRowOffset + index + 1 }}</td>
                   <td>{{ displayDoctorName(block) }}</td>
+                  <td>{{ formatDate(block.date) }}</td>
                   <td>
                     <span class="status-badge" [class.status-badge--inactive]="block.is_off">
                       {{ block.is_off ? 'Nghỉ cả ngày' : 'Nghỉ giờ' }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="status-badge" [class.status-badge--pending]="block.status === 'Pending'" [class.status-badge--approved]="block.status === 'Approved'" [class.status-badge--rejected]="block.status === 'Rejected'">
+                      {{ getWorkScheduleBlockStatusLabel(block.status) }}
                     </span>
                   </td>
                   <td>{{ formatTime(block.start_time) }}</td>
@@ -134,14 +194,22 @@
                         </svg>
                         <span class="sr-only">Xem chi tiết</span>
                       </button>
-                      @if (canManageBlocks) {
-                        <button class="button-warning action-icon-button" type="button" (click)="startEdit(block)" aria-label="Sửa" title="Sửa">
+                      @if (canReviewBlocks && block.status === 'Pending') {
+                        <button class="button-primary action-icon-button" type="button" (click)="onApprove(block)" [disabled]="isSubmitting" aria-label="Duyệt" title="Duyệt">
                           <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M3 21l3.8-1 10-10a2 2 0 0 0 0-2.8l-1-1a2 2 0 0 0-2.8 0l-10 10L3 21z" />
-                            <path d="M13 6l5 5" />
+                            <path d="M5 12l4 4 10-10" />
                           </svg>
-                          <span class="sr-only">Sửa</span>
+                          <span class="sr-only">Duyệt</span>
                         </button>
+                        <button class="button-warning action-icon-button" type="button" (click)="onReject(block)" [disabled]="isSubmitting" aria-label="Từ chối" title="Từ chối">
+                          <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M18 6L6 18" />
+                            <path d="M6 6l12 12" />
+                          </svg>
+                          <span class="sr-only">Từ chối</span>
+                        </button>
+                      }
+                      @if (canDeleteBlock(block)) {
                         <button class="button-danger action-icon-button" type="button" (click)="onDelete(block)" [disabled]="isSubmitting" aria-label="Xóa" title="Xóa">
                           <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M4 7h16" />
@@ -172,7 +240,9 @@
       }
     } @else {
       @if (!hasAnyWeekBlock) {
-        <p class="state-text">Không có lịch nghỉ trong tuần đã chọn.</p>
+        <p class="state-text">
+          {{ activeTab === 'approved' ? 'Không có lịch nghỉ đã duyệt trong tuần đã chọn.' : 'Không có yêu cầu nghỉ trong tuần đã chọn.' }}
+        </p>
       } @else if (isDoctorView) {
         <div class="doctor-week-board">
           @for (dayGroup of weekDayBlocks; track dayGroup.dateKey) {
@@ -186,9 +256,19 @@
               } @else {
                 <div class="doctor-week-day-card__list">
                   @for (block of dayGroup.blocks; track block.id) {
-                    <p>
-                      {{ block.is_off ? 'Nghỉ cả ngày' : (formatTime(block.start_time) + ' - ' + formatTime(block.end_time)) }}
-                    </p>
+                    <article class="doctor-week-block">
+                      <div class="doctor-week-block__top">
+                        <span class="status-badge" [class.status-badge--pending]="block.status === 'Pending'" [class.status-badge--approved]="block.status === 'Approved'" [class.status-badge--rejected]="block.status === 'Rejected'">
+                          {{ getWorkScheduleBlockStatusLabel(block.status) }}
+                        </span>
+                      </div>
+                      <p class="doctor-week-block__time">
+                        {{ block.is_off ? 'Nghỉ cả ngày' : (formatTime(block.start_time) + ' - ' + formatTime(block.end_time)) }}
+                      </p>
+                      @if (block.reason) {
+                        <p class="doctor-week-block__reason">{{ block.reason }}</p>
+                      }
+                    </article>
                   }
                 </div>
               }
@@ -213,6 +293,7 @@
                       <div class="schedule-item__info">
                         <strong>{{ block.is_off ? 'Nghỉ cả ngày' : 'Nghỉ theo giờ' }}</strong>
                         <span>{{ formatTime(block.start_time) }} - {{ formatTime(block.end_time) }}</span>
+                        <span class="schedule-item__status">{{ getWorkScheduleBlockStatusLabel(block.status) }}</span>
                       </div>
                       <div class="actions">
                         <button class="button-secondary action-icon-button" type="button" (click)="onViewMore(block.id)" aria-label="Xem chi tiết" title="Xem chi tiết">
@@ -222,14 +303,22 @@
                           </svg>
                           <span class="sr-only">Xem chi tiết</span>
                         </button>
-                        @if (canManageBlocks) {
-                          <button class="button-warning action-icon-button" type="button" (click)="startEdit(block)" aria-label="Sửa" title="Sửa">
+                        @if (canReviewBlocks && block.status === 'Pending') {
+                          <button class="button-primary action-icon-button" type="button" (click)="onApprove(block)" [disabled]="isSubmitting" aria-label="Duyệt" title="Duyệt">
                             <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
-                              <path d="M3 21l3.8-1 10-10a2 2 0 0 0 0-2.8l-1-1a2 2 0 0 0-2.8 0l-10 10L3 21z" />
-                              <path d="M13 6l5 5" />
+                              <path d="M5 12l4 4 10-10" />
                             </svg>
-                            <span class="sr-only">Sửa</span>
+                            <span class="sr-only">Duyệt</span>
                           </button>
+                          <button class="button-warning action-icon-button" type="button" (click)="onReject(block)" [disabled]="isSubmitting" aria-label="Từ chối" title="Từ chối">
+                            <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M18 6L6 18" />
+                              <path d="M6 6l12 12" />
+                            </svg>
+                            <span class="sr-only">Từ chối</span>
+                          </button>
+                        }
+                        @if (canDeleteBlock(block)) {
                           <button class="button-danger action-icon-button" type="button" (click)="onDelete(block)" [disabled]="isSubmitting" aria-label="Xóa" title="Xóa">
                             <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
                               <path d="M4 7h16" />
@@ -260,6 +349,7 @@
                             <div class="schedule-item__info">
                               <strong>{{ block.is_off ? 'Nghỉ cả ngày' : 'Nghỉ theo giờ' }}</strong>
                               <span>{{ formatTime(block.start_time) }} - {{ formatTime(block.end_time) }}</span>
+                              <span class="schedule-item__status">{{ getWorkScheduleBlockStatusLabel(block.status) }}</span>
                             </div>
                             <div class="actions">
                               <button class="button-secondary action-icon-button" type="button" (click)="onViewMore(block.id)" aria-label="Xem chi tiết" title="Xem chi tiết">
@@ -269,14 +359,22 @@
                                 </svg>
                                 <span class="sr-only">Xem chi tiết</span>
                               </button>
-                              @if (canManageBlocks) {
-                                <button class="button-warning action-icon-button" type="button" (click)="startEdit(block)" aria-label="Sửa" title="Sửa">
+                              @if (canReviewBlocks && block.status === 'Pending') {
+                                <button class="button-primary action-icon-button" type="button" (click)="onApprove(block)" [disabled]="isSubmitting" aria-label="Duyệt" title="Duyệt">
                                   <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path d="M3 21l3.8-1 10-10a2 2 0 0 0 0-2.8l-1-1a2 2 0 0 0-2.8 0l-10 10L3 21z" />
-                                    <path d="M13 6l5 5" />
+                                    <path d="M5 12l4 4 10-10" />
                                   </svg>
-                                  <span class="sr-only">Sửa</span>
+                                  <span class="sr-only">Duyệt</span>
                                 </button>
+                                <button class="button-warning action-icon-button" type="button" (click)="onReject(block)" [disabled]="isSubmitting" aria-label="Từ chối" title="Từ chối">
+                                  <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M18 6L6 18" />
+                                    <path d="M6 6l12 12" />
+                                  </svg>
+                                  <span class="sr-only">Từ chối</span>
+                                </button>
+                              }
+                              @if (canDeleteBlock(block)) {
                                 <button class="button-danger action-icon-button" type="button" (click)="onDelete(block)" [disabled]="isSubmitting" aria-label="Xóa" title="Xóa">
                                   <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
                                     <path d="M4 7h16" />
@@ -307,6 +405,7 @@
     [isOpen]="isFormModalOpen"
     [isSubmitting]="isSubmitting"
     [isEditMode]="editingBlockId !== null"
+    [isDoctorView]="isDoctorView"
     [form]="form"
     [doctors]="doctors"
     [doctorInvalid]="doctorControl.invalid && (doctorControl.touched || doctorControl.dirty)"
@@ -325,6 +424,7 @@
     [dateLabel]="selectedBlock ? formatDate(selectedBlock.date) : '--'"
     [startTimeLabel]="selectedBlock ? formatTime(selectedBlock.start_time) : '--'"
     [endTimeLabel]="selectedBlock ? formatTime(selectedBlock.end_time) : '--'"
+    [statusLabel]="selectedBlock ? getWorkScheduleBlockStatusLabel(selectedBlock.status) : '--'"
     (closeModal)="closeDetailModal()"
   />
 </section>

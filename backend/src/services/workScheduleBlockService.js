@@ -1,9 +1,15 @@
 import { Op, Transaction } from "sequelize";
 import db from "../models/index.js";
 
-const { WorkScheduleBlock, Doctor, User, Appointment, sequelize } = db;
+const { WorkScheduleBlock, Doctor, User, Appointment, WorkSchedule, sequelize } = db;
 const SERIALIZATION_ERROR_CODES = new Set(["40001", "40P01"]);
 const MAX_SERIALIZABLE_RETRIES = Number(process.env.MAX_SERIALIZABLE_RETRIES) || 2;
+
+const WORK_SCHEDULE_BLOCK_STATUS = {
+  PENDING: "Pending",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
+};
 
 const parseId = (id) => {
   const parsed = Number(id);
@@ -46,6 +52,17 @@ const normalizeDate = (value) => {
   return trimmed;
 };
 
+const ensureDateNotInPast = (date) => {
+  const now = new Date();
+  const today = `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, "0")}-${`${now.getDate()}`.padStart(2, "0")}`;
+
+  if (date < today) {
+    const error = new Error("Ngày nghỉ không hợp lệ");
+    error.statusCode = 400;
+    throw error;
+  }
+};
+
 const normalizeTime = (value, fieldName) => {
   if (typeof value !== "string") {
     const error = new Error(`${fieldName} là bắt buộc`);
@@ -86,13 +103,13 @@ const normalizeBoolean = (value, fieldName) => {
   throw error;
 };
 
-const normalizeReason = (value) => {
+const normalizeText = (value, fieldName) => {
   if (value === undefined || value === null) {
     return null;
   }
 
   if (typeof value !== "string") {
-    const error = new Error("reason không hợp lệ");
+    const error = new Error(`${fieldName} không hợp lệ`);
     error.statusCode = 400;
     throw error;
   }
@@ -101,12 +118,27 @@ const normalizeReason = (value) => {
   return trimmed || null;
 };
 
+const normalizeReviewStatus = (value) => {
+  if (value === WORK_SCHEDULE_BLOCK_STATUS.APPROVED || value === WORK_SCHEDULE_BLOCK_STATUS.REJECTED) {
+    return value;
+  }
+
+  const error = new Error("status xét duyệt không hợp lệ");
+  error.statusCode = 400;
+  throw error;
+};
+
+const getDayOfWeekFromDate = (date) => {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(year, month - 1, day).getDay();
+};
+
 const timeToSeconds = (value) => {
   const [hour, minute, second] = value.split(":").map(Number);
   return hour * 3600 + minute * 60 + second;
 };
 
-const toTimeString = (value) => String(value).slice(0, 8);
+const toTimeString = (value) => (value ? String(value).slice(0, 8) : null);
 
 const isRetryableTransactionError = (error) => {
   const errorCode = String(error?.original?.code || error?.parent?.code || "");
@@ -157,7 +189,58 @@ const ensureDoctorExists = async (doctorId, transaction) => {
     throw error;
   }
 
-  return parsedDoctorId;
+  return doctor;
+};
+
+const ensureDoctorIsActive = (doctor) => {
+  if (doctor?.status === "Inactive") {
+    const error = new Error("Không được tạo yêu cầu nghỉ cho bác sĩ đang ở trạng thái ngừng hoạt động");
+    error.statusCode = 409;
+    throw error;
+  }
+};
+
+const ensureBlockFitsDoctorWorkingSchedule = async (
+  doctorId,
+  date,
+  isOff,
+  startTime,
+  endTime,
+  transaction
+) => {
+  const schedules = await WorkSchedule.findAll({
+    where: {
+      doctor_id: doctorId,
+      day_of_week: getDayOfWeekFromDate(date),
+    },
+    attributes: ["start_time", "end_time"],
+    transaction,
+    lock: transaction ? transaction.LOCK.UPDATE : undefined,
+  });
+
+  if (schedules.length === 0) {
+    const error = new Error("Bác sĩ không có lịch làm việc trong ngày đã chọn");
+    error.statusCode = 409;
+    throw error;
+  }
+
+  if (isOff) {
+    return;
+  }
+
+  const startSeconds = timeToSeconds(startTime);
+  const endSeconds = timeToSeconds(endTime);
+  const matchesAnySchedule = schedules.some((schedule) => {
+    const scheduleStartSeconds = timeToSeconds(toTimeString(schedule.start_time));
+    const scheduleEndSeconds = timeToSeconds(toTimeString(schedule.end_time));
+    return startSeconds >= scheduleStartSeconds && endSeconds <= scheduleEndSeconds;
+  });
+
+  if (!matchesAnySchedule) {
+    const error = new Error("Khung nghỉ không nằm trong lịch làm việc của bác sĩ");
+    error.statusCode = 409;
+    throw error;
+  }
 };
 
 const resolveCurrentDoctorId = async (currentUser, transaction) => {
@@ -189,26 +272,47 @@ const ensureDoctorOwnsBlock = (block, currentDoctorId) => {
   }
 };
 
-const ensureNoOffDayConflict = async (doctorId, date, options = {}) => {
-  const { excludedBlockId = null, transaction } = options;
+const ensureDoctorCanEditOwnRequest = (block) => {
+  if (
+    block.status !== WORK_SCHEDULE_BLOCK_STATUS.PENDING &&
+    block.status !== WORK_SCHEDULE_BLOCK_STATUS.REJECTED
+  ) {
+    const error = new Error("Chỉ có thể chỉnh sửa hoặc rút yêu cầu nghỉ khi chưa được duyệt");
+    error.statusCode = 409;
+    throw error;
+  }
+};
+
+const buildActiveBlockWhere = (doctorId, date, excludedBlockId = null) => {
   const where = {
     doctor_id: doctorId,
     date,
-    is_off: true,
+    status: {
+      [Op.in]: [WORK_SCHEDULE_BLOCK_STATUS.PENDING, WORK_SCHEDULE_BLOCK_STATUS.APPROVED],
+    },
   };
 
   if (excludedBlockId) {
     where.id = { [Op.ne]: excludedBlockId };
   }
 
+  return where;
+};
+
+const ensureNoOffDayConflict = async (doctorId, date, options = {}) => {
+  const { excludedBlockId = null, transaction } = options;
+
   const offDayBlock = await WorkScheduleBlock.findOne({
-    where,
+    where: {
+      ...buildActiveBlockWhere(doctorId, date, excludedBlockId),
+      is_off: true,
+    },
     transaction,
     lock: transaction ? transaction.LOCK.UPDATE : undefined,
   });
 
   if (offDayBlock) {
-    const error = new Error("Bác sĩ đã được đánh dấu nghỉ cả ngày");
+    const error = new Error("Bác sĩ đã có yêu cầu nghỉ cả ngày hoặc lịch nghỉ đã được duyệt");
     error.statusCode = 409;
     throw error;
   }
@@ -216,26 +320,20 @@ const ensureNoOffDayConflict = async (doctorId, date, options = {}) => {
 
 const ensureNoTimeBlockOverlap = async (doctorId, date, startTime, endTime, options = {}) => {
   const { excludedBlockId = null, transaction } = options;
-  const where = {
-    doctor_id: doctorId,
-    date,
-    is_off: false,
-    start_time: { [Op.lt]: endTime },
-    end_time: { [Op.gt]: startTime },
-  };
-
-  if (excludedBlockId) {
-    where.id = { [Op.ne]: excludedBlockId };
-  }
 
   const overlapped = await WorkScheduleBlock.findOne({
-    where,
+    where: {
+      ...buildActiveBlockWhere(doctorId, date, excludedBlockId),
+      is_off: false,
+      start_time: { [Op.lt]: endTime },
+      end_time: { [Op.gt]: startTime },
+    },
     transaction,
     lock: transaction ? transaction.LOCK.UPDATE : undefined,
   });
 
   if (overlapped) {
-    const error = new Error("Block time bị trùng khung giờ trong ngày này");
+    const error = new Error("Yêu cầu nghỉ bị trùng khung giờ với một yêu cầu hoặc lịch nghỉ khác");
     error.statusCode = 409;
     throw error;
   }
@@ -243,23 +341,15 @@ const ensureNoTimeBlockOverlap = async (doctorId, date, startTime, endTime, opti
 
 const ensureNoOtherBlocksInOffDay = async (doctorId, date, options = {}) => {
   const { excludedBlockId = null, transaction } = options;
-  const where = {
-    doctor_id: doctorId,
-    date,
-  };
-
-  if (excludedBlockId) {
-    where.id = { [Op.ne]: excludedBlockId };
-  }
 
   const existing = await WorkScheduleBlock.findOne({
-    where,
+    where: buildActiveBlockWhere(doctorId, date, excludedBlockId),
     transaction,
     lock: transaction ? transaction.LOCK.UPDATE : undefined,
   });
 
   if (existing) {
-    const error = new Error("Không thể đánh dấu nghỉ cả ngày khi đã có block time trong ngày");
+    const error = new Error("Không thể đăng ký nghỉ cả ngày khi đã có yêu cầu hoặc lịch nghỉ khác trong ngày");
     error.statusCode = 409;
     throw error;
   }
@@ -276,7 +366,7 @@ const ensureNoAppointmentConflictWithBlock = async (
   const where = {
     doctor_id: doctorId,
     date,
-    status: { [Op.ne]: "Cancelled" },
+    status: { [Op.notIn]: ["Cancelled", "Completed", "NoShow"] },
   };
 
   if (!isOff) {
@@ -293,7 +383,7 @@ const ensureNoAppointmentConflictWithBlock = async (
   });
 
   if (conflictingAppointment) {
-    const error = new Error("Không thể block vì đang có lịch hẹn đã được đặt trong khoảng thời gian này");
+    const error = new Error("Không thể duyệt lịch nghỉ vì đang có lịch hẹn hoạt động trong khoảng thời gian này");
     error.statusCode = 409;
     throw error;
   }
@@ -309,6 +399,16 @@ const blockQueryOptions = {
           attributes: ["id", "fullname", "username", "role"],
         },
       ],
+    },
+    {
+      model: User,
+      as: "requestedBy",
+      attributes: ["id", "fullname", "username", "role"],
+    },
+    {
+      model: User,
+      as: "reviewedBy",
+      attributes: ["id", "fullname", "username", "role"],
     },
   ],
   order: [
@@ -358,12 +458,49 @@ const resolveBlockPayload = (payload, currentBlock = null) => {
   return { isOff, startTime, endTime };
 };
 
+const ensureNoSchedulingConflictForEffectiveBlock = async (
+  doctorId,
+  date,
+  isOff,
+  startTime,
+  endTime,
+  options = {}
+) => {
+  const { excludedBlockId = null, transaction, enforceAppointmentConflict = false } = options;
+
+  if (isOff) {
+    await ensureNoOtherBlocksInOffDay(doctorId, date, { excludedBlockId, transaction });
+  } else {
+    await ensureNoOffDayConflict(doctorId, date, { excludedBlockId, transaction });
+    await ensureNoTimeBlockOverlap(doctorId, date, startTime, endTime, {
+      excludedBlockId,
+      transaction,
+    });
+  }
+
+  if (enforceAppointmentConflict) {
+    await ensureNoAppointmentConflictWithBlock(
+      doctorId,
+      date,
+      isOff,
+      startTime,
+      endTime,
+      transaction
+    );
+  }
+};
+
+const buildBlockResponse = (blockId, transaction, currentUser) =>
+  getWorkScheduleBlockByIdService(blockId, transaction, currentUser);
+
 export const getAllWorkScheduleBlocksService = async (currentUser) => {
   const queryOptions = { ...blockQueryOptions };
 
   if (currentUser?.role === "DOCTOR") {
     const currentDoctorId = await resolveCurrentDoctorId(currentUser);
     queryOptions.where = { doctor_id: currentDoctorId };
+  } else if (currentUser?.role === "RECEPTIONIST") {
+    queryOptions.where = { status: WORK_SCHEDULE_BLOCK_STATUS.APPROVED };
   }
 
   return WorkScheduleBlock.findAll(queryOptions);
@@ -377,7 +514,7 @@ export const getWorkScheduleBlockByIdService = async (id, transaction, currentUs
   });
 
   if (!block) {
-    const error = new Error("Không tìm thấy work schedule block");
+    const error = new Error("Không tìm thấy lịch nghỉ");
     error.statusCode = 404;
     throw error;
   }
@@ -385,156 +522,85 @@ export const getWorkScheduleBlockByIdService = async (id, transaction, currentUs
   if (currentUser?.role === "DOCTOR") {
     const currentDoctorId = await resolveCurrentDoctorId(currentUser, transaction);
     ensureDoctorOwnsBlock(block, currentDoctorId);
+  } else if (
+    currentUser?.role === "RECEPTIONIST" &&
+    block.status !== WORK_SCHEDULE_BLOCK_STATUS.APPROVED
+  ) {
+    const error = new Error("Bạn không có quyền xem yêu cầu nghỉ chưa được duyệt");
+    error.statusCode = 403;
+    throw error;
   }
 
   return block;
 };
 
 export const createWorkScheduleBlockService = async (payload, currentUser) => {
+  if (currentUser?.role !== "DOCTOR") {
+    const error = new Error("Chỉ bác sĩ mới được đăng ký lịch nghỉ");
+    error.statusCode = 403;
+    throw error;
+  }
+
   const safePayload = payload || {};
 
   return runSerializableTransaction(async (transaction) => {
-      const currentDoctorId = await resolveCurrentDoctorId(currentUser, transaction);
-      const requestedDoctorId = currentDoctorId || safePayload.doctor_id;
-      const doctorId = await ensureDoctorExists(requestedDoctorId, transaction);
-      const date = normalizeDate(safePayload.date);
-      const reason = normalizeReason(safePayload.reason);
-      const { isOff, startTime, endTime } = resolveBlockPayload(safePayload);
+    const currentDoctorId = await resolveCurrentDoctorId(currentUser, transaction);
+    const doctor = await ensureDoctorExists(currentDoctorId, transaction);
+    ensureDoctorIsActive(doctor);
+    const doctorId = doctor.id;
+    const date = normalizeDate(safePayload.date);
+    ensureDateNotInPast(date);
+    const reason = normalizeText(safePayload.reason, "reason");
+    const { isOff, startTime, endTime } = resolveBlockPayload(safePayload);
 
-      if (isOff) {
-        await ensureNoOtherBlocksInOffDay(doctorId, date, { transaction });
-      } else {
-        await ensureNoOffDayConflict(doctorId, date, { transaction });
-        await ensureNoTimeBlockOverlap(doctorId, date, startTime, endTime, { transaction });
-      }
+    await ensureBlockFitsDoctorWorkingSchedule(
+      doctorId,
+      date,
+      isOff,
+      startTime,
+      endTime,
+      transaction
+    );
 
-      await ensureNoAppointmentConflictWithBlock(
-        doctorId,
-        date,
-        isOff,
-        startTime,
-        endTime,
-        transaction
-      );
-
-      const created = await WorkScheduleBlock.create(
-        {
-          doctor_id: doctorId,
-          date,
-          is_off: isOff,
-          start_time: startTime,
-          end_time: endTime,
-          reason,
-        },
-        { transaction }
-      );
-
-      return getWorkScheduleBlockByIdService(created.id, transaction, currentUser);
+    await ensureNoSchedulingConflictForEffectiveBlock(doctorId, date, isOff, startTime, endTime, {
+      transaction,
     });
+
+    const created = await WorkScheduleBlock.create(
+      {
+        doctor_id: doctorId,
+        requested_by_user_id: currentUser.id,
+        reviewed_by_user_id: null,
+        date,
+        status: WORK_SCHEDULE_BLOCK_STATUS.PENDING,
+        is_off: isOff,
+        start_time: startTime,
+        end_time: endTime,
+        reason,
+        reviewed_at: null,
+        review_note: null,
+      },
+      { transaction }
+    );
+
+    return buildBlockResponse(created.id, transaction, currentUser);
+  });
 };
 
-    export const updateWorkScheduleBlockService = async (id, payload, currentUser) => {
+export const updateWorkScheduleBlockService = async (id, payload, currentUser) => {
+  if (currentUser?.role !== "DOCTOR") {
+    const error = new Error("Chỉ bác sĩ mới được cập nhật yêu cầu nghỉ của mình");
+    error.statusCode = 403;
+    throw error;
+  }
+
   const blockId = parseId(id);
   const safePayload = payload || {};
-  const allowedUpdateFields = ["doctor_id", "date", "reason", "is_off", "start_time", "end_time"];
+  const allowedUpdateFields = ["date", "reason", "is_off", "start_time", "end_time"];
   const hasRecognizedField = allowedUpdateFields.some((field) =>
     Object.prototype.hasOwnProperty.call(safePayload, field)
   );
 
-  return runSerializableTransaction(async (transaction) => {
-      const currentDoctorId = await resolveCurrentDoctorId(currentUser, transaction);
-      const block = await WorkScheduleBlock.findByPk(blockId, {
-        transaction,
-        lock: transaction.LOCK.UPDATE,
-      });
-
-      if (!block) {
-        const error = new Error("Không tìm thấy work schedule block");
-        error.statusCode = 404;
-        throw error;
-      }
-
-      ensureDoctorOwnsBlock(block, currentDoctorId);
-
-      if (Object.keys(safePayload).length === 0 || !hasRecognizedField) {
-        const error = new Error("Không có dữ liệu để cập nhật");
-        error.statusCode = 400;
-        throw error;
-      }
-
-      const updates = {};
-
-      if (currentDoctorId) {
-        updates.doctor_id = currentDoctorId;
-      } else if (Object.prototype.hasOwnProperty.call(safePayload, "doctor_id")) {
-        updates.doctor_id = await ensureDoctorExists(safePayload.doctor_id, transaction);
-      }
-
-      if (Object.prototype.hasOwnProperty.call(safePayload, "date")) {
-        updates.date = normalizeDate(safePayload.date);
-      }
-
-      if (Object.prototype.hasOwnProperty.call(safePayload, "reason")) {
-        updates.reason = normalizeReason(safePayload.reason);
-      }
-
-      const effectiveDoctorId =
-        updates.doctor_id !== undefined ? updates.doctor_id : block.doctor_id;
-      const effectiveDate = updates.date !== undefined ? updates.date : block.date;
-
-      const { isOff, startTime, endTime } = resolveBlockPayload(safePayload, block);
-
-      updates.is_off = isOff;
-      updates.start_time = startTime;
-      updates.end_time = endTime;
-
-      const hasEffectiveChange =
-        updates.doctor_id !== block.doctor_id ||
-        updates.date !== block.date ||
-        updates.reason !== block.reason ||
-        updates.is_off !== block.is_off ||
-        toTimeString(updates.start_time) !== toTimeString(block.start_time) ||
-        toTimeString(updates.end_time) !== toTimeString(block.end_time);
-
-      if (!hasEffectiveChange) {
-        const error = new Error("Không có thay đổi dữ liệu hợp lệ để cập nhật");
-        error.statusCode = 400;
-        throw error;
-      }
-
-      if (isOff) {
-        await ensureNoOtherBlocksInOffDay(effectiveDoctorId, effectiveDate, {
-          excludedBlockId: block.id,
-          transaction,
-        });
-      } else {
-        await ensureNoOffDayConflict(effectiveDoctorId, effectiveDate, {
-          excludedBlockId: block.id,
-          transaction,
-        });
-
-        await ensureNoTimeBlockOverlap(effectiveDoctorId, effectiveDate, startTime, endTime, {
-          excludedBlockId: block.id,
-          transaction,
-        });
-      }
-
-      await ensureNoAppointmentConflictWithBlock(
-        effectiveDoctorId,
-        effectiveDate,
-        isOff,
-        startTime,
-        endTime,
-        transaction
-      );
-
-      await block.update(updates, { transaction });
-      return getWorkScheduleBlockByIdService(block.id, transaction, currentUser);
-    });
-};
-
-export const deleteWorkScheduleBlockService = async (id, currentUser) => {
-  const blockId = parseId(id);
   return runSerializableTransaction(async (transaction) => {
     const currentDoctorId = await resolveCurrentDoctorId(currentUser, transaction);
     const block = await WorkScheduleBlock.findByPk(blockId, {
@@ -543,12 +609,170 @@ export const deleteWorkScheduleBlockService = async (id, currentUser) => {
     });
 
     if (!block) {
-      const error = new Error("Không tìm thấy work schedule block");
+      const error = new Error("Không tìm thấy lịch nghỉ");
       error.statusCode = 404;
       throw error;
     }
 
     ensureDoctorOwnsBlock(block, currentDoctorId);
+    ensureDoctorCanEditOwnRequest(block);
+    const doctor = await ensureDoctorExists(currentDoctorId, transaction);
+    ensureDoctorIsActive(doctor);
+
+    if (Object.keys(safePayload).length === 0 || !hasRecognizedField) {
+      const error = new Error("Không có dữ liệu để cập nhật");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const updates = {
+      doctor_id: currentDoctorId,
+      requested_by_user_id: currentUser.id,
+      status: WORK_SCHEDULE_BLOCK_STATUS.PENDING,
+      reviewed_by_user_id: null,
+      reviewed_at: null,
+      review_note: null,
+    };
+
+    if (Object.prototype.hasOwnProperty.call(safePayload, "date")) {
+      updates.date = normalizeDate(safePayload.date);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(safePayload, "reason")) {
+      updates.reason = normalizeText(safePayload.reason, "reason");
+    }
+
+    const effectiveDate = updates.date !== undefined ? updates.date : block.date;
+    ensureDateNotInPast(effectiveDate);
+    const { isOff, startTime, endTime } = resolveBlockPayload(safePayload, block);
+
+    updates.is_off = isOff;
+    updates.start_time = startTime;
+    updates.end_time = endTime;
+
+    const hasEffectiveChange =
+      updates.date !== block.date ||
+      updates.reason !== block.reason ||
+      updates.is_off !== block.is_off ||
+      toTimeString(updates.start_time) !== toTimeString(block.start_time) ||
+      toTimeString(updates.end_time) !== toTimeString(block.end_time) ||
+      block.status !== WORK_SCHEDULE_BLOCK_STATUS.PENDING ||
+      block.reviewed_by_user_id !== null ||
+      block.reviewed_at !== null ||
+      block.review_note !== null;
+
+    if (!hasEffectiveChange) {
+      const error = new Error("Không có thay đổi dữ liệu hợp lệ để cập nhật");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    await ensureBlockFitsDoctorWorkingSchedule(
+      currentDoctorId,
+      effectiveDate,
+      isOff,
+      startTime,
+      endTime,
+      transaction
+    );
+
+    await ensureNoSchedulingConflictForEffectiveBlock(
+      currentDoctorId,
+      effectiveDate,
+      isOff,
+      startTime,
+      endTime,
+      {
+        excludedBlockId: block.id,
+        transaction,
+      }
+    );
+
+    await block.update(updates, { transaction });
+    return buildBlockResponse(block.id, transaction, currentUser);
+  });
+};
+
+export const reviewWorkScheduleBlockService = async (id, payload, currentUser) => {
+  const blockId = parseId(id);
+  const safePayload = payload || {};
+
+  return runSerializableTransaction(async (transaction) => {
+    const block = await WorkScheduleBlock.findByPk(blockId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!block) {
+      const error = new Error("Không tìm thấy lịch nghỉ");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (block.status !== WORK_SCHEDULE_BLOCK_STATUS.PENDING) {
+      const error = new Error("Chỉ có thể duyệt hoặc từ chối yêu cầu đang chờ duyệt");
+      error.statusCode = 409;
+      throw error;
+    }
+
+    const nextStatus = normalizeReviewStatus(safePayload.status);
+    const reviewNote = normalizeText(safePayload.review_note, "review_note");
+
+    if (nextStatus === WORK_SCHEDULE_BLOCK_STATUS.APPROVED) {
+      await ensureNoSchedulingConflictForEffectiveBlock(
+        block.doctor_id,
+        block.date,
+        block.is_off,
+        block.start_time,
+        block.end_time,
+        {
+          excludedBlockId: block.id,
+          transaction,
+          enforceAppointmentConflict: true,
+        }
+      );
+    }
+
+    await block.update(
+      {
+        status: nextStatus,
+        reviewed_by_user_id: currentUser.id,
+        reviewed_at: new Date(),
+        review_note: reviewNote,
+      },
+      { transaction }
+    );
+
+    return buildBlockResponse(block.id, transaction, currentUser);
+  });
+};
+
+export const deleteWorkScheduleBlockService = async (id, currentUser) => {
+  if (currentUser?.role !== "DOCTOR") {
+    const error = new Error("Chỉ bác sĩ mới được rút yêu cầu nghỉ của mình");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const blockId = parseId(id);
+
+  return runSerializableTransaction(async (transaction) => {
+    const currentDoctorId = await resolveCurrentDoctorId(currentUser, transaction);
+    const block = await WorkScheduleBlock.findByPk(blockId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!block) {
+      const error = new Error("Không tìm thấy lịch nghỉ");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (currentDoctorId) {
+      ensureDoctorOwnsBlock(block, currentDoctorId);
+      ensureDoctorCanEditOwnRequest(block);
+    }
 
     await block.destroy({ transaction });
   });

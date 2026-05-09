@@ -463,6 +463,7 @@ export const getDoctorsBySpecialtyAndDateService = async (query, currentUser) =>
     where: {
       doctor_id: { [Op.in]: doctorIds },
       date,
+      status: "Approved",
     },
     attributes: ["doctor_id", "is_off", "start_time", "end_time"],
   });

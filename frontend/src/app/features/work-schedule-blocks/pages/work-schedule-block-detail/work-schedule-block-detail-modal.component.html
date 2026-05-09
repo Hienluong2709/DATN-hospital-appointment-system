@@ -24,7 +24,11 @@
           </div>
           <div>
             <dt>Loại</dt>
-            <dd>{{ block.is_off ? 'Nghỉ cả ngày' : 'Chặn giờ' }}</dd>
+            <dd>{{ block.is_off ? 'Nghỉ cả ngày' : 'Nghỉ theo giờ' }}</dd>
+          </div>
+          <div>
+            <dt>Trạng thái</dt>
+            <dd>{{ statusLabel }}</dd>
           </div>
           <div>
             <dt>Giờ bắt đầu</dt>
@@ -38,6 +42,12 @@
             <dt>Lý do</dt>
             <dd>{{ block.reason || 'Không có lý do' }}</dd>
           </div>
+          @if (block.review_note) {
+            <div>
+              <dt>Ghi chú duyệt</dt>
+              <dd>{{ block.review_note }}</dd>
+            </div>
+          }
         </dl>
       } @else {
         <p class="state-text">Không có dữ liệu chi tiết.</p>
