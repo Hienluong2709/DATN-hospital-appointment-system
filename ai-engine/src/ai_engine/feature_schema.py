@@ -10,7 +10,7 @@ DEFAULT_Y_PATH = REPO_ROOT / "backend" / "exports" / "ai-engine" / "queue-train-
 DEFAULT_ARTIFACT_DIR = PROJECT_ROOT / "artifacts" / "latest"
 
 TARGET_COLUMN = "target_actual_wait_minutes"
-OUTPUT_COLUMN = "predicted_wait_minutes"
+OUTPUT_COLUMN = ""
 BASELINE_MODEL_NAME = "rule_based_engine"
 PRIMARY_MODEL_NAME = "catboost_regressor"
 LINEAR_REGRESSION_MODEL_NAME = "linear_regression"
@@ -43,7 +43,7 @@ FEATURE_COLUMNS = [
     "latest_predicted_start_minute_of_day",
     "checkin_offset_from_original_estimated_start_minutes",
     "checkin_offset_from_latest_predicted_start_minutes",
-    "baseline_predicted_wait_minutes",
+    "baseline_",
 ]
 
 CATEGORICAL_COLUMNS = [
