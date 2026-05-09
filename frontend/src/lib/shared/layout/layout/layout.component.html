@@ -7,49 +7,86 @@
   <!-- BODY -->
   <div class="workspace" [class.collapsed]="!isExpanded" [class.no-sidebar]="isPatientPortal">
     @if (!isPatientPortal) {
-      <!-- MINI SIDEBAR -->
-      <aside class="rail">
-        <div class="rail-menu">
-          @for (item of visiblePrimaryMenu; track item.link) {
-            <a
-              class="rail-item"
-              [routerLink]="item.link"
-              routerLinkActive="active">
-              <span class="material-symbols-outlined">{{ item.icon }}</span>
-            </a>
+      <aside class="subnav">
+        <div class="subnav-toolbar">
+          @if (isExpanded) {
+            <label class="subnav-search" aria-label="Tìm kiếm menu">
+              <span class="material-symbols-outlined">search</span>
+              <input
+                type="search"
+                placeholder="Tìm kiếm menu"
+                [value]="menuSearchTerm"
+                (input)="onMenuSearchChange($any($event.target).value)" />
+            </label>
           }
+          <button
+            class="subnav-toggle"
+            type="button"
+            [attr.aria-label]="isExpanded ? 'Thu gọn menu' : 'Mở rộng menu'"
+            [title]="isExpanded ? 'Thu gọn menu' : 'Mở rộng menu'"
+            (click)="toggleSidebar()">
+            <span class="material-symbols-outlined">
+              {{ isExpanded ? 'left_panel_close' : 'menu_open' }}
+            </span>
+          </button>
         </div>
 
-        <button
-          class="rail-toggle"
-          type="button"
-          [attr.aria-label]="isExpanded ? 'Thu gọn menu' : 'Mở rộng menu'"
-          [title]="isExpanded ? 'Thu gọn menu' : 'Mở rộng menu'"
-          (click)="toggleSidebar()">
-          <span class="material-symbols-outlined">
-            {{ isExpanded ? 'menu_open' : 'menu' }}
-          </span>
-        </button>
-      </aside>
-
-      <!-- MAIN SIDEBAR -->
-      <aside class="subnav">
-        <!-- <p class="subnav-title">Danh mục</p> -->
-
-        @for (group of visibleMenuGroups; track group.key) {
-          <section class="subnav-group">
-            <h4>{{ group.title }}</h4>
-
-            @for (item of group.items; track item.link) {
+        @if (isExpanded) {
+          <nav class="subnav-tree" aria-label="Điều hướng hệ thống">
+            @if (homeMenuItem; as homeItem) {
               <a
-                class="subnav-item"
-                [routerLink]="item.link"
-                routerLinkActive="active">
-                <span class="material-symbols-outlined">{{ item.icon }}</span>
-                <span>{{ item.label }}</span>
+                class="subnav-home"
+                [routerLink]="homeItem.link"
+                routerLinkActive="active"
+                [routerLinkActiveOptions]="{ exact: homeItem.exact ?? false }">
+                <span class="material-symbols-outlined">{{ homeItem.icon }}</span>
+                <span>{{ homeItem.label }}</span>
               </a>
             }
-          </section>
+
+            @for (group of visibleMenuGroups; track group.key) {
+              <section class="subnav-group" [class.expanded]="isGroupExpanded(group.key)" [class.active]="isGroupActive(group)">
+                <button class="subnav-group__trigger" type="button" (click)="toggleGroup(group.key)">
+                  <span class="subnav-group__summary">
+                    <span class="material-symbols-outlined">{{ group.icon }}</span>
+                    <span>{{ group.title }}</span>
+                  </span>
+                  <span class="material-symbols-outlined subnav-group__chevron">
+                    {{ isGroupExpanded(group.key) ? 'expand_less' : 'expand_more' }}
+                  </span>
+                </button>
+
+                @if (isGroupExpanded(group.key)) {
+                  <div class="subnav-group__items">
+                    @for (item of group.items; track item.link) {
+                      <a
+                        class="subnav-item"
+                        [routerLink]="item.link"
+                        routerLinkActive="active"
+                        [routerLinkActiveOptions]="{ exact: item.exact ?? false }">
+                        <span class="material-symbols-outlined">{{ item.icon }}</span>
+                        <span>{{ item.label }}</span>
+                      </a>
+                    }
+                  </div>
+                }
+              </section>
+            }
+          </nav>
+        } @else {
+          <nav class="subnav-icons" aria-label="Điều hướng hệ thống rút gọn">
+            @for (item of collapsedMenuItems; track item.link) {
+              <a
+                class="subnav-icon-item"
+                [routerLink]="item.link"
+                routerLinkActive="active"
+                [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
+                [attr.aria-label]="item.label"
+                [title]="item.label">
+                <span class="material-symbols-outlined">{{ item.icon }}</span>
+              </a>
+            }
+          </nav>
         }
       </aside>
     }

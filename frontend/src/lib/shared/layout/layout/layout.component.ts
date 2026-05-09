@@ -26,7 +26,6 @@ interface MenuItem {
   label: string;
   link: string;
   icon: string;
-  short: string;
   exact?: boolean;
   roles?: BackendRole[];
 }
@@ -34,6 +33,7 @@ interface MenuItem {
 interface MenuGroup {
   key: string;
   title: string;
+  icon: string;
   items: MenuItem[];
 }
 
@@ -52,6 +52,8 @@ export class LayoutComponent implements OnInit {
 
   isExpanded = true;
   breadcrumbLabel = 'Overview';
+  menuSearchTerm = '';
+  expandedGroupKeys = new Set<string>(['catalog', 'schedules', 'operations', 'system']);
 
   get userName(): string {
     return this.resolveUserName();
@@ -87,123 +89,26 @@ export class LayoutComponent implements OnInit {
     });
   }
 
-  primaryMenu: MenuItem[] = [
-    { label: 'Admin', short: 'AD', icon: 'admin_panel_settings', link: this.staffLink(ADMIN_PATH), roles: ['ADMIN'] },
-    {
-      label: 'Reception',
-      short: 'RE',
-      icon: 'support_agent',
-      link: this.staffLink(RECEPTIONIST_PATH),
-      roles: ['RECEPTIONIST']
-    },
-    { label: 'Doctor', short: 'DR', icon: 'stethoscope', link: this.staffLink(DOCTOR_PORTAL_PATH), roles: ['DOCTOR'] },
-    { label: 'Dashboard', short: 'DB', icon: 'dashboard', link: this.staffLink(DASHBOARD_PATH), exact: true, roles: ['ADMIN'] },
-    {
-      label: 'Specialties',
-      short: 'SP',
-      icon: 'medical_services',
-      link: this.staffLink(SPECIALTIES_PATH),
-      roles: ['ADMIN', 'RECEPTIONIST']
-    },
-    { label: 'Users', short: 'US', icon: 'manage_accounts', link: this.staffLink(USERS_PATH), roles: ['ADMIN'] },
-    { label: 'Rooms', short: 'RM', icon: 'meeting_room', link: this.staffLink(ROOMS_PATH), roles: ['ADMIN', 'RECEPTIONIST'] },
-    { label: 'Doctors', short: 'DC', icon: 'groups', link: this.staffLink(DOCTORS_PATH), roles: ['ADMIN', 'RECEPTIONIST'] },
-    {
-      label: 'Schedules',
-      short: 'WS',
-      icon: 'calendar_month',
-      link: this.staffLink(WORK_SCHEDULES_PATH),
-      roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
-    },
-    {
-      label: 'Blocks',
-      short: 'WB',
-      icon: 'event_busy',
-      link: this.staffLink(WORK_SCHEDULE_BLOCKS_PATH),
-      roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
-    },
-    {
-      label: 'Appointments',
-      short: 'AP',
-      icon: 'event_note',
-      link: this.staffLink(APPOINTMENTS_PATH),
-      roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
-    },
-    { label: 'Queues', short: 'QU', icon: 'groups', link: this.staffLink(QUEUES_PATH), roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR'] },
-    {
-      label: 'E-Queue',
-      short: 'EQ',
-      icon: 'confirmation_number',
-      link: this.staffLink(EQUEUE_NUMBERS_PATH),
-      roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
-    }
-  ];
-
   menuGroups: MenuGroup[] = [
-    // {
-    //   key: 'actors',
-    //   title: 'Tac nhan',
-    //   items: [
-    //     { label: 'Trang Admin', short: 'AD', icon: 'admin_panel_settings', link: '/admin', roles: ['ADMIN'] },
-    //     {
-    //       label: 'Trang Le tan',
-    //       short: 'RE',
-    //       icon: 'support_agent',
-    //       link: '/receptionist',
-    //       roles: ['RECEPTIONIST']
-    //     },
-    //     { label: 'Trang Bac si', short: 'DR', icon: 'stethoscope', link: '/doctor', roles: ['DOCTOR'] },
-    //     {
-    //       label: 'Trang Benh nhan',
-    //       short: 'PT',
-    //       icon: 'personal_injury',
-    //       link: '/patient',
-    //       roles: ['PATIENT']
-    //     }
-    //   ]
-    // },
-    {
-      key: 'overview',
-      title: 'Tổng quan',
-      items: [
-        {
-          label: 'Tổng quan hệ thống',
-          short: 'DB',
-          icon: 'dashboard',
-          link: this.staffLink(DASHBOARD_PATH),
-          exact: true,
-          roles: ['ADMIN']
-        }
-      ]
-    },
     {
       key: 'catalog',
-      title: 'Danh mục',
+      title: 'Quản lý danh mục',
+      icon: 'inventory_2',
       items: [
         {
           label: 'Danh mục chuyên khoa',
-          short: 'SP',
           icon: 'medical_services',
           link: this.staffLink(SPECIALTIES_PATH),
           roles: ['ADMIN', 'RECEPTIONIST']
         },
         {
-          label: 'Quản lý người dùng',
-          short: 'US',
-          icon: 'manage_accounts',
-          link: this.staffLink(USERS_PATH),
-          roles: ['ADMIN']
-        },
-        {
           label: 'Danh mục phòng khám',
-          short: 'RM',
           icon: 'meeting_room',
           link: this.staffLink(ROOMS_PATH),
           roles: ['ADMIN', 'RECEPTIONIST']
         },
         {
           label: 'Danh sách bác sĩ',
-          short: 'DC',
           icon: 'groups',
           link: this.staffLink(DOCTORS_PATH),
           roles: ['ADMIN', 'RECEPTIONIST']
@@ -211,56 +116,128 @@ export class LayoutComponent implements OnInit {
       ]
     },
     {
-      key: 'operations',
-      title: 'Hoạt động',
+      key: 'schedules',
+      title: 'Quản lý lịch khám',
+      icon: 'calendar_month',
       items: [
         {
           label: 'Lịch làm việc',
-          short: 'WS',
           icon: 'calendar_month',
           link: this.staffLink(WORK_SCHEDULES_PATH),
           roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
         },
         {
           label: 'Lịch nghỉ',
-          short: 'WB',
           icon: 'event_busy',
           link: this.staffLink(WORK_SCHEDULE_BLOCKS_PATH),
           roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
         },
         {
           label: 'Lịch hẹn khám',
-          short: 'AP',
           icon: 'event_note',
           link: this.staffLink(APPOINTMENTS_PATH),
           roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
-        },
+        }
+      ]
+    },
+    {
+      key: 'operations',
+      title: 'Vận hành khám bệnh',
+      icon: 'local_hospital',
+      items: [
         {
           label: 'Hàng đợi',
-          short: 'QU',
           icon: 'groups',
           link: this.staffLink(QUEUES_PATH),
           roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
         },
         {
           label: 'Số thứ tự điện tử',
-          short: 'EQ',
           icon: 'confirmation_number',
           link: this.staffLink(EQUEUE_NUMBERS_PATH),
           roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
         }
       ]
+    },
+    {
+      key: 'system',
+      title: 'Hệ thống',
+      icon: 'settings',
+      items: [
+        {
+          label: 'Quản lý người dùng',
+          icon: 'manage_accounts',
+          link: this.staffLink(USERS_PATH),
+          roles: ['ADMIN']
+        }
+      ]
     }
   ];
 
-  get visiblePrimaryMenu(): MenuItem[] {
-    return this.filterByRole(this.primaryMenu);
+  get visibleMenuGroups(): MenuGroup[] {
+    const keyword = this.menuSearchTerm.trim().toLowerCase();
+
+    return this.menuGroups
+      .map((group) => {
+        const allowedItems = this.filterByRole(group.items);
+        if (!keyword) {
+          return { ...group, items: allowedItems };
+        }
+
+        const titleMatches = group.title.toLowerCase().includes(keyword);
+        const matchingItems = allowedItems.filter((item) =>
+          item.label.toLowerCase().includes(keyword),
+        );
+
+        return {
+          ...group,
+          items: titleMatches ? allowedItems : matchingItems,
+        };
+      })
+      .filter((group) => group.items.length > 0);
   }
 
-  get visibleMenuGroups(): MenuGroup[] {
-    return this.menuGroups
-      .map((group) => ({ ...group, items: this.filterByRole(group.items) }))
-      .filter((group) => group.items.length > 0);
+  get homeMenuItem(): MenuItem | null {
+    switch (this.roleKey) {
+      case 'ADMIN':
+        return {
+          label: 'Trang chủ',
+          icon: 'home',
+          link: this.staffLink(DASHBOARD_PATH),
+          exact: true,
+          roles: ['ADMIN'],
+        };
+      case 'RECEPTIONIST':
+        return {
+          label: 'Trang chủ',
+          icon: 'home',
+          link: this.staffLink(RECEPTIONIST_PATH),
+          exact: true,
+          roles: ['RECEPTIONIST'],
+        };
+      case 'DOCTOR':
+        return {
+          label: 'Trang chủ',
+          icon: 'home',
+          link: this.staffLink(DOCTOR_PORTAL_PATH),
+          exact: true,
+          roles: ['DOCTOR'],
+        };
+      default:
+        return null;
+    }
+  }
+
+  get collapsedMenuItems(): MenuItem[] {
+    const rootItems = this.homeMenuItem ? [this.homeMenuItem] : [];
+    const groupItems = this.visibleMenuGroups.flatMap((group) => group.items);
+    const deduped = new Map<string, MenuItem>();
+
+    [...rootItems, ...groupItems].forEach((item) => {
+      deduped.set(item.link, item);
+    });
+
+    return Array.from(deduped.values());
   }
 
   get userInitials(): string {
@@ -284,6 +261,27 @@ export class LayoutComponent implements OnInit {
 
   toggleSidebar(): void {
     this.isExpanded = !this.isExpanded;
+  }
+
+  toggleGroup(groupKey: string): void {
+    if (this.menuSearchTerm.trim()) {
+      return;
+    }
+
+    if (this.expandedGroupKeys.has(groupKey)) {
+      this.expandedGroupKeys.delete(groupKey);
+      return;
+    }
+
+    this.expandedGroupKeys.add(groupKey);
+  }
+
+  isGroupExpanded(groupKey: string): boolean {
+    return this.menuSearchTerm.trim().length > 0 || this.expandedGroupKeys.has(groupKey);
+  }
+
+  onMenuSearchChange(value: string): void {
+    this.menuSearchTerm = value;
   }
 
   goToProfile(): void {

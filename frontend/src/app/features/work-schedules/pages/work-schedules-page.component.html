@@ -75,9 +75,6 @@
         @if (canManageSchedules) {
           <button class="button-primary" type="button" (click)="openCreateModal()" [disabled]="isSubmitting">Thêm lịch</button>
         }
-        <button class="button-secondary" type="button" (click)="reload()" [disabled]="isLoadingList || isSubmitting">
-          Tải lại
-        </button>
       </div>
     </div>
 
