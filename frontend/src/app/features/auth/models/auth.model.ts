@@ -19,11 +19,18 @@ export interface AuthUser {
   email?: string | null;
   phone?: string | null;
   role: string;
+  status?: string;
 }
 
 export interface LoginData {
+  accessToken?: string;
   token: string;
+  tokenType?: string;
+  issuedAt?: string | null;
   expiresAt?: string | null;
+  expiresInSeconds?: number | null;
+  refreshToken?: string;
+  refreshTokenExpiresAt?: string | null;
   user: AuthUser;
 }
 

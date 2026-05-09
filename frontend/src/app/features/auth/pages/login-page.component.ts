@@ -839,8 +839,7 @@ export class LoginPageComponent {
           return;
         }
 
-        this.tokenService.setAccessToken(response.data.token);
-        this.tokenService.setCurrentUser(response.data.user);
+        this.tokenService.setSession(response.data);
         const roleHomePath = this.tokenService.getRoleHomePath() ?? '/access-denied';
         void this.router.navigateByUrl(this.resolvePostLoginTarget(roleHomePath));
       },

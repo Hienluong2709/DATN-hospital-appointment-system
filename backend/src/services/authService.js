@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 import { Op } from "sequelize";
 import db from "../models/index.js";
 import {
@@ -9,10 +10,13 @@ import {
   verifyPhoneOtpCodeService,
 } from "./otpService.js";
 
-const { User, sequelize } = db;
+const { User, RefreshToken, sequelize } = db;
 const INVALID_CREDENTIALS_MESSAGE = "Thông tin đăng nhập không hợp lệ";
 const ALLOWED_ROLES = ["ADMIN", "DOCTOR", "PATIENT", "RECEPTIONIST"];
-const DEFAULT_JWT_EXPIRES_IN = "1d";
+const DEFAULT_JWT_EXPIRES_IN = "15m";
+const DEFAULT_REFRESH_TOKEN_EXPIRES_IN_DAYS = 14;
+const DEFAULT_JWT_ISSUER = "sofitech-hospital-api";
+const DEFAULT_JWT_AUDIENCE = "sofitech-clinic-platform";
 const AUTH_REQUIRE_OTP_ON_REGISTER =
   process.env.AUTH_REQUIRE_OTP_ON_REGISTER !== "false";
 const AUTH_REQUIRE_OTP_ON_CHANGE_PASSWORD =
@@ -105,7 +109,191 @@ const normalizeRole = (role) => {
   return role;
 };
 
-export const loginService = async (username, password) => {
+const normalizeRefreshToken = (value) => {
+  if (typeof value !== "string") {
+    const error = new Error("Refresh token không hợp lệ");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    const error = new Error("Refresh token không hợp lệ");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return trimmed;
+};
+
+const getRefreshTokenLifetimeDays = () => {
+  const rawValue = Number(process.env.REFRESH_TOKEN_EXPIRES_IN_DAYS);
+  if (!Number.isFinite(rawValue) || rawValue <= 0) {
+    return DEFAULT_REFRESH_TOKEN_EXPIRES_IN_DAYS;
+  }
+
+  return Math.floor(rawValue);
+};
+
+const buildRefreshExpiryDate = () => {
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + getRefreshTokenLifetimeDays());
+  return expiresAt;
+};
+
+const hashRefreshToken = (token) =>
+  crypto.createHash("sha256").update(token).digest("hex");
+
+const buildAuthUser = (user) => ({
+  id: user.id,
+  username: user.username,
+  fullname: user.fullname,
+  email: user.email,
+  phone: user.phone,
+  role: user.role,
+  status: user.status,
+});
+
+const buildAuthTokenPayload = (user) => ({
+  sub: String(user.id),
+  id: user.id,
+  username: user.username,
+  role: user.role,
+  status: user.status,
+});
+
+const buildAuthTokenMetadata = (token) => {
+  const decodedToken = jwt.decode(token);
+  const issuedAt =
+    decodedToken && typeof decodedToken === "object" && typeof decodedToken.iat === "number"
+      ? new Date(decodedToken.iat * 1000).toISOString()
+      : new Date().toISOString();
+  const expiresAt =
+    decodedToken && typeof decodedToken === "object" && typeof decodedToken.exp === "number"
+      ? new Date(decodedToken.exp * 1000).toISOString()
+      : null;
+  const expiresInSeconds =
+    decodedToken &&
+    typeof decodedToken === "object" &&
+    typeof decodedToken.exp === "number" &&
+    typeof decodedToken.iat === "number"
+      ? Math.max(decodedToken.exp - decodedToken.iat, 0)
+      : null;
+
+  return {
+    issuedAt,
+    expiresAt,
+    expiresInSeconds,
+  };
+};
+
+const issueAccessToken = (user) => {
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    const error = new Error("Server chưa cấu hình JWT_SECRET");
+    error.statusCode = 500;
+    throw error;
+  }
+
+  const expiresIn = process.env.JWT_EXPIRES_IN || DEFAULT_JWT_EXPIRES_IN;
+  const issuer = process.env.JWT_ISSUER || DEFAULT_JWT_ISSUER;
+  const audience = process.env.JWT_AUDIENCE || DEFAULT_JWT_AUDIENCE;
+
+  const accessToken = jwt.sign(buildAuthTokenPayload(user), jwtSecret, {
+    expiresIn,
+    issuer,
+    audience,
+  });
+
+  return accessToken;
+};
+
+const issueRefreshToken = async (user, context = {}, transaction) => {
+  if (!RefreshToken) {
+    const error = new Error("Server chưa cấu hình RefreshToken model");
+    error.statusCode = 500;
+    throw error;
+  }
+
+  const rawRefreshToken = crypto.randomBytes(48).toString("hex");
+  const refreshTokenHash = hashRefreshToken(rawRefreshToken);
+  const expiresAt = buildRefreshExpiryDate();
+
+  await RefreshToken.create(
+    {
+      user_id: user.id,
+      token_hash: refreshTokenHash,
+      expires_at: expiresAt,
+      revoked_at: null,
+      user_agent: context.userAgent ?? null,
+      ip_address: context.ipAddress ?? null,
+    },
+    { transaction }
+  );
+
+  return {
+    refreshToken: rawRefreshToken,
+    refreshTokenExpiresAt: expiresAt.toISOString(),
+  };
+};
+
+const revokeStoredRefreshToken = async (refreshTokenValue, transaction) => {
+  if (!RefreshToken) {
+    return false;
+  }
+
+  const tokenHash = hashRefreshToken(normalizeRefreshToken(refreshTokenValue));
+  const refreshToken = await RefreshToken.findOne({
+    where: { token_hash: tokenHash },
+    transaction,
+    lock: transaction ? transaction.LOCK.UPDATE : undefined,
+  });
+
+  if (!refreshToken || refreshToken.revoked_at) {
+    return false;
+  }
+
+  refreshToken.revoked_at = new Date();
+  await refreshToken.save({ transaction });
+  return true;
+};
+
+const revokeAllUserRefreshTokens = async (userId, transaction) => {
+  if (!RefreshToken) {
+    return;
+  }
+
+  await RefreshToken.update(
+    { revoked_at: new Date() },
+    {
+      where: {
+        user_id: userId,
+        revoked_at: null,
+      },
+      transaction,
+    }
+  );
+};
+
+const buildLoginResponse = async (user, context = {}, transaction) => {
+  const accessToken = issueAccessToken(user);
+  const tokenMeta = buildAuthTokenMetadata(accessToken);
+  const refreshTokenMeta = await issueRefreshToken(user, context, transaction);
+
+  return {
+    token: accessToken,
+    accessToken,
+    tokenType: "Bearer",
+    issuedAt: tokenMeta.issuedAt,
+    expiresAt: tokenMeta.expiresAt,
+    expiresInSeconds: tokenMeta.expiresInSeconds,
+    refreshToken: refreshTokenMeta.refreshToken,
+    refreshTokenExpiresAt: refreshTokenMeta.refreshTokenExpiresAt,
+    user: buildAuthUser(user),
+  };
+};
+
+export const loginService = async (username, password, context = {}) => {
   if (!username || !password) {
     const error = new Error("Thiếu username hoặc password");
     error.statusCode = 400;
@@ -120,6 +308,12 @@ export const loginService = async (username, password) => {
     throw error;
   }
 
+  if (user.status === "Inactive") {
+    const error = new Error("Tài khoản đã bị khóa");
+    error.statusCode = 403;
+    throw error;
+  }
+
   const isMatch = await bcrypt.compare(password, user.password);
 
   if (!isMatch) {
@@ -128,42 +322,7 @@ export const loginService = async (username, password) => {
     throw error;
   }
 
-  const jwtSecret = process.env.JWT_SECRET;
-  if (!jwtSecret) {
-    const error = new Error("Server chưa cấu hình JWT_SECRET");
-    error.statusCode = 500;
-    throw error;
-  }
-
-  const expiresIn = process.env.JWT_EXPIRES_IN || DEFAULT_JWT_EXPIRES_IN;
-
-  const token = jwt.sign(
-    {
-      id: user.id,
-      role: user.role,
-    },
-    jwtSecret,
-    { expiresIn }
-  );
-
-  const decodedToken = jwt.decode(token);
-  const expiresAt =
-    decodedToken && typeof decodedToken === "object" && typeof decodedToken.exp === "number"
-      ? new Date(decodedToken.exp * 1000).toISOString()
-      : null;
-
-  return {
-    token,
-    expiresAt,
-    user: {
-      id: user.id,
-      username: user.username,
-      fullname: user.fullname,
-      email: user.email,
-      phone: user.phone,
-      role: user.role,
-    },
-  };
+  return buildLoginResponse(user, context);
 };
 
 export const registerUserService = async (payload) => {
@@ -244,6 +403,7 @@ export const registerUserService = async (payload) => {
         email,
         phone,
         role,
+        status: "Active",
       },
       { transaction },
     );
@@ -269,6 +429,7 @@ export const registerUserService = async (payload) => {
     email: created.email,
     phone: created.phone,
     role: created.role,
+    status: created.status,
   };
 };
 
@@ -347,6 +508,8 @@ export const changePasswordService = async (userId, payload) => {
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save({ transaction });
 
+    await revokeAllUserRefreshTokens(user.id, transaction);
+
     if (user.phone && otpCode) {
       await consumeVerifiedPhoneOtpService(
         {
@@ -363,6 +526,59 @@ export const changePasswordService = async (userId, payload) => {
       username: user.username,
     };
   });
+};
+
+export const refreshSessionService = async (payload, context = {}) => {
+  const refreshTokenValue = normalizeRefreshToken(payload?.refreshToken ?? payload?.refresh_token);
+
+  if (!RefreshToken) {
+    const error = new Error("Server chưa hỗ trợ refresh token");
+    error.statusCode = 500;
+    throw error;
+  }
+
+  return sequelize.transaction(async (transaction) => {
+    const tokenHash = hashRefreshToken(refreshTokenValue);
+    const refreshToken = await RefreshToken.findOne({
+      where: { token_hash: tokenHash },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!refreshToken || refreshToken.revoked_at || refreshToken.expires_at < new Date()) {
+      const error = new Error("Refresh token không hợp lệ hoặc đã hết hạn");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    const user = await User.findByPk(refreshToken.user_id, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!user) {
+      const error = new Error("Người dùng không tồn tại");
+      error.statusCode = 401;
+      throw error;
+    }
+
+    if (user.status === "Inactive") {
+      const error = new Error("Tài khoản đã bị khóa");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    refreshToken.revoked_at = new Date();
+    await refreshToken.save({ transaction });
+
+    return buildLoginResponse(user, context, transaction);
+  });
+};
+
+export const logoutService = async (payload) => {
+  const refreshTokenValue = normalizeRefreshToken(payload?.refreshToken ?? payload?.refresh_token);
+  await revokeStoredRefreshToken(refreshTokenValue);
+  return { revoked: true };
 };
 
 const getCurrentUserPhoneOrThrow = async (userId) => {

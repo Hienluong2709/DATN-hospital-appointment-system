@@ -1,6 +1,8 @@
 import {
   changePasswordService,
   loginService,
+  logoutService,
+  refreshSessionService,
   registerUserService,
   sendChangePasswordOtpService,
   verifyChangePasswordOtpService,
@@ -14,7 +16,10 @@ export const login = async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    const data = await loginService(username, password);
+    const data = await loginService(username, password, {
+      userAgent: req.get("user-agent"),
+      ipAddress: req.ip,
+    });
 
     res.json({
       message: "Login thành công",
@@ -24,6 +29,47 @@ export const login = async (req, res) => {
     const statusCode = error.statusCode || 500;
     const message =
       statusCode === 500 ? "Đăng nhập thất bại, vui lòng thử lại" : error.message;
+
+    res.status(statusCode).json({
+      message,
+    });
+  }
+};
+
+export const refreshSession = async (req, res) => {
+  try {
+    const data = await refreshSessionService(req.body, {
+      userAgent: req.get("user-agent"),
+      ipAddress: req.ip,
+    });
+
+    res.json({
+      message: "Làm mới phiên đăng nhập thành công",
+      data,
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    const message =
+      statusCode === 500 ? "Không thể làm mới phiên đăng nhập" : error.message;
+
+    res.status(statusCode).json({
+      message,
+    });
+  }
+};
+
+export const logout = async (req, res) => {
+  try {
+    const data = await logoutService(req.body);
+
+    res.json({
+      message: "Đăng xuất thành công",
+      data,
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    const message =
+      statusCode === 500 ? "Không thể đăng xuất" : error.message;
 
     res.status(statusCode).json({
       message,

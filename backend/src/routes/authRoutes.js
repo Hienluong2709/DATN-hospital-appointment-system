@@ -2,6 +2,8 @@ import express from "express";
 import {
   changePassword,
   login,
+  logout,
+  refreshSession,
   registerUser,
   sendChangePasswordOtp,
   sendPhoneOtp,
@@ -13,6 +15,8 @@ import { authenticate } from "../middlewares/authMiddleware.js";
 const router = express.Router();
 
 router.post("/login", login);
+router.post("/refresh", refreshSession);
+router.post("/logout", logout);
 router.post("/register", registerUser);
 router.post("/otp/send", sendPhoneOtp);
 router.post("/otp/verify", verifyPhoneOtp);

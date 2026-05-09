@@ -25,6 +25,18 @@ export class AuthApiService {
     return this.http.post<ApiResponse<LoginData>>(`${API_BASE_URL}/auth/login`, payload);
   }
 
+  refresh(refreshToken: string) {
+    return this.http.post<ApiResponse<LoginData>>(`${API_BASE_URL}/auth/refresh`, {
+      refreshToken,
+    });
+  }
+
+  logout(refreshToken: string) {
+    return this.http.post<ApiResponse<{ revoked: boolean }>>(`${API_BASE_URL}/auth/logout`, {
+      refreshToken,
+    });
+  }
+
   register(payload: RegisterPayload) {
     return this.http.post<ApiResponse<RegisterData>>(`${API_BASE_URL}/auth/register`, payload);
   }

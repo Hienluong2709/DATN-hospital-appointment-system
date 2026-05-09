@@ -10,7 +10,7 @@ export const roleGuard = (allowedRoles: BackendRole[]): CanActivateFn => {
     const tokenService = inject(TokenService);
     const router = inject(Router);
 
-    if (!tokenService.getAccessToken()) {
+    if (!tokenService.hasValidSession()) {
       const redirectUrl = state.url || `/${ACCESS_DENIED_PATH}`;
       const loginCommands = redirectUrl.startsWith(`/${STAFF_PATH}`)
         ? ['/', STAFF_PATH, 'login']

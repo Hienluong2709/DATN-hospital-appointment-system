@@ -1,6 +1,7 @@
 import { Component, inject, input } from '@angular/core';
 import { Router } from '@angular/router';
 
+import { AuthApiService } from '../../../features/auth/services/auth.api';
 import { TokenService } from '../../../core/services/token.service';
 import {
   CHANGE_PASSWORD_PATH,
@@ -226,6 +227,7 @@ import { AccountMenuComponent } from '../account-menu/account-menu.component';
   ],
 })
 export class PortalTopbarComponent {
+  private readonly authApiService = inject(AuthApiService);
   private readonly tokenService = inject(TokenService);
   private readonly router = inject(Router);
 
@@ -303,8 +305,23 @@ export class PortalTopbarComponent {
   }
 
   onLogout(): void {
-    this.tokenService.clearSession();
-    void this.router.navigateByUrl(this.portal() === 'staff' ? '/staff/login' : '/');
+    const refreshToken = this.tokenService.getRefreshToken();
+    if (!refreshToken) {
+      this.tokenService.clearSession();
+      void this.router.navigateByUrl(this.portal() === 'staff' ? '/staff/login' : '/');
+      return;
+    }
+
+    this.authApiService.logout(refreshToken).subscribe({
+      next: () => {
+        this.tokenService.clearSession();
+        void this.router.navigateByUrl(this.portal() === 'staff' ? '/staff/login' : '/');
+      },
+      error: () => {
+        this.tokenService.clearSession();
+        void this.router.navigateByUrl(this.portal() === 'staff' ? '/staff/login' : '/');
+      }
+    });
   }
 
   goToLogin(): void {

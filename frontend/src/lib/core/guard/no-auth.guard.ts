@@ -8,7 +8,7 @@ export const noAuthGuard: CanActivateFn = () => {
   const tokenService = inject(TokenService);
   const router = inject(Router);
 
-  if (!tokenService.getAccessToken()) {
+  if (!tokenService.hasValidSession()) {
     return true;
   }
 

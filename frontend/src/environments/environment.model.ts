@@ -4,4 +4,5 @@ export interface PortalEnvironment {
   portalMode: PortalMode;
   patientPortalOrigin: string;
   staffPortalOrigin: string;
+  idleTimeoutMs: number;
 }

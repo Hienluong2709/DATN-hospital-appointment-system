@@ -1,6 +1,11 @@
 import jwt from "jsonwebtoken";
+import db from "../models/index.js";
 
-export const authenticate = (req, res, next) => {
+const { User } = db;
+const DEFAULT_JWT_ISSUER = "sofitech-hospital-api";
+const DEFAULT_JWT_AUDIENCE = "sofitech-clinic-platform";
+
+export const authenticate = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
@@ -18,8 +23,27 @@ export const authenticate = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, jwtSecret);
-    req.user = decoded;
+    const decoded = jwt.verify(token, jwtSecret, {
+      issuer: process.env.JWT_ISSUER || DEFAULT_JWT_ISSUER,
+      audience: process.env.JWT_AUDIENCE || DEFAULT_JWT_AUDIENCE,
+    });
+    const user = await User.findByPk(decoded.id, {
+      attributes: ["id", "role", "status"],
+    });
+
+    if (!user) {
+      return res.status(401).json({ message: "Người dùng không tồn tại" });
+    }
+
+    if (user.status === "Inactive") {
+      return res.status(403).json({ message: "Tài khoản đã bị khóa" });
+    }
+
+    req.user = {
+      id: user.id,
+      role: user.role,
+      status: user.status,
+    };
     next();
   } catch (error) {
     return res.status(401).json({ message: "Token không hợp lệ" });

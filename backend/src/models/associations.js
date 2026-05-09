@@ -12,10 +12,16 @@ export default (db) => {
     Template,
     SmsLog,
     JobExecutionLog,
+    RefreshToken,
   } = db;
 
   User.hasOne(Doctor, { foreignKey: "user_id" });
   Doctor.belongsTo(User, { foreignKey: "user_id" });
+
+  if (RefreshToken) {
+    User.hasMany(RefreshToken, { foreignKey: "user_id" });
+    RefreshToken.belongsTo(User, { foreignKey: "user_id" });
+  }
 
   Specialty.hasMany(Doctor, { foreignKey: "specialty_id" });
   Doctor.belongsTo(Specialty, { foreignKey: "specialty_id" });
@@ -32,6 +38,24 @@ export default (db) => {
   Doctor.hasMany(WorkScheduleBlock, { foreignKey: "doctor_id" });
   WorkScheduleBlock.belongsTo(Doctor, { foreignKey: "doctor_id" });
 
+  User.hasMany(WorkScheduleBlock, {
+    foreignKey: "requested_by_user_id",
+    as: "requestedLeaveBlocks",
+  });
+  WorkScheduleBlock.belongsTo(User, {
+    foreignKey: "requested_by_user_id",
+    as: "requestedBy",
+  });
+
+  User.hasMany(WorkScheduleBlock, {
+    foreignKey: "reviewed_by_user_id",
+    as: "reviewedLeaveBlocks",
+  });
+  WorkScheduleBlock.belongsTo(User, {
+    foreignKey: "reviewed_by_user_id",
+    as: "reviewedBy",
+  });
+
   User.hasMany(Appointment, {
     foreignKey: "patient_id",
     as: "appointments",
@@ -46,6 +70,9 @@ export default (db) => {
 
   Appointment.hasOne(Queue, { foreignKey: "appointment_id" });
   Queue.belongsTo(Appointment, { foreignKey: "appointment_id" });
+
+  Doctor.hasMany(Queue, { foreignKey: "doctor_id" });
+  Queue.belongsTo(Doctor, { foreignKey: "doctor_id" });
 
   Queue.hasMany(WaitPrediction, { foreignKey: "queue_id", as: "predictions" });
   WaitPrediction.belongsTo(Queue, { foreignKey: "queue_id" });
