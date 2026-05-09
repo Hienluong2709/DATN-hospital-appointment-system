@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, HostListener, input, output } from '@angular/core';
+import { getRoleLabel } from '../../enum-label.util';
 
 @Component({
   selector: 'app-account-menu',
@@ -17,7 +18,7 @@ import { Component, HostListener, input, output } from '@angular/core';
         </span>
         <div class="user-info">
           <strong>{{ userName() }}</strong>
-          <small class="role">{{ userRole() }}</small>
+          <small class="role">{{ displayRole() }}</small>
         </div>
         <span class="material-symbols-outlined">expand_more</span>
       </button>
@@ -239,6 +240,10 @@ export class AccountMenuComponent {
     }
 
     return 'Đặt lịch khám và tra cứu hồ sơ trực tuyến';
+  }
+
+  displayRole(): string {
+    return getRoleLabel(this.userRole());
   }
 
   @HostListener('document:click')

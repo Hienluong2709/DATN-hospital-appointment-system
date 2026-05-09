@@ -3,6 +3,8 @@ import { RouterLink } from '@angular/router';
 
 import { TokenService } from '../../../core/services/token.service';
 import { PortalTopbarComponent } from '../../../shared/components/portal-topbar/portal-topbar.component';
+import { DashboardApiService } from '../../../shared/services/dashboard.api';
+import { PublicDashboardSnapshot } from '../../../shared/types/dashboard.type';
 
 @Component({
   selector: 'app-patient-page',
@@ -13,9 +15,13 @@ import { PortalTopbarComponent } from '../../../shared/components/portal-topbar/
 })
 export class PatientPageComponent {
   private readonly tokenService = inject(TokenService);
+  private readonly dashboardApiService = inject(DashboardApiService);
+
+  protected publicSnapshot: PublicDashboardSnapshot | null = null;
+  protected publicErrorMessage = '';
 
   get isLoggedIn(): boolean {
-    return !!this.tokenService.getAccessToken();
+    return this.tokenService.hasValidSession();
   }
 
   get accountLabel(): string {
@@ -36,12 +42,6 @@ export class PatientPageComponent {
       ? best.trim()
       : 'bệnh nhân';
   }
-
-  trustIndicators = [
-    { value: '15+', label: 'Năm đồng hành cùng cộng đồng' },
-    { value: '40+', label: 'Bác sĩ chuyên khoa trực tiếp tư vấn' },
-    { value: '24/7', label: 'Hỗ trợ đặt lịch và chăm sóc sau khám' },
-  ];
 
   bookingSteps = [
     {
@@ -82,47 +82,51 @@ export class PatientPageComponent {
     },
   ];
 
-  doctors = [
-    {
-      initials: 'HV',
-      name: 'BSCKI Nguyễn Văn A',
-      specialty: 'Tim mạch',
-      description:
-        'Có nhiều năm kinh nghiệm trong chẩn đoán sớm bệnh tim mạch, tư vấn điều trị và theo dõi định kỳ.',
-    },
-    {
-      initials: 'TL',
-      name: 'ThS.BS Trần Thị B',
-      specialty: 'Nội tổng quát',
-      description:
-        'Tập trung vào khám tổng quát, tầm soát sức khỏe và xây dựng phác đồ phù hợp cho từng bệnh nhân.',
-    },
-    {
-      initials: 'MK',
-      name: 'BS Lê Minh K',
-      specialty: 'Nhi khoa',
-      description:
-        'Thân thiện với trẻ em, kết hợp tư vấn dinh dưỡng và chăm sóc theo từng độ tuổi.',
-    },
-  ];
+  constructor() {
+    this.loadPublicSnapshot();
+  }
 
-  departments = [
-    {
-      name: 'Khám nội tổng quát',
-      note: 'Tầm soát sức khỏe định kỳ, tư vấn phòng bệnh và theo dõi bệnh lý mạn tính.',
-    },
-    {
-      name: 'Tim mạch',
-      note: 'Chẩn đoán và theo dõi các vấn đề tim mạch với quy trình khám nhanh gọn.',
-    },
-    {
-      name: 'Nhi khoa',
-      note: 'Không gian thân thiện cho trẻ em, kết hợp tư vấn dinh dưỡng và lịch tiêm chủng.',
-    },
-    {
-      name: 'Xét nghiệm - Chẩn đoán hình ảnh',
-      note: 'Hệ thống máy móc hiện đại giúp rút ngắn thời gian cho kết quả.',
-    },
-  ];
+  get trustIndicators() {
+    return this.publicSnapshot?.stats ?? [];
+  }
+
+  get doctors() {
+    return this.publicSnapshot?.featured_doctors ?? [];
+  }
+
+  get departments() {
+    return this.publicSnapshot?.featured_specialties ?? [];
+  }
+
+  protected loadPublicSnapshot(): void {
+    this.publicErrorMessage = '';
+
+    this.dashboardApiService.getPublicSnapshot().subscribe({
+      next: ({ data }) => {
+        this.publicSnapshot = data;
+      },
+      error: (error) => {
+        this.publicErrorMessage = error?.error?.message || 'Không thể tải dữ liệu công khai.';
+      },
+    });
+  }
+
+  protected getInitials(value: string | null | undefined): string {
+    if (!value) {
+      return 'BN';
+    }
+
+    const parts = value
+      .split(/\s+/)
+      .map((segment) => segment.trim())
+      .filter(Boolean)
+      .slice(0, 2);
+
+    if (parts.length === 0) {
+      return 'BN';
+    }
+
+    return parts.map((segment) => segment[0]?.toUpperCase() ?? '').join('');
+  }
 
 }
