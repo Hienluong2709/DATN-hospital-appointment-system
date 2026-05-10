@@ -1,3 +1,13 @@
 <main class="app-shell">
   <router-outlet></router-outlet>
 </main>
+
+<app-notification-modal
+  [isOpen]="notificationService.notification().isOpen"
+  [message]="notificationService.notification().message"
+  [type]="notificationService.notification().type"
+  [title]="notificationService.notification().title"
+  [autoCloseMs]="notificationService.notification().autoCloseMs"
+  [version]="notificationService.notification().version"
+  (closed)="notificationService.close()"
+/>

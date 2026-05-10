@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 
 import { BackendRole } from '../../../core/models/auth-role.model';
+import { NotificationService } from '../../../core/services/notification.service';
 import { TokenService } from '../../../core/services/token.service';
 import { AppointmentsApiService } from '../../appointments/data-access/appointments.api';
 import { Appointment, AppointmentStatus } from '../../appointments/models/appointments.model';
@@ -29,6 +30,7 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
 
   private readonly queuesApiService = inject(QueuesApiService);
   private readonly appointmentsApiService = inject(AppointmentsApiService);
+  private readonly notificationService = inject(NotificationService);
   private readonly tokenService = inject(TokenService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -41,8 +43,6 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   appointments: Appointment[] = [];
   isLoading = false;
   private pendingRequests = 0;
-  errorMessage = '';
-  successMessage = '';
   processingAppointmentId: Record<number, boolean> = {};
   selectedDate = this.getTodayDateString();
   selectedDoctorId = 0;
@@ -218,7 +218,7 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
       case 'Pending':
         return 'Chờ xác nhận';
       case 'Confirmed':
-        return 'Đã xác nhận';
+        return 'Đã đặt lịch';
       case 'CheckedIn':
         return 'Đã check-in';
       case 'Cancelled':
@@ -303,7 +303,7 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
       case 'NoShow':
         return 'Lỡ hẹn';
       case 'Confirmed':
-        return 'Đã xác nhận';
+        return 'Đã đặt lịch';
       case 'Pending':
         return 'Chờ xác nhận';
       default:
@@ -466,11 +466,6 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   private loadData(preserveSuccessMessage = false): void {
     this.pendingRequests = 2;
     this.isLoading = true;
-    this.errorMessage = '';
-    if (!preserveSuccessMessage) {
-      this.successMessage = '';
-    }
-
     this.loadQueues();
     this.loadAppointments();
   }
@@ -530,28 +525,20 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   }
 
   private showSuccess(message: string): void {
-    this.successMessage = message;
-    this.errorMessage = '';
-    this.scheduleAlertHide();
+    this.notificationService.success(message);
   }
 
   private showError(message: string): void {
-    this.errorMessage = message;
-    this.successMessage = '';
-    this.scheduleAlertHide();
+    this.notificationService.error(message);
   }
 
   private clearMessages(): void {
-    this.errorMessage = '';
-    this.successMessage = '';
     this.clearAlertTimeout();
   }
 
   private scheduleAlertHide(): void {
     this.clearAlertTimeout();
     this.alertTimeoutId = setTimeout(() => {
-      this.errorMessage = '';
-      this.successMessage = '';
       this.alertTimeoutId = null;
     }, QueuesPageComponent.ALERT_AUTO_HIDE_MS);
   }

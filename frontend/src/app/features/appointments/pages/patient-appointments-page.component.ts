@@ -5,9 +5,9 @@ import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
 import { DoctorsApiService } from '../../doctors/services/doctors.api';
+import { NotificationService } from '../../../core/services/notification.service';
 import { Specialty } from '../../specialties/models/specialties.model';
 import { SpecialtiesApiService } from '../../specialties/services/specialties.api';
-import { NotificationModalComponent } from '../../../shared/components/notification-modal/notification-modal.component';
 import { AppointmentsApiService } from '../data-access/appointments.api';
 import {
   Appointment,
@@ -22,7 +22,7 @@ type PatientAppointmentTimeFilter = 'ALL' | 'THIS_MONTH';
 @Component({
   selector: 'app-patient-appointments-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, NotificationModalComponent],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './patient-appointments-page.component.html',
   styleUrls: ['./patient-appointments-page.component.scss']
 })
@@ -32,6 +32,7 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
   private readonly appointmentsApiService = inject(AppointmentsApiService);
   private readonly specialtiesApiService = inject(SpecialtiesApiService);
   private readonly doctorsApiService = inject(DoctorsApiService);
+  private readonly notificationService = inject(NotificationService);
   private pollIntervalId: ReturnType<typeof setInterval> | null = null;
 
   appointments: Appointment[] = [];
@@ -45,10 +46,6 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
   isCreatingAppointment = false;
 
   processingActionById: Record<number, boolean> = {};
-  isNotificationOpen = false;
-  notificationMessage = '';
-  notificationType: 'success' | 'error' = 'success';
-  notificationVersion = 0;
   inlineErrorMessage = '';
   selectedAppointmentDetail: Appointment | null = null;
   hiddenArchivedAppointmentIds = new Set<number>();
@@ -341,10 +338,8 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
 
   getStatusLabel(status: AppointmentStatus): string {
     switch (status) {
-      case 'Pending':
-        return 'Chờ xác nhận';
       case 'Confirmed':
-        return 'Đã xác nhận';
+        return 'Đã đặt lịch';
       case 'CheckedIn':
         return 'Đã check-in';
       case 'Cancelled':
@@ -463,10 +458,6 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
 
     if (appointment.status === 'Confirmed') {
       return 'Vui lòng có mặt trước giờ dự kiến 15 phút và mang theo CCCD/BHYT khi đến khám.';
-    }
-
-    if (appointment.status === 'Pending') {
-      return 'Lịch hẹn đang chờ xử lý. Bạn có thể theo dõi cập nhật mới nhất ngay trên trang này.';
     }
 
     if (appointment.status === 'Completed') {
@@ -717,31 +708,18 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
     return fallbackMessage;
   }
 
-  closeNotification(): void {
-    this.isNotificationOpen = false;
-    this.notificationMessage = '';
-  }
-
   private clearMessages(): void {
     this.inlineErrorMessage = '';
-    this.closeNotification();
   }
 
   private showSuccess(message: string): void {
     this.inlineErrorMessage = '';
-    this.showNotification('success', message);
+    this.notificationService.success(message);
   }
 
   private showError(message: string): void {
-    this.closeNotification();
     this.inlineErrorMessage = message;
-  }
-
-  private showNotification(type: 'success' | 'error', message: string): void {
-    this.notificationType = type;
-    this.notificationMessage = message;
-    this.notificationVersion += 1;
-    this.isNotificationOpen = true;
+    this.notificationService.error(message);
   }
 
   private restoreHiddenArchivedAppointments(): void {

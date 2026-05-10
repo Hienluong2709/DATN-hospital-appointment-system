@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 
 import { BackendRole } from '../../../core/models/auth-role.model';
 import { TokenService } from '../../../core/services/token.service';
+import { NotificationService } from '../../../core/services/notification.service';
 import { getWorkScheduleBlockStatusLabel } from '../../../shared/enum-label.util';
 import { Doctor } from '../../doctors/models/doctors.model';
 import { DoctorsApiService } from '../../doctors/services/doctors.api';
@@ -31,6 +32,7 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
   private readonly workScheduleBlocksApiService = inject(WorkScheduleBlocksApiService);
   private readonly doctorsApiService = inject(DoctorsApiService);
   private readonly tokenService = inject(TokenService);
+  private readonly notificationService = inject(NotificationService);
 
   blocks: WorkScheduleBlock[] = [];
   doctors: Doctor[] = [];
@@ -44,7 +46,6 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
   isLoadingDoctors = false;
   isSubmitting = false;
 
-  feedbackType: 'success' | 'error' = 'success';
   feedbackMessage = '';
   private bodyOverflowBeforeModal = '';
 
@@ -709,8 +710,13 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
   }
 
   private showFeedback(type: 'success' | 'error', message: string): void {
-    this.feedbackType = type;
-    this.feedbackMessage = message;
+    if (type === 'success') {
+      this.notificationService.success(message);
+    } else {
+      this.notificationService.error(message);
+    }
+
+    this.feedbackMessage = '';
   }
 
   private getFilteredBlocks(): WorkScheduleBlock[] {

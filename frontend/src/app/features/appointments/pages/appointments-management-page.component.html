@@ -29,8 +29,7 @@
         <span>Trạng thái</span>
         <select [value]="selectedStatus" (change)="updateSelectedStatus($any($event.target).value)">
           <option value="ALL">Tất cả trạng thái</option>
-          <option value="Pending">Chờ xác nhận</option>
-          <option value="Confirmed">Đã xác nhận</option>
+          <option value="Confirmed">Đã đặt lịch</option>
           <option value="CheckedIn">Đã check-in</option>
           <option value="Cancelled">Đã hủy</option>
           <option value="Completed">Đã hoàn tất</option>
@@ -127,15 +126,6 @@
                   [disabled]="!canCheckIn(appointment) || processingActionById[appointment.id]"
                 >
                   Check-in
-                </button>
-                <button
-                  *ngIf="canUseConfirmAction"
-                  type="button"
-                  class="btn-confirm"
-                  (click)="confirm(appointment)"
-                  [disabled]="!canConfirm(appointment) || processingActionById[appointment.id]"
-                >
-                  Xác nhận
                 </button>
                 <button
                   *ngIf="canUseCancelAction"

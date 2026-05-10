@@ -30,7 +30,7 @@
         <select [value]="selectedStatus" (change)="updateSelectedStatus($any($event.target).value)">
           <option value="ALL">Tất cả trạng thái</option>
           <option value="Pending">Chờ xác nhận</option>
-          <option value="Confirmed">Đã xác nhận</option>
+          <option value="Confirmed">Đã đặt lịch</option>
           <option value="CheckedIn">Đã check-in</option>
           <option value="Cancelled">Đã hủy</option>
           <option value="Completed">Đã hoàn tất</option>
@@ -42,7 +42,7 @@
         <span>Trạng thái hàng đợi</span>
         <select [value]="selectedWorkflowStatus" (change)="updateSelectedWorkflowStatus($any($event.target).value)">
           <option value="ALL">Tất cả trạng thái</option>
-          <option value="Confirmed">Đã xác nhận</option>
+          <option value="Confirmed">Đã đặt lịch</option>
           <option value="CheckedIn">Đã check-in</option>
           <option value="InProgress">Đang khám</option>
           <option value="Completed">Đã hoàn tất</option>
@@ -89,8 +89,6 @@
       <span class="queue-counter">Chờ tiếp nhận: {{ pendingCheckInAppointments.length }}</span>
     </div>
 
-    <p *ngIf="errorMessage" class="alert error" role="alert">{{ errorMessage }}</p>
-    <p *ngIf="successMessage" class="alert success">{{ successMessage }}</p>
     <p *ngIf="isLoading" class="state-text">Đang tải dữ liệu lịch chờ check-in...</p>
 
     <div *ngIf="!isLoading && !pendingCheckInAppointments.length" class="state-text">
@@ -150,8 +148,6 @@
       <span class="queue-counter">Tổng số lượt: {{ filteredQueues.length }}</span>
     </div>
 
-    <p *ngIf="errorMessage" class="alert error" role="alert">{{ errorMessage }}</p>
-    <p *ngIf="successMessage" class="alert success">{{ successMessage }}</p>
     <p *ngIf="isLoading" class="state-text">Đang tải dữ liệu hàng đợi...</p>
 
     <div *ngIf="!isLoading && !filteredQueues.length" class="state-text">

@@ -23,7 +23,7 @@ const ROOM_STATUS_LABELS: Record<string, string> = {
 
 const APPOINTMENT_STATUS_LABELS: Record<string, string> = {
   Pending: 'Chờ xác nhận',
-  Confirmed: 'Đã xác nhận',
+  Confirmed: 'Đã đặt lịch',
   CheckedIn: 'Đã check-in',
   Cancelled: 'Đã hủy',
   Completed: 'Hoàn tất',

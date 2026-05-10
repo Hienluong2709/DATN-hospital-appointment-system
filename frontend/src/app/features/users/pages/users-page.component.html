@@ -4,10 +4,6 @@
     <p class="feature-subtitle">Quản lý tài khoản hệ thống và phân quyền vai trò.</p>
   </header>
 
-  @if (feedbackMessage) {
-    <p class="feedback" [class.feedback--error]="feedbackType === 'error'">{{ feedbackMessage }}</p>
-  }
-
   <article class="feature-card filters-card">
     <div class="filters-grid">
       <label class="filter-field">

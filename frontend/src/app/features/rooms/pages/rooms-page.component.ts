@@ -6,6 +6,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { BackendRole } from '../../../core/models/auth-role.model';
+import { NotificationService } from '../../../core/services/notification.service';
 import { TokenService } from '../../../core/services/token.service';
 import { Specialty } from '../../specialties/models/specialties.model';
 import { SpecialtiesApiService } from '../../specialties/services/specialties.api';
@@ -27,6 +28,7 @@ export class RoomsPageComponent implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly roomsApiService = inject(RoomsApiService);
   private readonly specialtiesApiService = inject(SpecialtiesApiService);
+  private readonly notificationService = inject(NotificationService);
   private readonly tokenService = inject(TokenService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -46,8 +48,6 @@ export class RoomsPageComponent implements OnInit, OnDestroy {
   isLoadingSpecialties = false;
   isSubmitting = false;
 
-  feedbackType: 'success' | 'error' = 'success';
-  feedbackMessage = '';
   private bodyOverflowBeforeModal = '';
 
   searchTerm = '';
@@ -194,7 +194,6 @@ export class RoomsPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.feedbackMessage = '';
     this.editingRoomId = room.id;
     this.isFormModalOpen = true;
     this.updateBodyScrollState();
@@ -208,7 +207,6 @@ export class RoomsPageComponent implements OnInit, OnDestroy {
   }
 
   onViewMore(id: number): void {
-    this.feedbackMessage = '';
     this.isDetailModalOpen = true;
     this.updateBodyScrollState();
     this.isLoadingDetail = true;
@@ -237,7 +235,6 @@ export class RoomsPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.feedbackMessage = '';
     this.isSubmitting = true;
 
     const raw = this.form.getRawValue();
@@ -292,7 +289,6 @@ export class RoomsPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.feedbackMessage = '';
     this.isSubmitting = true;
 
     this.roomsApiService.delete(room.id).subscribe({
@@ -343,8 +339,6 @@ export class RoomsPageComponent implements OnInit, OnDestroy {
 
   private loadList(): void {
     this.isLoadingList = true;
-    this.feedbackMessage = '';
-
     const floor = this.selectedFloor.trim();
     const parsedFloor = floor === '' ? undefined : Number(floor);
 
@@ -428,8 +422,12 @@ export class RoomsPageComponent implements OnInit, OnDestroy {
   }
 
   private showFeedback(type: 'success' | 'error', message: string): void {
-    this.feedbackType = type;
-    this.feedbackMessage = message;
+    if (type === 'success') {
+      this.notificationService.success(message);
+      return;
+    }
+
+    this.notificationService.error(message);
   }
 
   private updateBodyScrollState(): void {

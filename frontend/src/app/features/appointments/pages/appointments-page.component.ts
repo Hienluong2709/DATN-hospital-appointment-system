@@ -87,7 +87,7 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
   }
 
   updateSelectedStatus(value: string): void {
-    if (value === 'Pending' || value === 'Confirmed' || value === 'CheckedIn' || value === 'Cancelled' || value === 'Completed' || value === 'NoShow') {
+    if (value === 'Confirmed' || value === 'CheckedIn' || value === 'Cancelled' || value === 'Completed' || value === 'NoShow') {
       this.selectedStatus = value;
     } else {
       this.selectedStatus = 'ALL';
@@ -192,10 +192,6 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
     return this.currentRole === 'DOCTOR';
   }
 
-  get canUseConfirmAction(): boolean {
-    return this.canAny(['ADMIN', 'RECEPTIONIST']);
-  }
-
   get canUseCancelAction(): boolean {
     return this.canAny(['ADMIN', 'RECEPTIONIST']);
   }
@@ -212,13 +208,9 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
     return this.canAny(['DOCTOR']);
   }
 
-  canConfirm(appointment: Appointment): boolean {
-    return appointment.status === 'Pending' && this.canAny(['ADMIN', 'RECEPTIONIST']);
-  }
-
   canCancel(appointment: Appointment): boolean {
     return (
-      (appointment.status === 'Pending' || appointment.status === 'Confirmed') &&
+      appointment.status === 'Confirmed' &&
       !appointment.Queue?.id &&
       this.canAny(['ADMIN', 'RECEPTIONIST'])
     );
@@ -239,10 +231,6 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
       !appointment.Queue?.id &&
       this.canUseCheckInAction
     );
-  }
-
-  confirm(appointment: Appointment): void {
-    this.executeAction(appointment.id, () => this.appointmentsApiService.confirm(appointment.id), 'Xác nhận lịch hẹn thành công');
   }
 
   cancel(appointment: Appointment): void {
@@ -313,10 +301,8 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
 
   getStatusLabel(status: AppointmentStatus): string {
     switch (status) {
-      case 'Pending':
-        return 'Chờ xác nhận';
       case 'Confirmed':
-        return 'Đã xác nhận';
+        return 'Đã đặt lịch';
       case 'CheckedIn':
         return 'Đã check-in';
       case 'Cancelled':
@@ -569,7 +555,7 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
   }
 
   private parseStatusParam(value: string | null): AppointmentStatusFilter {
-    if (value === 'Pending' || value === 'Confirmed' || value === 'CheckedIn' || value === 'Cancelled' || value === 'Completed' || value === 'NoShow') {
+    if (value === 'Confirmed' || value === 'CheckedIn' || value === 'Cancelled' || value === 'Completed' || value === 'NoShow') {
       return value;
     }
 

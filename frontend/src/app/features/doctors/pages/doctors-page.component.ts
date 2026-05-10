@@ -6,6 +6,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { BackendRole } from '../../../core/models/auth-role.model';
+import { NotificationService } from '../../../core/services/notification.service';
 import { TokenService } from '../../../core/services/token.service';
 import { Room } from '../../rooms/models/rooms.model';
 import { RoomsApiService } from '../../rooms/services/rooms.api';
@@ -33,6 +34,7 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
   private readonly specialtiesApiService = inject(SpecialtiesApiService);
   private readonly roomsApiService = inject(RoomsApiService);
   private readonly usersApiService = inject(UsersApiService);
+  private readonly notificationService = inject(NotificationService);
   private readonly tokenService = inject(TokenService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -55,8 +57,6 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
   isLoadingRooms = false;
   isSubmitting = false;
 
-  feedbackType: 'success' | 'error' = 'success';
-  feedbackMessage = '';
   private bodyOverflowBeforeModal = '';
 
   searchTerm = '';
@@ -229,7 +229,6 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.feedbackMessage = '';
     this.editingDoctorId = doctor.id;
     this.isFormModalOpen = true;
     this.updateBodyScrollState();
@@ -243,7 +242,6 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
   }
 
   onViewMore(id: number): void {
-    this.feedbackMessage = '';
     this.isDetailModalOpen = true;
     this.updateBodyScrollState();
     this.isLoadingDetail = true;
@@ -285,7 +283,6 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.feedbackMessage = '';
     this.isSubmitting = true;
 
     const raw = this.form.getRawValue();
@@ -340,7 +337,6 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.feedbackMessage = '';
     this.isSubmitting = true;
 
     this.doctorsApiService.delete(doctor.id).subscribe({
@@ -387,8 +383,6 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
 
   private loadList(): void {
     this.isLoadingList = true;
-    this.feedbackMessage = '';
-
     this.doctorsApiService.getAll({
       q: this.searchTerm,
       status: this.selectedStatus,
@@ -500,8 +494,12 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
   }
 
   private showFeedback(type: 'success' | 'error', message: string): void {
-    this.feedbackType = type;
-    this.feedbackMessage = message;
+    if (type === 'success') {
+      this.notificationService.success(message);
+      return;
+    }
+
+    this.notificationService.error(message);
   }
 
   private updateBodyScrollState(): void {

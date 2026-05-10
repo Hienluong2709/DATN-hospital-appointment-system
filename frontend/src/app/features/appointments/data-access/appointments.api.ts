@@ -68,10 +68,6 @@ export class AppointmentsApiService {
     return this.http.post<ApiResponse<Appointment>>(`${API_BASE_URL}/appointments`, payload);
   }
 
-  confirm(id: number) {
-    return this.http.post<ApiResponse<Appointment>>(`${API_BASE_URL}/appointments/${id}/confirm`, {});
-  }
-
   cancel(id: number) {
     return this.http.post<ApiResponse<Appointment>>(`${API_BASE_URL}/appointments/${id}/cancel`, {});
   }

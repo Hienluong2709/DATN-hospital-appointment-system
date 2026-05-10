@@ -12,6 +12,7 @@ export class NotificationModalComponent implements OnChanges, OnDestroy {
   @Input() isOpen = false;
   @Input() message = '';
   @Input() type: 'success' | 'error' = 'success';
+  @Input() title = '';
   @Input() autoCloseMs = 5000;
   @Input() version = 0;
 

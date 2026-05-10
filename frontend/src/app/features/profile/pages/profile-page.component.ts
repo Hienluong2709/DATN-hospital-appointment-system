@@ -3,32 +3,28 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { BackendRole } from '../../../core/models/auth-role.model';
+import { NotificationService } from '../../../core/services/notification.service';
 import { TokenService } from '../../../core/services/token.service';
-import { NotificationModalComponent } from '../../../shared/components/notification-modal/notification-modal.component';
 import { User, UserGender } from '../../users/models/users.model';
 import { UsersApiService } from '../../users/services/users.api';
 
 @Component({
   selector: 'app-profile-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, NotificationModalComponent],
+  imports: [CommonModule, FormsModule],
   templateUrl: './profile-page.component.html',
   styleUrls: ['./profile-page.component.scss']
 })
 export class ProfilePageComponent implements OnInit {
   private readonly tokenService = inject(TokenService);
   private readonly usersApiService = inject(UsersApiService);
+  private readonly notificationService = inject(NotificationService);
 
   profile: User | null = null;
   isLoading = false;
   isSaving = false;
   isEditing = false;
   inlineErrorMessage = '';
-
-  notificationMessage = '';
-  notificationType: 'success' | 'error' = 'success';
-  notificationVersion = 0;
-  isNotificationOpen = false;
 
   form = {
     fullname: '',
@@ -153,11 +149,6 @@ export class ProfilePageComponent implements OnInit {
       });
   }
 
-  closeNotification(): void {
-    this.isNotificationOpen = false;
-    this.notificationMessage = '';
-  }
-
   private loadProfile(): void {
     this.isLoading = true;
     this.inlineErrorMessage = '';
@@ -205,10 +196,12 @@ export class ProfilePageComponent implements OnInit {
   }
 
   private showNotification(type: 'success' | 'error', message: string): void {
-    this.notificationType = type;
-    this.notificationMessage = message;
-    this.notificationVersion += 1;
-    this.isNotificationOpen = true;
+    if (type === 'success') {
+      this.notificationService.success(message);
+      return;
+    }
+
+    this.notificationService.error(message);
   }
 
   private asText(value: unknown): string {

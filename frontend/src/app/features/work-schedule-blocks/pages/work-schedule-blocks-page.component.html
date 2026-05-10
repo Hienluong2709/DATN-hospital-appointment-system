@@ -12,10 +12,6 @@
     </p>
   </header>
 
-  @if (feedbackMessage) {
-    <p class="feedback" [class.feedback--error]="feedbackType === 'error'">{{ feedbackMessage }}</p>
-  }
-
   <article class="feature-card filters-card">
     @if (showRequestTabs) {
       <div class="leave-tabs" role="tablist" aria-label="Phân loại lịch nghỉ bác sĩ">

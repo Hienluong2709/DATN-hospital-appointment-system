@@ -3,10 +3,6 @@
     <h1 class="feature-title">Quản lý chuyên khoa</h1>
   </header>
 
-  @if (feedbackMessage) {
-    <p class="feedback" [class.feedback--error]="feedbackType === 'error'">{{ feedbackMessage }}</p>
-  }
-
   <article class="feature-card filters-card">
     <div class="filters-grid">
       <label class="filter-field">

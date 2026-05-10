@@ -7,6 +7,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { SharedPaginationComponent } from '../../../shared/components/pagination/pagination.component';
+import { NotificationService } from '../../../core/services/notification.service';
 import { User, UserGender, UserRole, UserStatus, UserUpsertPayload } from '../models/users.model';
 import { UserDetailModalComponent } from './user-detail/user-detail-modal.component';
 import { UserFormModalComponent } from './user-form/user-form-modal.component';
@@ -23,6 +24,7 @@ import { getRoleLabel, getUserStatusLabel } from '../../../shared/enum-label.uti
 export class UsersPageComponent implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly usersApiService = inject(UsersApiService);
+  private readonly notificationService = inject(NotificationService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly searchTermChanges = new Subject<string>();
@@ -39,8 +41,6 @@ export class UsersPageComponent implements OnInit, OnDestroy {
   isLoadingDetail = false;
   isSubmitting = false;
 
-  feedbackType: 'success' | 'error' = 'success';
-  feedbackMessage = '';
   private bodyOverflowBeforeModal = '';
 
   searchTerm = '';
@@ -231,7 +231,6 @@ export class UsersPageComponent implements OnInit, OnDestroy {
   }
 
   startEdit(user: User): void {
-    this.feedbackMessage = '';
     this.editingUserId = user.id;
     this.isFormModalOpen = true;
     this.updateBodyScrollState();
@@ -249,7 +248,6 @@ export class UsersPageComponent implements OnInit, OnDestroy {
   }
 
   onViewMore(id: number): void {
-    this.feedbackMessage = '';
     this.isDetailModalOpen = true;
     this.updateBodyScrollState();
     this.isLoadingDetail = true;
@@ -287,7 +285,6 @@ export class UsersPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.feedbackMessage = '';
     this.isSubmitting = true;
 
     const payload: UserUpsertPayload = {
@@ -333,7 +330,6 @@ export class UsersPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.feedbackMessage = '';
     this.isSubmitting = true;
 
     this.usersApiService.delete(user.id).subscribe({
@@ -368,7 +364,6 @@ export class UsersPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.feedbackMessage = '';
     this.isSubmitting = true;
 
     this.usersApiService.updateStatus(user.id, nextStatus).subscribe({
@@ -394,8 +389,6 @@ export class UsersPageComponent implements OnInit, OnDestroy {
 
   private loadList(): void {
     this.isLoadingList = true;
-    this.feedbackMessage = '';
-
     this.usersApiService.getAll({
       q: this.searchTerm,
       role: this.selectedRole,
@@ -460,8 +453,12 @@ export class UsersPageComponent implements OnInit, OnDestroy {
   }
 
   private showFeedback(type: 'success' | 'error', message: string): void {
-    this.feedbackType = type;
-    this.feedbackMessage = message;
+    if (type === 'success') {
+      this.notificationService.success(message);
+      return;
+    }
+
+    this.notificationService.error(message);
   }
 
   private updateBodyScrollState(): void {

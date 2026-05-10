@@ -4,10 +4,6 @@
     <p class="feature-subtitle">Quản lý hồ sơ bác sĩ, chuyên khoa, phòng làm việc và trạng thái hoạt động.</p>
   </header>
 
-  @if (feedbackMessage) {
-    <p class="feedback" [class.feedback--error]="feedbackType === 'error'">{{ feedbackMessage }}</p>
-  }
-
   <article class="feature-card filters-card">
     <div class="filters-grid">
       <label class="filter-field">

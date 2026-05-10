@@ -1,141 +1,148 @@
-.notification-backdrop {
+.notification-toast-stack {
   position: fixed;
-  inset: 0;
-  z-index: 1200;
-  display: grid;
-  place-items: center;
-  padding: 1.5rem;
-  background: rgba(15, 23, 42, 0.28);
-  backdrop-filter: blur(6px);
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 9999;
+  pointer-events: none;
 }
 
-.notification-modal {
+.notification-toast {
   position: relative;
-  width: min(100%, 420px);
+  width: min(420px, calc(100vw - 2rem));
+  min-width: min(360px, calc(100vw - 2rem));
   overflow: hidden;
-  border-radius: 24px;
-  padding: 1.25rem 1.2rem 1rem;
+  border-radius: 12px;
+  padding: 0.9rem 3rem 0.9rem 3.5rem;
   border: 1px solid transparent;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
-  animation: notification-pop 180ms ease-out;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.12);
+  animation: notification-slide-in 220ms ease-out;
+  pointer-events: auto;
+  transition: box-shadow 180ms ease;
+  background-repeat: no-repeat;
+  background-position: 1rem 1rem;
+  background-size: 24px;
 }
 
-.notification-modal--success {
-  background:
-    radial-gradient(circle at top left, rgba(16, 185, 129, 0.16), transparent 34%),
-    linear-gradient(180deg, #f4fffb 0%, #ffffff 100%);
-  border-color: #9ee6cf;
-  color: #0f5132;
+.notification-toast:hover {
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
 }
 
-.notification-modal--error {
-  background:
-    radial-gradient(circle at top left, rgba(239, 68, 68, 0.16), transparent 34%),
-    linear-gradient(180deg, #fff6f6 0%, #ffffff 100%);
-  border-color: #f7b0b0;
-  color: #991b1b;
+.notification-toast--success {
+  background-image: url('/assets/images/check-circle.svg');
+  background-color: #ecfdf3;
+  border-color: #9ee6bf;
+  color: #166534;
 }
 
-.notification-icon {
-  width: 68px;
-  height: 68px;
-  display: grid;
-  place-items: center;
-  border-radius: 20px;
-  margin-bottom: 1rem;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-}
-
-.notification-modal--success .notification-icon {
-  background: linear-gradient(180deg, #dcfce7 0%, #bbf7d0 100%);
-  color: #15803d;
-}
-
-.notification-modal--error .notification-icon {
-  background: linear-gradient(180deg, #fee2e2 0%, #fecaca 100%);
-  color: #dc2626;
-}
-
-.notification-icon svg {
-  width: 36px;
-  height: 36px;
-  fill: currentColor;
+.notification-toast--error {
+  background-image: url('/assets/images/cancel-circle.svg');
+  background-color: #fff1f2;
+  border-color: #f7b4bc;
+  color: #b42318;
 }
 
 .notification-content {
-  padding-right: 2rem;
+  padding-right: 0;
 }
 
-.notification-label {
-  margin: 0 0 0.3rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  opacity: 0.72;
-}
-
-.notification-modal h2 {
-  margin: 0;
-  font-size: 1.25rem;
-  line-height: 1.2;
+.notification-title {
+  margin: 0 0 0.15rem;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  font-weight: 700;
 }
 
 .notification-message {
-  margin: 0.45rem 0 0;
-  font-size: 0.96rem;
-  line-height: 1.5;
-  color: rgba(15, 23, 42, 0.78);
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: inherit;
 }
 
-.notification-modal--success .notification-message {
-  color: rgba(6, 78, 59, 0.88);
+.notification-toast--success .notification-message {
+  color: #166534;
 }
 
-.notification-modal--error .notification-message {
-  color: rgba(127, 29, 29, 0.88);
+.notification-toast--error .notification-message {
+  color: #b42318;
 }
 
 .notification-close {
   position: absolute;
-  top: 0.7rem;
-  right: 0.7rem;
-  width: 32px;
-  height: 32px;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 24px;
+  height: 24px;
   border: none;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88);
-  color: inherit;
-  font-size: 1.3rem;
+  background: transparent;
+  color: #6b7280;
+  font-size: 1.15rem;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.notification-close:hover {
+  background: rgba(255, 255, 255, 0.88);
+  transform: scale(1.04);
 }
 
 .notification-progress {
-  height: 6px;
-  margin: 1rem -1.2rem -1rem;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  margin: 0;
   transform-origin: left center;
   animation: notification-timer 5s linear forwards;
 }
 
-.notification-modal--success .notification-progress {
+.notification-toast--success .notification-progress {
   background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
 }
 
-.notification-modal--error .notification-progress {
+.notification-toast--error .notification-progress {
   background: linear-gradient(90deg, #ef4444 0%, #f87171 100%);
 }
 
 @keyframes notification-pop {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.98);
+    transform: translateY(8px) scale(0.98);
   }
 
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes notification-slide-in {
+  from {
+    opacity: 0;
+    transform: translate3d(12px, -6px, 0) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@media (max-width: 640px) {
+  .notification-toast-stack {
+    top: 1rem;
+    right: 1rem;
+    left: 1rem;
+  }
+
+  .notification-toast {
+    width: 100%;
+    min-width: 0;
   }
 }
 
