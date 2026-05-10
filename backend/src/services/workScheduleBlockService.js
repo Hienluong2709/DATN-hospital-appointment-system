@@ -383,7 +383,7 @@ const ensureNoAppointmentConflictWithBlock = async (
   });
 
   if (conflictingAppointment) {
-    const error = new Error("Không thể duyệt lịch nghỉ vì đang có lịch hẹn hoạt động trong khoảng thời gian này");
+    const error = new Error("Thời gian nghỉ đã có lịch hẹn hoạt động trong khoảng thời gian này");
     error.statusCode = 409;
     throw error;
   }
@@ -564,6 +564,7 @@ export const createWorkScheduleBlockService = async (payload, currentUser) => {
 
     await ensureNoSchedulingConflictForEffectiveBlock(doctorId, date, isOff, startTime, endTime, {
       transaction,
+      enforceAppointmentConflict: true,
     });
 
     const created = await WorkScheduleBlock.create(
@@ -685,6 +686,7 @@ export const updateWorkScheduleBlockService = async (id, payload, currentUser) =
       {
         excludedBlockId: block.id,
         transaction,
+        enforceAppointmentConflict: true,
       }
     );
 

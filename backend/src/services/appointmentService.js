@@ -1284,8 +1284,8 @@ export const createAppointmentService = async (payload, currentUser) => {
         throw error;
       }
 
-      const status = isPatientSelfBooking ? APPOINTMENT_STATUS.CONFIRMED : APPOINTMENT_STATUS.PENDING;
-      const holdExpiresAt = isPatientSelfBooking ? null : getPendingHoldExpiry();
+      const status = APPOINTMENT_STATUS.CONFIRMED;
+      const holdExpiresAt = null;
 
       if (isPatientSelfBooking) {
         ensurePatientBookingDateAllowed(date);

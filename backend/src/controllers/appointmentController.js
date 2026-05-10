@@ -1,7 +1,6 @@
 import {
   cancelAppointmentService,
   completeAppointmentService,
-  confirmAppointmentService,
   createAppointmentService,
   deleteAppointmentService,
   getDoctorAvailabilityService,
@@ -84,19 +83,6 @@ export const createAppointment = async (req, res) => {
     });
   } catch (error) {
     return handleError(res, error, "Không thể tạo lịch hẹn");
-  }
-};
-
-export const confirmAppointment = async (req, res) => {
-  try {
-    const data = await confirmAppointmentService(req.params.id, req.user);
-
-    return res.json({
-      message: "Xác nhận lịch hẹn thành công",
-      data,
-    });
-  } catch (error) {
-    return handleError(res, error, "Không thể xác nhận lịch hẹn");
   }
 };
 
