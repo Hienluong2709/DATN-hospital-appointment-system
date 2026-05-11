@@ -169,7 +169,7 @@
         (click)="setDoctorDayTab('schedule')"
       >
         Lịch trong ngày
-        <span>{{ filteredAppointments.length }}</span>
+        <span>{{ doctorScheduleAppointments.length }}</span>
       </button>
       <button
         type="button"
@@ -191,8 +191,12 @@
       </button>
     </div>
 
-    <div *ngIf="!isLoading && viewMode === 'day' && filteredAppointments.length > 0 && isDoctorView && activeDoctorDayTab === 'schedule'" class="doctor-appointments-list">
-      <article class="doctor-appointment-card" *ngFor="let appointment of filteredAppointments; let index = index">
+    <div *ngIf="!isLoading && viewMode === 'day' && filteredAppointments.length > 0 && isDoctorView && activeDoctorDayTab === 'schedule' && !doctorScheduleAppointments.length" class="state-text">
+      Không có ca nào cần theo dõi khám trong ngày đã chọn.
+    </div>
+
+    <div *ngIf="!isLoading && viewMode === 'day' && filteredAppointments.length > 0 && isDoctorView && activeDoctorDayTab === 'schedule' && doctorScheduleAppointments.length > 0" class="doctor-appointments-list">
+      <article class="doctor-appointment-card" *ngFor="let appointment of doctorScheduleAppointments; let index = index">
         <header class="doctor-appointment-card__header">
           <div>
             <p class="doctor-appointment-card__index">Ca khám #{{ index + 1 }}</p>
@@ -219,15 +223,6 @@
         </div>
 
         <div class="doctor-appointment-card__actions">
-          <button
-            *ngIf="canUseCheckInAction"
-            type="button"
-            class="btn-confirm"
-            (click)="checkIn(appointment)"
-            [disabled]="!canCheckIn(appointment) || processingActionById[appointment.id]"
-          >
-            Check-in
-          </button>
           <button
             *ngIf="canUseStartAction && !appointment.Queue?.actual_start && !appointment.Queue?.actual_end"
             type="button"

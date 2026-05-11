@@ -168,6 +168,16 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
     return this.filteredAppointments.filter((appointment) => !!appointment.Queue?.actual_start && !appointment.Queue?.actual_end);
   }
 
+  get doctorScheduleAppointments(): Appointment[] {
+    return this.filteredAppointments.filter((appointment) => {
+      if (appointment.status === 'Confirmed') {
+        return true;
+      }
+
+      return appointment.status === 'CheckedIn' && !appointment.Queue?.actual_start && !appointment.Queue?.actual_end;
+    });
+  }
+
   get doctorCompletedAppointments(): Appointment[] {
     return this.filteredAppointments.filter((appointment) => !!appointment.Queue?.actual_end || appointment.status === 'Completed');
   }
