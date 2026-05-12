@@ -14,8 +14,6 @@ const DEFAULT_APPOINTMENT_SLOT_MINUTES =
   Number(process.env.APPOINTMENT_SLOT_MINUTES) || 30;
 const DEFAULT_QUEUE_TURNAROUND_MINUTES =
   Number(process.env.QUEUE_TURNAROUND_MINUTES) || 5;
-const MAX_CHECKED_IN_EARLY_CALL_MINUTES =
-  Math.max(0, Number(process.env.MAX_CHECKED_IN_EARLY_CALL_MINUTES) || 10);
 const RULE_ENGINE_FORECAST_SOURCE = process.env.FORECAST_SOURCE || "rule_engine";
 const RULE_ENGINE_MODEL_VERSION = process.env.FORECAST_MODEL_VERSION || "rule_engine_v1";
 const RECENT_COMPLETED_QUEUE_SAMPLE_SIZE =
@@ -214,10 +212,6 @@ const addMinutes = (dateValue, minutes) => {
   return new Date(dateValue.getTime() + minutes * 60 * 1000);
 };
 
-const subtractMinutes = (dateValue, minutes) => {
-  return new Date(dateValue.getTime() - minutes * 60 * 1000);
-};
-
 const buildInProgressForecastCursor = ({
   actualStart,
   averageVisitDurationMs,
@@ -243,14 +237,7 @@ const getEarliestEligibleStartTime = ({
     return earliestWorkingDateTime || null;
   }
 
-  if (!(checkedInAt instanceof Date) || Number.isNaN(checkedInAt.getTime())) {
-    return originalScheduledTime;
-  }
-
-  return maxDate(
-    subtractMinutes(originalScheduledTime, MAX_CHECKED_IN_EARLY_CALL_MINUTES),
-    earliestWorkingDateTime,
-  );
+  return maxDate(originalScheduledTime, earliestWorkingDateTime);
 };
 
 const computePredictedWaitMinutesFromAnchor = (predictedStart, anchorDate) => {
