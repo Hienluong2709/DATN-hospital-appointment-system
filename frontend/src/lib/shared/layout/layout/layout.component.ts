@@ -159,17 +159,18 @@ export class LayoutComponent implements OnInit {
     return this.menuGroups
       .map((group) => {
         const allowedItems = this.filterByRole(group.items).map((item) => this.formatMenuItemForRole(item));
+        const formattedGroup = this.formatMenuGroupForRole(group);
         if (!keyword) {
-          return { ...group, items: allowedItems };
+          return { ...formattedGroup, items: allowedItems };
         }
 
-        const titleMatches = group.title.toLowerCase().includes(keyword);
+        const titleMatches = formattedGroup.title.toLowerCase().includes(keyword);
         const matchingItems = allowedItems.filter((item) =>
           item.label.toLowerCase().includes(keyword),
         );
 
         return {
-          ...group,
+          ...formattedGroup,
           items: titleMatches ? allowedItems : matchingItems,
         };
       })
@@ -327,18 +328,52 @@ export class LayoutComponent implements OnInit {
       return [];
     }
 
-    return items.filter((item) => !item.roles || item.roles.includes(roleKey));
+    return items.filter((item) => {
+      if (item.roles && !item.roles.includes(roleKey)) {
+        return false;
+      }
+
+      if (roleKey === 'RECEPTIONIST' && item.link === this.staffLink(WORK_SCHEDULE_BLOCKS_PATH)) {
+        return false;
+      }
+
+      return true;
+    });
   }
 
   private formatMenuItemForRole(item: MenuItem): MenuItem {
-    if (this.roleKey === 'RECEPTIONIST' && item.link === this.staffLink(APPOINTMENTS_PATH)) {
-      return {
-        ...item,
-        label: 'Quản lý hàng đợi',
-      };
+    if (this.roleKey !== 'RECEPTIONIST') {
+      return item;
     }
 
-    return item;
+    const receptionistLabels: Record<string, string> = {
+      [this.staffLink(SPECIALTIES_PATH)]: 'Khoa',
+      [this.staffLink(ROOMS_PATH)]: 'Phòng khám',
+      [this.staffLink(DOCTORS_PATH)]: 'Tra cứu bác sĩ',
+      [this.staffLink(WORK_SCHEDULES_PATH)]: 'Lịch làm việc',
+      [this.staffLink(APPOINTMENTS_PATH)]: 'Quản lý hàng đợi',
+    };
+
+    return {
+      ...item,
+      label: receptionistLabels[item.link] ?? item.label,
+    };
+  }
+
+  private formatMenuGroupForRole(group: MenuGroup): MenuGroup {
+    if (this.roleKey !== 'RECEPTIONIST') {
+      return group;
+    }
+
+    if (group.key === 'catalog') {
+      return { ...group, title: 'Tra cứu danh mục' };
+    }
+
+    if (group.key === 'schedules') {
+      return { ...group, title: 'Điều phối lịch khám' };
+    }
+
+    return group;
   }
 
   private asText(value: unknown, fallback: string): string {

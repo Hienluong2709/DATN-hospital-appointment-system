@@ -8,11 +8,15 @@ import { BackendRole } from '../../../core/models/auth-role.model';
 import { TokenService } from '../../../core/services/token.service';
 import { Doctor } from '../../doctors/models/doctors.model';
 import { DoctorsApiService } from '../../doctors/services/doctors.api';
+import { WorkScheduleBlock } from '../../work-schedule-blocks/models/work-schedule-blocks.model';
+import { WorkScheduleBlocksApiService } from '../../work-schedule-blocks/services/work-schedule-blocks.api';
 import { WorkSchedule, WorkScheduleDayOfWeek, WorkScheduleUpsertPayload } from '../models/work-schedules.model';
 import { WorkScheduleDetailModalComponent } from './work-schedule-detail/work-schedule-detail-modal.component';
 import { WorkSchedulesApiService } from '../services/work-schedules.api';
 import { WorkScheduleFormModalComponent } from './work-schedule-form/work-schedule-form-modal.component';
 import { SharedPaginationComponent } from '../../../shared/components/pagination/pagination.component';
+
+type ReceptionistScheduleFilter = 'ALL' | 'WORKING' | 'ON_LEAVE' | 'WORKING_AND_LEAVE' | 'NO_WORKING';
 
 @Component({
   selector: 'app-work-schedules-page',
@@ -30,10 +34,12 @@ export class WorkSchedulesPageComponent implements OnInit, OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
   private readonly workSchedulesApiService = inject(WorkSchedulesApiService);
   private readonly doctorsApiService = inject(DoctorsApiService);
+  private readonly workScheduleBlocksApiService = inject(WorkScheduleBlocksApiService);
   private readonly tokenService = inject(TokenService);
 
   schedules: WorkSchedule[] = [];
   doctors: Doctor[] = [];
+  approvedScheduleBlocks: WorkScheduleBlock[] = [];
   selectedSchedule: WorkSchedule | null = null;
   editingScheduleId: number | null = null;
 
@@ -42,6 +48,7 @@ export class WorkSchedulesPageComponent implements OnInit, OnDestroy {
   isLoadingList = false;
   isLoadingDetail = false;
   isLoadingDoctors = false;
+  isLoadingApprovedBlocks = false;
   isSubmitting = false;
 
   feedbackType: 'success' | 'error' = 'success';
@@ -51,6 +58,7 @@ export class WorkSchedulesPageComponent implements OnInit, OnDestroy {
   selectedDoctorId = 0;
   viewMode: 'day' | 'week' = 'day';
   selectedDate = this.getTodayDateInputValue();
+  receptionistScheduleFilter: ReceptionistScheduleFilter = 'ALL';
   dayCurrentPage = 1;
   dayPageSize = 10;
   readonly dayPageSizeOptions = [10, 20, 50];
@@ -64,6 +72,14 @@ export class WorkSchedulesPageComponent implements OnInit, OnDestroy {
     { value: 4, label: 'Thứ năm' },
     { value: 5, label: 'Thứ sáu' },
     { value: 6, label: 'Thứ bảy' }
+  ];
+
+  readonly receptionistScheduleFilterOptions: Array<{ value: ReceptionistScheduleFilter; label: string }> = [
+    { value: 'ALL', label: 'Tất cả lịch' },
+    { value: 'WORKING', label: 'Có ca làm việc' },
+    { value: 'ON_LEAVE', label: 'Có lịch nghỉ' },
+    { value: 'WORKING_AND_LEAVE', label: 'Có ca và có nghỉ' },
+    { value: 'NO_WORKING', label: 'Không có ca làm việc' }
   ];
 
   readonly form = this.fb.nonNullable.group({
@@ -93,6 +109,9 @@ export class WorkSchedulesPageComponent implements OnInit, OnDestroy {
     this.bindFormAvailabilityState();
     this.loadList();
     this.loadDoctors();
+    if (this.isReceptionistView) {
+      this.loadApprovedScheduleBlocks();
+    }
   }
 
   ngOnDestroy(): void {
@@ -137,6 +156,10 @@ export class WorkSchedulesPageComponent implements OnInit, OnDestroy {
     this.selectedDate = value || this.getTodayDateInputValue();
     this.dayCurrentPage = 1;
     this.ensureDayPageValid();
+  }
+
+  updateReceptionistScheduleFilter(value: ReceptionistScheduleFilter): void {
+    this.receptionistScheduleFilter = value;
   }
 
   goToPreviousWeek(): void {
@@ -403,8 +426,106 @@ export class WorkSchedulesPageComponent implements OnInit, OnDestroy {
     return this.currentRole === 'DOCTOR';
   }
 
+  get isReceptionistView(): boolean {
+    return this.currentRole === 'RECEPTIONIST';
+  }
+
+  get isLoadingReceptionistDirectory(): boolean {
+    return this.isLoadingList || this.isLoadingDoctors || this.isLoadingApprovedBlocks;
+  }
+
   get canManageSchedules(): boolean {
     return this.currentRole === 'ADMIN';
+  }
+
+  get receptionistDoctors(): Doctor[] {
+    const list = this.selectedDoctorId
+      ? this.doctors.filter((doctor) => doctor.id === this.selectedDoctorId)
+      : this.doctors;
+
+    return [...list]
+      .filter((doctor) => this.matchesReceptionistScheduleFilter(doctor.id))
+      .sort((left, right) => this.doctorOptionLabel(left).localeCompare(this.doctorOptionLabel(right)));
+  }
+
+  get receptionistBaseDoctorCount(): number {
+    return this.selectedDoctorId ? this.doctors.filter((doctor) => doctor.id === this.selectedDoctorId).length : this.doctors.length;
+  }
+
+  get receptionistWorkingDoctorCount(): number {
+    return this.getReceptionistBaseDoctors().filter((doctor) => this.getSchedulesForDoctorDate(doctor.id).length > 0).length;
+  }
+
+  get receptionistLeaveDoctorCount(): number {
+    return this.getReceptionistBaseDoctors().filter((doctor) => this.getApprovedBlocksForDoctorDate(doctor.id).length > 0).length;
+  }
+
+  get receptionistNoWorkingDoctorCount(): number {
+    return this.getReceptionistBaseDoctors().filter((doctor) => this.getSchedulesForDoctorDate(doctor.id).length === 0).length;
+  }
+
+  get selectedDateDisplayLabel(): string {
+    return this.formatDateLabel(this.selectedDateObject);
+  }
+
+  get selectedDateDayLabel(): string {
+    return this.dayLabel(this.selectedDayOfWeek);
+  }
+
+  getSchedulesForDoctorDate(doctorId: number): WorkSchedule[] {
+    return this.schedules
+      .filter((schedule) => schedule.doctor_id === doctorId && schedule.day_of_week === this.selectedDayOfWeek)
+      .sort((left, right) => left.start_time.localeCompare(right.start_time));
+  }
+
+  getApprovedBlocksForDoctorDate(doctorId: number): WorkScheduleBlock[] {
+    return this.approvedScheduleBlocks
+      .filter((block) => block.doctor_id === doctorId && block.status === 'Approved' && block.date === this.selectedDate)
+      .sort((left, right) => (left.start_time || '').localeCompare(right.start_time || ''));
+  }
+
+  getDoctorRoomLabel(doctor: Doctor): string {
+    if (!doctor.Room?.name) {
+      return 'Chưa phân phòng';
+    }
+
+    return doctor.Room.floor !== null && doctor.Room.floor !== undefined
+      ? `${doctor.Room.name} - Tầng ${doctor.Room.floor}`
+      : doctor.Room.name;
+  }
+
+  getTimeRangeLabel(startTime: string | null | undefined, endTime: string | null | undefined): string {
+    if (!startTime || !endTime) {
+      return 'Cả ngày';
+    }
+
+    return `${startTime.slice(0, 5)} - ${endTime.slice(0, 5)}`;
+  }
+
+  getBlockLabel(block: WorkScheduleBlock): string {
+    return block.is_off ? 'Nghỉ cả ngày' : this.getTimeRangeLabel(block.start_time, block.end_time);
+  }
+
+  private getReceptionistBaseDoctors(): Doctor[] {
+    return this.selectedDoctorId ? this.doctors.filter((doctor) => doctor.id === this.selectedDoctorId) : this.doctors;
+  }
+
+  private matchesReceptionistScheduleFilter(doctorId: number): boolean {
+    const hasWorkingSchedule = this.getSchedulesForDoctorDate(doctorId).length > 0;
+    const hasApprovedLeave = this.getApprovedBlocksForDoctorDate(doctorId).length > 0;
+
+    switch (this.receptionistScheduleFilter) {
+      case 'WORKING':
+        return hasWorkingSchedule;
+      case 'ON_LEAVE':
+        return hasApprovedLeave;
+      case 'WORKING_AND_LEAVE':
+        return hasWorkingSchedule && hasApprovedLeave;
+      case 'NO_WORKING':
+        return !hasWorkingSchedule;
+      default:
+        return true;
+    }
   }
 
   get selectedFormDoctor(): Doctor | null {
@@ -497,6 +618,22 @@ export class WorkSchedulesPageComponent implements OnInit, OnDestroy {
       },
       complete: () => {
         this.isLoadingDoctors = false;
+      }
+    });
+  }
+
+  private loadApprovedScheduleBlocks(): void {
+    this.isLoadingApprovedBlocks = true;
+
+    this.workScheduleBlocksApiService.getAll().subscribe({
+      next: (response) => {
+        this.approvedScheduleBlocks = response.data.filter((block) => block.status === 'Approved');
+      },
+      error: (error: { error?: { message?: string } }) => {
+        this.showFeedback('error', error.error?.message ?? 'Không thể tải lịch nghỉ đã duyệt của bác sĩ.');
+      },
+      complete: () => {
+        this.isLoadingApprovedBlocks = false;
       }
     });
   }

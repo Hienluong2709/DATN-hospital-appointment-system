@@ -1,6 +1,9 @@
 <section class="feature-page">
   <header class="feature-header">
-    <h1 class="feature-title">Quản lý chuyên khoa</h1>
+    <h1 class="feature-title">{{ isReceptionistView ? 'Tra cứu khoa' : 'Quản lý chuyên khoa' }}</h1>
+    @if (isReceptionistView) {
+      <p class="feature-subtitle">Xem danh sách khoa và mở chi tiết để tra cứu các phòng khám thuộc khoa.</p>
+    }
   </header>
 
   <article class="feature-card filters-card">
@@ -48,6 +51,48 @@
     </div>
   </article>
 
+  @if (isReceptionistView) {
+    <article class="directory-panel">
+      <div class="directory-panel__header">
+        <div>
+          <h2>Danh sách khoa</h2>
+          <p>{{ totalItems }} chuyên khoa phù hợp với bộ lọc hiện tại.</p>
+        </div>
+      </div>
+
+      @if (isLoadingList || isLoadingRooms) {
+        <p class="state-text">Đang tải dữ liệu chuyên khoa và phòng khám...</p>
+      } @else if (!specialties.length) {
+        <p class="state-text">Không có chuyên khoa phù hợp với bộ lọc hiện tại.</p>
+      } @else {
+        <div class="specialty-directory">
+          @for (specialty of specialties; track specialty.id) {
+            <article class="specialty-directory-card">
+              <header class="specialty-directory-card__header">
+                <div>
+                  <h3>{{ specialty.name }}</h3>
+                  <p>{{ specialty.description || 'Chưa có mô tả chuyên khoa.' }}</p>
+                </div>
+                <span>{{ getRoomsForSpecialty(specialty.id).length }} phòng</span>
+              </header>
+              <button class="button-secondary specialty-detail-button" type="button" (click)="onViewMore(specialty.id)">
+                Xem chi tiết
+              </button>
+            </article>
+          }
+        </div>
+
+        <app-shared-pagination
+          [totalItems]="totalItems"
+          [page]="currentPage"
+          [pageSize]="pageSize"
+          [pageSizeOptions]="pageSizeOptions"
+          (pageChange)="onPageChange($event)"
+          (pageSizeChange)="onPageSizeChange($event)"
+        />
+      }
+    </article>
+  } @else {
   <article class="feature-card table-card">
     <div class="table-header">
       <h2>Danh sách chuyên khoa</h2>
@@ -123,6 +168,7 @@
       />
     }
   </article>
+  }
 
   <app-specialty-form-modal
     [isOpen]="isFormModalOpen"
@@ -138,6 +184,7 @@
     [isOpen]="isDetailModalOpen"
     [isLoading]="isLoadingDetail"
     [specialty]="selectedSpecialty"
+    [rooms]="selectedSpecialty ? getRoomsForSpecialty(selectedSpecialty.id) : []"
     (closeModal)="closeDetailModal()"
   />
 </section>

@@ -95,6 +95,10 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
     return this.currentRole === 'ADMIN';
   }
 
+  get isReceptionistView(): boolean {
+    return this.currentRole === 'RECEPTIONIST';
+  }
+
   get filteredRooms(): Room[] {
     const specialtyId = this.form.controls.specialty_id.value;
     if (!specialtyId) {
@@ -116,6 +120,16 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
 
   getDoctorStatusLabel(status: string | null | undefined): string {
     return getDoctorStatusLabel(status);
+  }
+
+  getRoomLabel(doctor: Doctor): string {
+    if (!doctor.Room?.name) {
+      return 'Chưa phân phòng';
+    }
+
+    return doctor.Room.floor !== null && doctor.Room.floor !== undefined
+      ? `${doctor.Room.name} - Tầng ${doctor.Room.floor}`
+      : doctor.Room.name;
   }
 
   ngOnInit(): void {
@@ -140,7 +154,10 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
 
     this.loadSpecialties();
     this.loadRooms();
-    this.loadDoctorUsers();
+    if (this.canManageDoctors) {
+      this.loadDoctorUsers();
+    }
+
   }
 
   ngOnDestroy(): void {
@@ -549,4 +566,5 @@ export class DoctorsPageComponent implements OnInit, OnDestroy {
   private parseStatusParam(value: string | null): DoctorStatus | 'ALL' {
     return this.statusOptions.includes(value as DoctorStatus) ? (value as DoctorStatus) : 'ALL';
   }
+
 }

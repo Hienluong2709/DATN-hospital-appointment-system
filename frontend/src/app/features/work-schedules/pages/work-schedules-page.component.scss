@@ -54,7 +54,7 @@
 
 .filters-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
   gap: 12px;
 }
 
@@ -190,6 +190,208 @@ table {
 .state-text--left {
   text-align: left;
   padding: 0 0 12px;
+}
+
+.workday-directory-panel {
+  margin-top: 10px;
+}
+
+.workday-directory-panel__header {
+  margin-bottom: 10px;
+
+  h2 {
+    margin: 0 0 4px;
+    color: #143a5a;
+    font-size: 18px;
+    font-weight: 650;
+  }
+
+  p {
+    margin: 0;
+    color: #61748a;
+    font-size: 14px;
+  }
+}
+
+.workday-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 180px));
+  gap: 8px;
+  margin-bottom: 12px;
+  justify-content: start;
+}
+
+.workday-summary__item {
+  min-height: 46px;
+  border: 1px solid #d8e6f3;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  text-align: left;
+  box-shadow: 0 4px 12px rgba(21, 59, 92, 0.04);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+
+  span,
+  strong {
+    display: block;
+  }
+
+  span {
+    color: #61748a;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  strong {
+    color: #143a5a;
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  &:hover {
+    border-color: #9fc5e8;
+    box-shadow: 0 10px 24px rgba(21, 59, 92, 0.08);
+    transform: translateY(-1px);
+  }
+}
+
+.workday-summary__item--active {
+  border-color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.workday-summary__item--leave {
+  strong {
+    color: #9a580f;
+  }
+}
+
+.workday-directory {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(390px, 1fr));
+  gap: 12px;
+}
+
+.workday-doctor-card {
+  border: 1px solid #d8e6f3;
+  border-radius: 8px;
+  padding: 16px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(21, 59, 92, 0.06);
+}
+
+.workday-doctor-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #edf3f8;
+
+  h3 {
+    margin: 0 0 6px;
+    color: #102f4a;
+    font-size: 17px;
+  }
+
+  p {
+    margin: 0;
+    color: #61748a;
+    font-size: 13px;
+  }
+}
+
+.doctor-status {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 3px 9px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.doctor-status--inactive {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.workday-doctor-card__content {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.workday-section {
+  h4 {
+    margin: 0 0 8px;
+    color: #173f62;
+    font-size: 14px;
+    font-weight: 700;
+  }
+}
+
+.schedule-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.schedule-chip {
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #f8fbff;
+  color: #173f62;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.approved-block-list {
+  display: grid;
+  gap: 8px;
+}
+
+.approved-block {
+  border: 1px solid #fde1c3;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff8ed;
+
+  strong,
+  span {
+    display: block;
+  }
+
+  strong {
+    color: #8a4b0f;
+    font-size: 13px;
+  }
+
+  span {
+    margin-top: 4px;
+    color: #725a42;
+    font-size: 12px;
+  }
+}
+
+.directory-empty {
+  margin: 0;
+  padding: 10px;
+  border: 1px dashed #c8d8e8;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #61748a;
+  font-size: 13px;
 }
 
 .week-board {
@@ -367,7 +569,25 @@ table {
     grid-template-columns: 1fr;
   }
 
+  .workday-directory {
+    grid-template-columns: 1fr;
+  }
+
+  .workday-summary {
+    grid-template-columns: repeat(2, minmax(0, 180px));
+  }
+
+  .workday-doctor-card__content {
+    grid-template-columns: 1fr;
+  }
+
   .week-quick-nav {
     width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .workday-summary {
+    grid-template-columns: 1fr;
   }
 }

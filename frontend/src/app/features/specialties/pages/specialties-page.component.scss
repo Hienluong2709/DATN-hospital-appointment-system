@@ -207,6 +207,124 @@ table {
   color: #777;
 }
 
+.directory-panel {
+  margin-top: 10px;
+}
+
+.directory-panel__header {
+  margin-bottom: 12px;
+
+  h2 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    font-weight: 650;
+    color: #153b5c;
+  }
+
+  p {
+    margin: 0;
+    color: #61748a;
+    font-size: 14px;
+  }
+}
+
+.specialty-directory {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.specialty-directory-card {
+  background: #fff;
+  border: 1px solid #d8e6f3;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 8px 22px rgba(21, 59, 92, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.specialty-directory-card__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #edf3f8;
+
+  h3 {
+    margin: 0 0 6px;
+    font-size: 17px;
+    color: #102f4a;
+  }
+
+  p {
+    margin: 0;
+    color: #61748a;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  > span {
+    height: 28px;
+    white-space: nowrap;
+    border-radius: 999px;
+    padding: 5px 10px;
+    background: #eef6ff;
+    color: #0f5da8;
+    font-size: 12px;
+    font-weight: 700;
+  }
+}
+
+.specialty-detail-button {
+  align-self: flex-start;
+}
+
+.room-chip-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.room-chip {
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  padding: 10px;
+  background: #f8fbff;
+
+  strong,
+  span {
+    display: block;
+  }
+
+  strong {
+    color: #143a5a;
+    font-size: 14px;
+  }
+
+  span {
+    margin-top: 4px;
+    color: #60758b;
+    font-size: 12px;
+  }
+}
+
+.room-chip--maintenance {
+  border-color: #fde1c3;
+  background: #fff8ed;
+}
+
+.directory-empty {
+  margin: 12px 0 0;
+  padding: 12px;
+  border: 1px dashed #c8d8e8;
+  border-radius: 8px;
+  color: #61748a;
+  background: #f8fbff;
+}
+
 @media (max-width: 768px) {
   .feature-page {
     padding: 16px;

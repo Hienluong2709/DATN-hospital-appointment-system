@@ -1,10 +1,14 @@
 <section class="feature-page">
   <header class="feature-header">
-    <h1 class="feature-title">{{ isDoctorView ? 'Lịch làm việc của tôi' : 'Quản lý lịch làm việc' }}</h1>
+    <h1 class="feature-title">
+      {{ isDoctorView ? 'Lịch làm việc của tôi' : isReceptionistView ? 'Lịch làm việc' : 'Quản lý lịch làm việc' }}
+    </h1>
     <p class="feature-subtitle">
       {{
         isDoctorView
           ? 'Theo dõi các ca làm việc cá nhân theo ngày và theo tuần.'
+          : isReceptionistView
+            ? 'Tra cứu lịch làm việc, phòng khám và lịch nghỉ đã duyệt của bác sĩ theo ngày.'
           : 'Quản lý lịch làm việc của bác sĩ theo ngày và khung giờ khám.'
       }}
     </p>
@@ -31,30 +35,145 @@
         <input type="date" [value]="selectedDate" (input)="updateSelectedDate($any($event.target).value)" />
       </label>
 
-      <div class="filter-field">
-        <span>Chế độ xem</span>
-        <div class="view-mode-toggle" role="group" aria-label="Chế độ xem lịch">
-          <button
-            type="button"
-            class="button-secondary"
-            [class.active]="viewMode === 'day'"
-            (click)="setViewMode('day')"
-          >
-            Theo ngày
-          </button>
-          <button
-            type="button"
-            class="button-secondary"
-            [class.active]="viewMode === 'week'"
-            (click)="setViewMode('week')"
-          >
-            Theo tuần
-          </button>
+      @if (isReceptionistView) {
+        <label class="filter-field">
+          <span>Loại lịch</span>
+          <select [ngModel]="receptionistScheduleFilter" (ngModelChange)="updateReceptionistScheduleFilter($event)">
+            @for (option of receptionistScheduleFilterOptions; track option.value) {
+              <option [ngValue]="option.value">{{ option.label }}</option>
+            }
+          </select>
+        </label>
+      }
+
+      @if (!isReceptionistView) {
+        <div class="filter-field">
+          <span>Chế độ xem</span>
+          <div class="view-mode-toggle" role="group" aria-label="Chế độ xem lịch">
+            <button
+              type="button"
+              class="button-secondary"
+              [class.active]="viewMode === 'day'"
+              (click)="setViewMode('day')"
+            >
+              Theo ngày
+            </button>
+            <button
+              type="button"
+              class="button-secondary"
+              [class.active]="viewMode === 'week'"
+              (click)="setViewMode('week')"
+            >
+              Theo tuần
+            </button>
+          </div>
         </div>
-      </div>
+      }
     </div>
   </article>
 
+  @if (isReceptionistView) {
+    <article class="workday-directory-panel">
+      <div class="workday-directory-panel__header">
+        <div>
+          <h2>Lịch làm việc ngày {{ selectedDateDisplayLabel }}</h2>
+          <p>{{ selectedDateDayLabel }} • {{ receptionistDoctors.length }}/{{ receptionistBaseDoctorCount }} bác sĩ phù hợp với bộ lọc hiện tại.</p>
+        </div>
+      </div>
+
+      <div class="workday-summary">
+        <button
+          type="button"
+          class="workday-summary__item"
+          [class.workday-summary__item--active]="receptionistScheduleFilter === 'ALL'"
+          (click)="updateReceptionistScheduleFilter('ALL')"
+        >
+          <span>Tất cả</span>
+          <strong>{{ receptionistBaseDoctorCount }}</strong>
+        </button>
+        <button
+          type="button"
+          class="workday-summary__item"
+          [class.workday-summary__item--active]="receptionistScheduleFilter === 'WORKING'"
+          (click)="updateReceptionistScheduleFilter('WORKING')"
+        >
+          <span>Có ca làm việc</span>
+          <strong>{{ receptionistWorkingDoctorCount }}</strong>
+        </button>
+        <button
+          type="button"
+          class="workday-summary__item workday-summary__item--leave"
+          [class.workday-summary__item--active]="receptionistScheduleFilter === 'ON_LEAVE'"
+          (click)="updateReceptionistScheduleFilter('ON_LEAVE')"
+        >
+          <span>Có lịch nghỉ</span>
+          <strong>{{ receptionistLeaveDoctorCount }}</strong>
+        </button>
+        <button
+          type="button"
+          class="workday-summary__item"
+          [class.workday-summary__item--active]="receptionistScheduleFilter === 'NO_WORKING'"
+          (click)="updateReceptionistScheduleFilter('NO_WORKING')"
+        >
+          <span>Không có ca</span>
+          <strong>{{ receptionistNoWorkingDoctorCount }}</strong>
+        </button>
+      </div>
+
+      @if (isLoadingReceptionistDirectory) {
+        <p class="state-text">Đang tải lịch làm việc và lịch nghỉ đã duyệt...</p>
+      } @else if (!receptionistDoctors.length) {
+        <p class="state-text">Không có bác sĩ phù hợp với bộ lọc hiện tại.</p>
+      } @else {
+        <div class="workday-directory">
+          @for (doctor of receptionistDoctors; track doctor.id) {
+            <article class="workday-doctor-card">
+              <header class="workday-doctor-card__header">
+                <div>
+                  <h3>{{ doctorOptionLabel(doctor) }}</h3>
+                  <p>{{ doctor.Specialty?.name || 'Chưa có chuyên khoa' }} • {{ getDoctorRoomLabel(doctor) }}</p>
+                </div>
+                <span class="doctor-status" [class.doctor-status--inactive]="doctor.status === 'Inactive'">
+                  {{ doctor.status === 'Active' ? 'Đang hoạt động' : 'Ngưng hoạt động' }}
+                </span>
+              </header>
+
+              <div class="workday-doctor-card__content">
+                <section class="workday-section">
+                  <h4>Ca làm việc</h4>
+                  @if (getSchedulesForDoctorDate(doctor.id).length) {
+                    <div class="schedule-chip-list">
+                      @for (schedule of getSchedulesForDoctorDate(doctor.id); track schedule.id) {
+                        <span class="schedule-chip">{{ getTimeRangeLabel(schedule.start_time, schedule.end_time) }}</span>
+                      }
+                    </div>
+                  } @else {
+                    <p class="directory-empty">Không có ca làm việc trong ngày đã chọn.</p>
+                  }
+                </section>
+
+                <section class="workday-section">
+                  <h4>Lịch nghỉ đã duyệt</h4>
+                  @if (getApprovedBlocksForDoctorDate(doctor.id).length) {
+                    <div class="approved-block-list">
+                      @for (block of getApprovedBlocksForDoctorDate(doctor.id); track block.id) {
+                        <div class="approved-block">
+                          <strong>{{ getBlockLabel(block) }}</strong>
+                          <span>{{ block.reason || 'Không có ghi chú' }}</span>
+                        </div>
+                      }
+                    </div>
+                  } @else {
+                    <p class="directory-empty">Không có lịch nghỉ đã duyệt trong ngày đã chọn.</p>
+                  }
+                </section>
+              </div>
+            </article>
+          }
+        </div>
+      }
+    </article>
+  } @else {
   <article class="feature-card table-card" [class.doctor-table-card]="isDoctorView">
     <div class="table-header">
       <h2>
@@ -296,24 +415,27 @@
       }
     }
   </article>
+  }
 
-  <app-work-schedule-form-modal
-    [isOpen]="isFormModalOpen"
-    [isSubmitting]="isSubmitting"
-    [isEditMode]="editingScheduleId !== null"
-    [form]="form"
-    [doctors]="doctors"
-    [nameInvalid]="doctorControl.invalid && (doctorControl.touched || doctorControl.dirty)"
-    [doctorInvalid]="doctorControl.invalid && (doctorControl.touched || doctorControl.dirty)"
-    [dayInvalid]="dayControl.invalid && (dayControl.touched || dayControl.dirty)"
-    [timeInvalid]="startTimeControl.invalid || endTimeControl.invalid"
-    [availableStartTimes]="availableStartTimeOptions"
-    [availableEndTimes]="availableEndTimeOptions"
-    [timeAvailabilityMessage]="timeAvailabilityMessage"
-    [hasAvailableTimeOptions]="hasAvailableTimeOptions"
-    (submitForm)="onSubmit()"
-    (closeModal)="closeFormModal()"
-  />
+  @if (canManageSchedules) {
+    <app-work-schedule-form-modal
+      [isOpen]="isFormModalOpen"
+      [isSubmitting]="isSubmitting"
+      [isEditMode]="editingScheduleId !== null"
+      [form]="form"
+      [doctors]="doctors"
+      [nameInvalid]="doctorControl.invalid && (doctorControl.touched || doctorControl.dirty)"
+      [doctorInvalid]="doctorControl.invalid && (doctorControl.touched || doctorControl.dirty)"
+      [dayInvalid]="dayControl.invalid && (dayControl.touched || dayControl.dirty)"
+      [timeInvalid]="startTimeControl.invalid || endTimeControl.invalid"
+      [availableStartTimes]="availableStartTimeOptions"
+      [availableEndTimes]="availableEndTimeOptions"
+      [timeAvailabilityMessage]="timeAvailabilityMessage"
+      [hasAvailableTimeOptions]="hasAvailableTimeOptions"
+      (submitForm)="onSubmit()"
+      (closeModal)="closeFormModal()"
+    />
+  }
 
   <app-work-schedule-detail-modal
     [isOpen]="isDetailModalOpen"

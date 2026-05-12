@@ -10,6 +10,8 @@ import { NotificationService } from '../../../core/services/notification.service
 import { TokenService } from '../../../core/services/token.service';
 import { SpecialtyDetailModalComponent } from './specialty-detail/specialty-detail-modal.component';
 import { SpecialtyFormModalComponent } from './specialty-form/specialty-form-modal.component';
+import { Room } from '../../rooms/models/rooms.model';
+import { RoomsApiService } from '../../rooms/services/rooms.api';
 import { Specialty, SpecialtyUpsertPayload } from '../models/specialties.model';
 import { SpecialtiesApiService } from '../services/specialties.api';
 import { SharedPaginationComponent } from '../../../shared/components/pagination/pagination.component';
@@ -24,6 +26,7 @@ import { SharedPaginationComponent } from '../../../shared/components/pagination
 export class SpecialtiesPageComponent implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly specialtiesApiService = inject(SpecialtiesApiService);
+  private readonly roomsApiService = inject(RoomsApiService);
   private readonly tokenService = inject(TokenService);
   private readonly notificationService = inject(NotificationService);
   private readonly router = inject(Router);
@@ -32,12 +35,14 @@ export class SpecialtiesPageComponent implements OnInit, OnDestroy {
   private readonly subscriptions = new Subscription();
 
   specialties: Specialty[] = [];
+  rooms: Room[] = [];
   selectedSpecialty: Specialty | null = null;
   editingSpecialtyId: number | null = null;
   isFormModalOpen = false;
   isDetailModalOpen = false;
 
   isLoadingList = false;
+  isLoadingRooms = false;
   isLoadingDetail = false;
   isSubmitting = false;
 
@@ -63,6 +68,10 @@ export class SpecialtiesPageComponent implements OnInit, OnDestroy {
     return this.currentRole === 'ADMIN';
   }
 
+  get isReceptionistView(): boolean {
+    return this.currentRole === 'RECEPTIONIST';
+  }
+
   ngOnInit(): void {
     this.subscriptions.add(
       this.route.queryParamMap.subscribe((params) => {
@@ -79,6 +88,8 @@ export class SpecialtiesPageComponent implements OnInit, OnDestroy {
         this.updateQueryParams(true);
       })
     );
+
+    this.loadRooms();
   }
 
   ngOnDestroy(): void {
@@ -261,6 +272,19 @@ export class SpecialtiesPageComponent implements OnInit, OnDestroy {
     return value.length > 70 ? `${value.slice(0, 70)}...` : value;
   }
 
+  getRoomsForSpecialty(specialtyId: number): Room[] {
+    return this.rooms
+      .filter((room) => room.specialty_id === specialtyId)
+      .sort((left, right) => {
+        const floorDelta = (left.floor ?? 0) - (right.floor ?? 0);
+        return floorDelta || left.name.localeCompare(right.name, 'vi');
+      });
+  }
+
+  getRoomStatusLabel(status: Room['status']): string {
+    return status === 'Available' ? 'Sẵn sàng' : 'Bảo trì';
+  }
+
   get rowOffset(): number {
     return (this.currentPage - 1) * this.pageSize;
   }
@@ -293,6 +317,22 @@ export class SpecialtiesPageComponent implements OnInit, OnDestroy {
       },
       complete: () => {
         this.isLoadingList = false;
+      }
+    });
+  }
+
+  private loadRooms(): void {
+    this.isLoadingRooms = true;
+
+    this.roomsApiService.getAll().subscribe({
+      next: (response) => {
+        this.rooms = response.data;
+      },
+      error: (error: { error?: { message?: string } }) => {
+        this.showFeedback('error', error.error?.message ?? 'Không thể tải danh sách phòng theo chuyên khoa.');
+      },
+      complete: () => {
+        this.isLoadingRooms = false;
       }
     });
   }

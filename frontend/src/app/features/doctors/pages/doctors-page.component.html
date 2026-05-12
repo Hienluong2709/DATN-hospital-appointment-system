@@ -1,7 +1,13 @@
 <section class="feature-page">
   <header class="feature-header">
-    <h1 class="feature-title">Quản lý bác sĩ</h1>
-    <p class="feature-subtitle">Quản lý hồ sơ bác sĩ, chuyên khoa, phòng làm việc và trạng thái hoạt động.</p>
+    <h1 class="feature-title">{{ isReceptionistView ? 'Tra cứu thông tin bác sĩ' : 'Quản lý bác sĩ' }}</h1>
+    <p class="feature-subtitle">
+      {{
+        isReceptionistView
+          ? 'Xem thông tin bác sĩ theo chuyên khoa, phòng khám và trạng thái hoạt động.'
+          : 'Quản lý hồ sơ bác sĩ, chuyên khoa, phòng làm việc và trạng thái hoạt động.'
+      }}
+    </p>
   </header>
 
   <article class="feature-card filters-card">
@@ -79,6 +85,62 @@
     </div>
   </article>
 
+  @if (isReceptionistView) {
+    <article class="doctor-directory-panel">
+      <div class="doctor-directory-panel__header">
+        <div>
+          <h2>Thông tin bác sĩ</h2>
+          <p>{{ totalItems }} bác sĩ phù hợp với bộ lọc hiện tại.</p>
+        </div>
+      </div>
+
+      @if (isLoadingList || isLoadingSpecialties || isLoadingRooms) {
+        <p class="state-text">Đang tải danh sách bác sĩ...</p>
+      } @else if (!doctors.length) {
+        <p class="state-text">Không có bác sĩ phù hợp với bộ lọc hiện tại.</p>
+      } @else {
+        <div class="doctor-directory">
+          @for (doctor of doctors; track doctor.id) {
+            <article class="doctor-directory-card">
+              <header class="doctor-directory-card__header">
+                <div>
+                  <h3>{{ displayDoctorName(doctor) }}</h3>
+                  <p>{{ doctor.Specialty?.name || 'Chưa có chuyên khoa' }} · {{ getRoomLabel(doctor) }}</p>
+                </div>
+                <span class="status-badge" [class.status-badge--inactive]="doctor.status === 'Inactive'">
+                  {{ getDoctorStatusLabel(doctor.status) }}
+                </span>
+              </header>
+
+              <section class="doctor-directory-card__section">
+                <h4>Thông tin liên hệ</h4>
+                <div class="doctor-info-grid">
+                  <span>Email</span>
+                  <strong>{{ doctor.User?.email || '--' }}</strong>
+                  <span>Số điện thoại</span>
+                  <strong>{{ doctor.User?.phone || '--' }}</strong>
+                </div>
+              </section>
+
+              <section class="doctor-directory-card__section">
+                <h4>Ghi chú chuyên môn</h4>
+                <p class="directory-empty">{{ doctor.description || 'Chưa có mô tả chuyên môn.' }}</p>
+              </section>
+            </article>
+          }
+        </div>
+
+        <app-shared-pagination
+          [totalItems]="totalItems"
+          [page]="currentPage"
+          [pageSize]="pageSize"
+          [pageSizeOptions]="pageSizeOptions"
+          (pageChange)="onPageChange($event)"
+          (pageSizeChange)="onPageSizeChange($event)"
+        />
+      }
+    </article>
+  } @else {
   <article class="feature-card table-card">
     <div class="table-header">
       <h2>Danh sách bác sĩ</h2>
@@ -164,6 +226,7 @@
       />
     }
   </article>
+  }
 
   <app-doctor-form-modal
     [isOpen]="isFormModalOpen"
