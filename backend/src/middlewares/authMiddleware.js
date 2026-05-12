@@ -2,8 +2,8 @@ import jwt from "jsonwebtoken";
 import db from "../models/index.js";
 
 const { User } = db;
-const DEFAULT_JWT_ISSUER = "sofitech-hospital-api";
-const DEFAULT_JWT_AUDIENCE = "sofitech-clinic-platform";
+const DEFAULT_JWT_ISSUER = "luong-hospital-api";
+const DEFAULT_JWT_AUDIENCE = "luong-clinic-platform";
 
 export const authenticate = async (req, res, next) => {
   const authHeader = req.headers.authorization;

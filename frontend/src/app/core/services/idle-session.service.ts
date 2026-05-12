@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Router } from '@angular/router';
+import { NavigationEnd, Router } from '@angular/router';
 
 import { AuthApiService } from '../../features/auth/services/auth.api';
 import { environment } from '../../../environments/environment';
@@ -11,13 +11,21 @@ export class IdleSessionService {
   private readonly authApiService = inject(AuthApiService);
   private readonly router = inject(Router);
 
-  private readonly idleTimeoutMs = environment.idleTimeoutMs;
+  private readonly idleTimeoutMs =
+    Number.isFinite(environment.idleTimeoutMs) && environment.idleTimeoutMs > 0
+      ? environment.idleTimeoutMs
+      : 5 * 60 * 1000;
   private readonly activityEvents = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
 
   private timeoutId: number | null = null;
   private isStarted = false;
   private isLoggingOut = false;
   private readonly activityHandler = () => this.resetTimer();
+  private readonly navigationSubscription = this.router.events.subscribe((event) => {
+    if (event instanceof NavigationEnd) {
+      this.resetTimer();
+    }
+  });
 
   startMonitoring(): void {
     if (this.isStarted) {

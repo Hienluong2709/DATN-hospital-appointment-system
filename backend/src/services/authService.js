@@ -15,8 +15,8 @@ const INVALID_CREDENTIALS_MESSAGE = "Thông tin đăng nhập không hợp lệ"
 const ALLOWED_ROLES = ["ADMIN", "DOCTOR", "PATIENT", "RECEPTIONIST"];
 const DEFAULT_JWT_EXPIRES_IN = "15m";
 const DEFAULT_REFRESH_TOKEN_EXPIRES_IN_DAYS = 14;
-const DEFAULT_JWT_ISSUER = "sofitech-hospital-api";
-const DEFAULT_JWT_AUDIENCE = "sofitech-clinic-platform";
+const DEFAULT_JWT_ISSUER = "luong-hospital-api";
+const DEFAULT_JWT_AUDIENCE = "luong-clinic-platform";
 const AUTH_REQUIRE_OTP_ON_REGISTER =
   process.env.AUTH_REQUIRE_OTP_ON_REGISTER !== "false";
 const AUTH_REQUIRE_OTP_ON_CHANGE_PASSWORD =
