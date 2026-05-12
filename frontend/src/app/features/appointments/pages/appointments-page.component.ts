@@ -1,22 +1,33 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 
 import { BackendRole } from '../../../core/models/auth-role.model';
 import { TokenService } from '../../../core/services/token.service';
+import { SharedPaginationComponent } from '../../../shared/components/pagination/pagination.component';
 import { QueuesPageComponent } from '../../queues/pages/queues-page.component';
 import { AppointmentsApiService } from '../data-access/appointments.api';
 import { Appointment, AppointmentStatus } from '../models/appointments.model';
 
 type DoctorVisitStatusFilter = 'CheckedIn' | 'InProgress' | 'Completed' | 'NoShow';
 type AppointmentStatusFilter = AppointmentStatus | DoctorVisitStatusFilter | 'ALL';
+type AdminAppointmentSummaryItem = {
+  key: AppointmentStatusFilter;
+  label: string;
+  total: number;
+  tone: 'neutral' | 'primary' | 'success' | 'warning' | 'danger';
+};
+type AppointmentStatusSummary = {
+  total: number;
+  by_status: Partial<Record<AppointmentStatus, number>>;
+};
 
 @Component({
   selector: 'app-appointments-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, QueuesPageComponent],
+  imports: [CommonModule, FormsModule, QueuesPageComponent, SharedPaginationComponent],
   templateUrl: './appointments-management-page.component.html',
   styleUrls: ['./appointments-page.component.scss']
 })
@@ -31,17 +42,24 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
   private readonly subscriptions = new Subscription();
   private alertTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private pollIntervalId: ReturnType<typeof setInterval> | null = null;
+  @ViewChild('adminAppointmentDetail') private adminAppointmentDetail?: ElementRef<HTMLElement>;
 
   appointments: Appointment[] = [];
   isLoading = false;
   errorMessage = '';
   successMessage = '';
   processingActionById: Record<number, boolean> = {};
+  selectedAdminAppointment: Appointment | null = null;
   selectedDate = this.getTodayDateString();
   selectedDoctorId = 0;
   selectedStatus: AppointmentStatusFilter = 'ALL';
   viewMode: 'day' | 'week' = 'day';
   activeDoctorDayTab: 'schedule' | 'in-progress' | 'completed' = 'schedule';
+  adminCurrentPage = 1;
+  adminPageSize = 10;
+  adminTotalItems = 0;
+  adminStatusSummary: AppointmentStatusSummary | null = null;
+  readonly adminPageSizeOptions = [10, 20, 50];
 
   readonly currentRole: BackendRole | null = this.tokenService.getCurrentRole();
 
@@ -55,6 +73,8 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
         );
         this.viewMode = params.get('view') === 'week' ? 'week' : 'day';
         this.activeDoctorDayTab = this.parseDoctorDayTab(params.get('tab'));
+        this.adminCurrentPage = this.parsePositiveQueryParam(params.get('page')) || 1;
+        this.adminPageSize = this.parsePageSizeParam(params.get('page_size'));
         this.loadAppointments();
       })
     );
@@ -76,22 +96,29 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
     this.selectedDate = this.getTodayDateString();
     this.selectedDoctorId = 0;
     this.selectedStatus = this.getDefaultStatusFilter();
+    this.selectedAdminAppointment = null;
+    this.adminCurrentPage = 1;
     this.updateQueryParams(true);
   }
 
   updateSelectedDate(value: string): void {
     this.selectedDate = value || this.getTodayDateString();
+    this.selectedAdminAppointment = null;
+    this.adminCurrentPage = 1;
     this.updateQueryParams(true);
   }
 
   updateSelectedDoctor(value: string): void {
     const parsed = Number(value);
     this.selectedDoctorId = Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
+    this.selectedAdminAppointment = null;
+    this.adminCurrentPage = 1;
     this.updateQueryParams(true);
   }
 
   updateSelectedStatus(value: string): void {
     if (
+      value === 'Pending' ||
       value === 'Confirmed' ||
       value === 'CheckedIn' ||
       value === 'Cancelled' ||
@@ -104,12 +131,49 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
       this.selectedStatus = 'ALL';
     }
 
+    this.selectedAdminAppointment = null;
+    this.adminCurrentPage = 1;
     this.updateQueryParams(true);
   }
 
   setViewMode(mode: 'day' | 'week'): void {
     this.viewMode = mode;
+    this.selectedAdminAppointment = null;
+    this.adminCurrentPage = 1;
     this.updateQueryParams(true);
+  }
+
+  onAdminPageChange(page: number): void {
+    this.adminCurrentPage = page;
+    this.updateQueryParams(true);
+  }
+
+  onAdminPageSizeChange(pageSize: number): void {
+    this.adminPageSize = pageSize;
+    this.adminCurrentPage = 1;
+    this.updateQueryParams(true);
+  }
+
+  selectAdminAppointment(appointment: Appointment): void {
+    if (!this.isAdminView) {
+      return;
+    }
+
+    this.selectedAdminAppointment = appointment;
+    setTimeout(() => {
+      this.adminAppointmentDetail?.nativeElement.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    });
+  }
+
+  closeAdminAppointmentDetail(): void {
+    this.selectedAdminAppointment = null;
+  }
+
+  isAdminAppointmentSelected(appointment: Appointment): boolean {
+    return this.selectedAdminAppointment?.id === appointment.id;
   }
 
   setDoctorDayTab(tab: 'schedule' | 'in-progress' | 'completed'): void {
@@ -175,6 +239,21 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
     return this.weekDayAppointments.reduce((total, day) => total + day.appointments.length, 0);
   }
 
+  get adminAppointmentSummaryItems(): AdminAppointmentSummaryItem[] {
+    const summary = this.adminStatusSummary;
+    const countStatus = (status: AppointmentStatus) => summary?.by_status?.[status] ?? 0;
+
+    return [
+      { key: 'ALL', label: 'Tổng lịch', total: summary?.total ?? this.adminTotalItems, tone: 'neutral' },
+      { key: 'Pending', label: 'Chờ xác nhận', total: countStatus('Pending'), tone: 'warning' },
+      { key: 'Confirmed', label: 'Chờ check-in', total: countStatus('Confirmed'), tone: 'primary' },
+      { key: 'CheckedIn', label: 'Đã check-in', total: countStatus('CheckedIn'), tone: 'primary' },
+      { key: 'Completed', label: 'Hoàn tất', total: countStatus('Completed'), tone: 'success' },
+      { key: 'NoShow', label: 'Vắng mặt', total: countStatus('NoShow'), tone: 'danger' },
+      { key: 'Cancelled', label: 'Đã hủy', total: countStatus('Cancelled'), tone: 'danger' },
+    ];
+  }
+
   get doctorInProgressAppointments(): Appointment[] {
     return this.filteredAppointments.filter((appointment) => !!appointment.Queue?.actual_start && !appointment.Queue?.actual_end);
   }
@@ -217,6 +296,10 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
     return this.currentRole === 'RECEPTIONIST';
   }
 
+  get isAdminView(): boolean {
+    return this.currentRole === 'ADMIN';
+  }
+
   get pageTitle(): string {
     if (this.isDoctorView) {
       return 'Danh sách lịch hẹn khám';
@@ -226,7 +309,7 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
       return 'Quản lý hàng đợi';
     }
 
-    return 'Quản lý lịch hẹn';
+    return 'Dữ liệu lịch hẹn khám';
   }
 
   get pageSubtitle(): string {
@@ -238,15 +321,19 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
       return 'Theo dõi lịch chờ tiếp nhận, check-in bệnh nhân, cấp số tiếp nhận và quản lý danh sách hàng đợi trong ngày.';
     }
 
-    return 'Theo dõi trạng thái lịch hẹn và xử lý nhanh các bước tiếp nhận.';
+    return 'Admin chỉ xem dữ liệu lịch hẹn và hàng đợi để phục vụ báo cáo, thống kê và giám sát vận hành.';
+  }
+
+  get showAppointmentActions(): boolean {
+    return this.canUseCancelAction || this.canUseCheckInAction || this.canUseStartAction || this.canUseCompleteAction;
   }
 
   get canUseCancelAction(): boolean {
-    return this.canAny(['ADMIN', 'RECEPTIONIST']);
+    return this.canAny(['RECEPTIONIST']);
   }
 
   get canUseCheckInAction(): boolean {
-    return this.canAny(['ADMIN', 'RECEPTIONIST']);
+    return this.canAny(['RECEPTIONIST']);
   }
 
   get canUseStartAction(): boolean {
@@ -261,7 +348,7 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
     return (
       appointment.status === 'Confirmed' &&
       !appointment.Queue?.id &&
-      this.canAny(['ADMIN', 'RECEPTIONIST'])
+      this.canUseCancelAction
     );
   }
 
@@ -351,7 +438,7 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
   getStatusLabel(status: AppointmentStatus): string {
     switch (status) {
       case 'Confirmed':
-        return 'Đã đặt lịch';
+        return this.isAdminView ? 'Chờ check-in' : 'Đã đặt lịch';
       case 'CheckedIn':
         return 'Đã check-in';
       case 'Cancelled':
@@ -436,7 +523,7 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
     return new Date(parsed.getTime() + predictedWaitMinutes * 60 * 1000).toISOString();
   }
 
-  private getDateTimeClockLabel(value: string | null): string {
+  getDateTimeClockLabel(value: string | null): string {
     if (!value) {
       return '--:--';
     }
@@ -486,10 +573,20 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
       doctor_id: this.selectedDoctorId || undefined,
       status: appointmentStatus,
       date_from: dateRange.dateFrom,
-      date_to: dateRange.dateTo
+      date_to: dateRange.dateTo,
+      page: this.isAdminView ? this.adminCurrentPage : undefined,
+      page_size: this.isAdminView ? this.adminPageSize : undefined,
     }).subscribe({
       next: (response) => {
         this.appointments = response.data;
+        this.adminTotalItems = response.pagination?.total_items ?? response.data.length;
+        this.adminCurrentPage = response.pagination?.page ?? this.adminCurrentPage;
+        this.adminPageSize = response.pagination?.page_size ?? this.adminPageSize;
+        this.adminStatusSummary = this.isAppointmentStatusSummary(response.summary) ? response.summary : null;
+        if (this.selectedAdminAppointment) {
+          this.selectedAdminAppointment =
+            this.appointments.find((appointment) => appointment.id === this.selectedAdminAppointment?.id) ?? null;
+        }
       },
       error: (error: { error?: { message?: string } }) => {
         this.showError(error.error?.message ?? 'Không thể tải danh sách lịch hẹn');
@@ -546,6 +643,11 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
       dateFrom: this.selectedDate,
       dateTo: this.selectedDate
     };
+  }
+
+  private isDateInActiveRange(dateValue: string): boolean {
+    const range = this.getActiveDateRange();
+    return dateValue >= range.dateFrom && dateValue <= range.dateTo;
   }
 
   private showSuccess(message: string): void {
@@ -605,7 +707,9 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
         status: !this.isDoctorView && this.selectedStatus !== 'ALL' ? this.selectedStatus : null,
         workflow: this.isDoctorView && this.selectedStatus !== 'ALL' ? this.selectedStatus : null,
         view: !this.isDoctorView && this.viewMode !== 'day' ? this.viewMode : null,
-        tab: !this.isDoctorView && this.activeDoctorDayTab !== 'schedule' ? this.activeDoctorDayTab : null
+        tab: !this.isDoctorView && this.activeDoctorDayTab !== 'schedule' ? this.activeDoctorDayTab : null,
+        page: this.isAdminView && this.adminCurrentPage > 1 ? this.adminCurrentPage : null,
+        page_size: this.isAdminView && this.adminPageSize !== this.adminPageSizeOptions[0] ? this.adminPageSize : null,
       },
       replaceUrl
     });
@@ -616,8 +720,23 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
     return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
   }
 
+  private parsePageSizeParam(value: string | null): number {
+    const parsed = Number(value);
+    return this.adminPageSizeOptions.includes(parsed) ? parsed : this.adminPageSizeOptions[0];
+  }
+
+  private isAppointmentStatusSummary(value: unknown): value is AppointmentStatusSummary {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+
+    const candidate = value as Partial<AppointmentStatusSummary>;
+    return typeof candidate.total === 'number' && !!candidate.by_status && typeof candidate.by_status === 'object';
+  }
+
   private parseStatusParam(value: string | null): AppointmentStatusFilter {
     if (
+      value === 'Pending' ||
       value === 'Confirmed' ||
       value === 'CheckedIn' ||
       value === 'Cancelled' ||

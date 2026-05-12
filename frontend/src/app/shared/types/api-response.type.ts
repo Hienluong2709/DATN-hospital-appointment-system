@@ -7,4 +7,5 @@ export interface ApiResponse<TData> {
     total_items: number;
     total_pages: number;
   };
+  summary?: unknown;
 }

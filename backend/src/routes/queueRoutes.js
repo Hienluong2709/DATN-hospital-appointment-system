@@ -10,6 +10,6 @@ const router = express.Router();
 
 router.get("/", authenticate, authorize(["ADMIN", "DOCTOR", "RECEPTIONIST"]), getAllQueues);
 router.get("/:id", authenticate, authorize(["ADMIN", "DOCTOR", "RECEPTIONIST"]), getQueueById);
-router.delete("/:id", authenticate, authorize(["ADMIN", "RECEPTIONIST"]), deleteQueue);
+router.delete("/:id", authenticate, authorize(["RECEPTIONIST"]), deleteQueue);
 
 export default router;

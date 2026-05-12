@@ -30,7 +30,8 @@
             <option value="NoShow">Vắng mặt</option>
           </ng-container>
           <ng-template #appointmentStatusOptions>
-            <option value="Confirmed">Đã đặt lịch</option>
+            <option *ngIf="isAdminView" value="Pending">Chờ xác nhận</option>
+            <option value="Confirmed">{{ isAdminView ? 'Chờ check-in' : 'Đã đặt lịch' }}</option>
             <option value="CheckedIn">Đã check-in</option>
             <option value="Cancelled">Đã hủy</option>
             <option value="Completed">Đã hoàn tất</option>
@@ -64,15 +65,29 @@
     </div>
   </article>
 
-  <article class="feature-card table-card" *ngIf="!isDoctorView && !isReceptionistView">
+  <section *ngIf="isAdminView" class="admin-summary" aria-label="Tổng hợp lịch hẹn">
+    <button
+      *ngFor="let item of adminAppointmentSummaryItems"
+      type="button"
+      class="admin-summary__item"
+      [class.admin-summary__item--active]="selectedStatus === item.key"
+      [class.admin-summary__item--primary]="item.tone === 'primary'"
+      [class.admin-summary__item--success]="item.tone === 'success'"
+      [class.admin-summary__item--warning]="item.tone === 'warning'"
+      [class.admin-summary__item--danger]="item.tone === 'danger'"
+      (click)="updateSelectedStatus(item.key)"
+    >
+      <span>{{ item.label }}</span>
+      <strong>{{ item.total }}</strong>
+    </button>
+  </section>
+
+  <article class="feature-card table-card" [class.admin-table-card]="isAdminView" *ngIf="!isDoctorView && !isReceptionistView">
     <div class="table-header">
-      <h2>
-        {{
-          isReceptionistView
-            ? (viewMode === 'day' ? ('Hàng đợi ngày ' + selectedDate) : 'Hàng đợi theo tuần')
-            : (viewMode === 'day' ? ('Lịch hẹn ngày ' + selectedDate) : 'Lịch hẹn theo tuần')
-        }}
-      </h2>
+      <div>
+        <h2>{{ viewMode === 'day' ? ('Dữ liệu lịch hẹn ngày ' + selectedDate) : 'Dữ liệu lịch hẹn theo tuần' }}</h2>
+        <p *ngIf="isAdminView" class="table-description">Chế độ chỉ xem: dùng để đối chiếu vận hành, báo cáo và thống kê.</p>
+      </div>
     </div>
 
     <p *ngIf="errorMessage" class="alert error" role="alert">{{ errorMessage }}</p>
@@ -81,7 +96,12 @@
     <p *ngIf="isLoading" class="state-text">{{ isReceptionistView ? 'Đang tải dữ liệu hàng đợi...' : 'Đang tải dữ liệu lịch hẹn...' }}</p>
 
     <p *ngIf="!isLoading" class="state-text state-text--left">
-      {{ isReceptionistView ? 'Tổng số lượt hiển thị:' : 'Tổng số lịch hiển thị:' }} {{ viewMode === 'day' ? filteredAppointments.length : weekAppointmentsCount }}
+      <ng-container *ngIf="isAdminView; else regularCount">
+        Tổng số lịch phù hợp: {{ adminTotalItems }}
+      </ng-container>
+      <ng-template #regularCount>
+        {{ isReceptionistView ? 'Tổng số lượt hiển thị:' : 'Tổng số lịch hiển thị:' }} {{ viewMode === 'day' ? filteredAppointments.length : weekAppointmentsCount }}
+      </ng-template>
     </p>
 
     <div *ngIf="!isLoading && viewMode === 'day' && filteredAppointments.length === 0" class="state-text">
@@ -105,11 +125,16 @@
             <th>Trạng thái</th>
             <th>Số tiếp nhận</th>
             <th>Lý do</th>
-            <th>Thao tác</th>
+            <th *ngIf="showAppointmentActions">Thao tác</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let appointment of filteredAppointments; let index = index">
+          <tr
+            *ngFor="let appointment of filteredAppointments; let index = index"
+            [class.admin-row]="isAdminView"
+            [class.admin-row--selected]="isAdminAppointmentSelected(appointment)"
+            (click)="selectAdminAppointment(appointment)"
+          >
             <td>{{ index + 1 }}</td>
             <td>{{ appointment.date }}</td>
             <td>{{ getScheduledTimeLabel(appointment) }}</td>
@@ -123,7 +148,7 @@
             </td>
             <td>{{ getQueueNumberLabel(appointment) }}</td>
             <td>{{ appointment.reason || '-' }}</td>
-            <td>
+            <td *ngIf="showAppointmentActions">
               <div class="actions">
                 <button
                   *ngIf="canUseCheckInAction"
@@ -350,7 +375,12 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let appointment of day.appointments">
+              <tr
+                *ngFor="let appointment of day.appointments"
+                [class.admin-row]="isAdminView"
+                [class.admin-row--selected]="isAdminAppointmentSelected(appointment)"
+                (click)="selectAdminAppointment(appointment)"
+              >
                 <td>{{ getScheduledTimeLabel(appointment) }}</td>
                 <td>{{ getEstimatedStartLabel(appointment) }}</td>
                 <td>{{ appointment.patient?.fullname ?? appointment.patient?.username ?? '-' }}</td>
@@ -391,9 +421,137 @@
         </div>
       </section>
     </div>
+
+    <app-shared-pagination
+      *ngIf="isAdminView && !isLoading && adminTotalItems > 0"
+      [totalItems]="adminTotalItems"
+      [page]="adminCurrentPage"
+      [pageSize]="adminPageSize"
+      [pageSizeOptions]="adminPageSizeOptions"
+      (pageChange)="onAdminPageChange($event)"
+      (pageSizeChange)="onAdminPageSizeChange($event)"
+    />
   </article>
 
-  <article class="feature-card table-card">
+  <article #adminAppointmentDetail *ngIf="isAdminView && selectedAdminAppointment" class="feature-card admin-detail-card">
+    <header class="admin-detail-card__header">
+      <div>
+        <p>Chi tiết lịch khám #{{ selectedAdminAppointment.id }}</p>
+        <h2>{{ selectedAdminAppointment.patient?.fullname ?? selectedAdminAppointment.patient?.username ?? 'Bệnh nhân' }}</h2>
+      </div>
+      <button type="button" class="button-secondary" (click)="closeAdminAppointmentDetail()">Đóng</button>
+    </header>
+
+    <div class="admin-detail-grid">
+      <section class="admin-detail-section">
+        <h3>Thông tin lịch hẹn</h3>
+        <dl>
+          <div>
+            <dt>Ngày khám</dt>
+            <dd>{{ selectedAdminAppointment.date }}</dd>
+          </div>
+          <div>
+            <dt>Giờ hẹn</dt>
+            <dd>{{ getScheduledTimeLabel(selectedAdminAppointment) }}</dd>
+          </div>
+          <div>
+            <dt>Dự kiến vào khám</dt>
+            <dd>{{ getEstimatedStartLabel(selectedAdminAppointment) }}</dd>
+          </div>
+          <div>
+            <dt>Trạng thái</dt>
+            <dd>
+              <span
+                class="status"
+                [class.status--pending]="selectedAdminAppointment.status === 'Pending'"
+                [class.status--confirmed]="selectedAdminAppointment.status === 'Confirmed' || selectedAdminAppointment.status === 'CheckedIn'"
+                [class.status--cancelled]="selectedAdminAppointment.status === 'Cancelled' || selectedAdminAppointment.status === 'NoShow'"
+                [class.status--completed]="selectedAdminAppointment.status === 'Completed'"
+              >
+                {{ getStatusLabel(selectedAdminAppointment.status) }}
+              </span>
+            </dd>
+          </div>
+          <div>
+            <dt>Lý do khám</dt>
+            <dd>{{ selectedAdminAppointment.reason || 'Không có ghi chú' }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="admin-detail-section">
+        <h3>Bệnh nhân và bác sĩ</h3>
+        <dl>
+          <div>
+            <dt>Bệnh nhân</dt>
+            <dd>{{ selectedAdminAppointment.patient?.fullname ?? selectedAdminAppointment.patient?.username ?? '-' }}</dd>
+          </div>
+          <div>
+            <dt>Liên hệ bệnh nhân</dt>
+            <dd>{{ selectedAdminAppointment.patient?.phone || selectedAdminAppointment.patient?.email || '-' }}</dd>
+          </div>
+          <div>
+            <dt>Bác sĩ</dt>
+            <dd>{{ getDoctorName(selectedAdminAppointment) }}</dd>
+          </div>
+          <div>
+            <dt>Chuyên khoa</dt>
+            <dd>{{ selectedAdminAppointment.Doctor?.Specialty?.name || '-' }}</dd>
+          </div>
+          <div>
+            <dt>Phòng khám</dt>
+            <dd>
+              {{
+                selectedAdminAppointment.Doctor?.Room?.name
+                  ? selectedAdminAppointment.Doctor?.Room?.name + (selectedAdminAppointment.Doctor?.Room?.floor ? ' - Tầng ' + selectedAdminAppointment.Doctor?.Room?.floor : '')
+                  : '-'
+              }}
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="admin-detail-section">
+        <h3>Thông tin hàng đợi</h3>
+        <dl>
+          <div>
+            <dt>Số tiếp nhận</dt>
+            <dd>{{ getQueueNumberLabel(selectedAdminAppointment) }}</dd>
+          </div>
+          <div>
+            <dt>Check-in lúc</dt>
+            <dd>{{ getDateTimeClockLabel(selectedAdminAppointment.Queue?.checked_in_at ?? null) }}</dd>
+          </div>
+          <div>
+            <dt>Thời gian chờ dự kiến</dt>
+            <dd>
+              {{
+                selectedAdminAppointment.Queue?.predicted_wait_minutes !== null && selectedAdminAppointment.Queue?.predicted_wait_minutes !== undefined
+                  ? selectedAdminAppointment.Queue?.predicted_wait_minutes + ' phút'
+                  : 'Chưa có'
+              }}
+            </dd>
+          </div>
+          <div>
+            <dt>Bắt đầu thực tế</dt>
+            <dd>{{ getActualStartLabel(selectedAdminAppointment) }}</dd>
+          </div>
+          <div>
+            <dt>Kết thúc thực tế</dt>
+            <dd>{{ getActualEndLabel(selectedAdminAppointment) }}</dd>
+          </div>
+        </dl>
+      </section>
+    </div>
+  </article>
+
+  <article *ngIf="!isAdminView" class="feature-card table-card">
+    <div *ngIf="isAdminView" class="table-header">
+      <div>
+        <h2>Dữ liệu hàng đợi đối chiếu</h2>
+        <p class="table-description">Theo dõi các lượt đã check-in, thời gian chờ, trạng thái khám và kết quả phục vụ.</p>
+      </div>
+    </div>
     <app-queues-page [embedded]="true"></app-queues-page>
   </article>
 </section>

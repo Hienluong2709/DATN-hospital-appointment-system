@@ -87,15 +87,15 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   }
 
   get canUseCheckInAction(): boolean {
-    return this.canAny(['ADMIN', 'RECEPTIONIST']);
+    return this.canAny(['RECEPTIONIST']);
   }
 
   get canUseCancelCheckInAction(): boolean {
-    return this.canAny(['ADMIN', 'RECEPTIONIST']);
+    return this.canAny(['RECEPTIONIST']);
   }
 
   get canUseWaitingNoShowAction(): boolean {
-    return this.canAny(['ADMIN', 'RECEPTIONIST']);
+    return this.canAny(['RECEPTIONIST']);
   }
 
   get canUseQueueNoShowAction(): boolean {

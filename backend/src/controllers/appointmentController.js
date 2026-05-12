@@ -21,12 +21,13 @@ const handleError = (res, error, fallbackMessage) => {
 
 export const getAllAppointments = async (req, res) => {
   try {
-    const { items, pagination } = await getAllAppointmentsService(req.user, req.query);
+    const { items, pagination, summary } = await getAllAppointmentsService(req.user, req.query);
 
     return res.json({
       message: "Lấy danh sách lịch hẹn thành công",
       data: items,
       ...(pagination ? { pagination } : {}),
+      ...(summary ? { summary } : {}),
     });
   } catch (error) {
     return handleError(res, error, "Không thể lấy danh sách lịch hẹn");

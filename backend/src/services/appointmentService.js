@@ -1136,7 +1136,7 @@ const appointmentQueryOptions = {
 };
 
 export const getAllAppointmentsService = async (currentUser, filters = {}) => {
-  const pagination = parsePaginationQuery(filters);
+  const pagination = parsePaginationQuery(filters, { defaultPageSize: 10 });
   const queryOptions = {
     ...appointmentQueryOptions,
     include: appointmentQueryOptions.include.map((item) => ({ ...item })),
@@ -1259,19 +1259,60 @@ export const getAllAppointmentsService = async (currentUser, filters = {}) => {
     })
   );
 
-  return createListResult({
-    items: estimatedAppointments,
-    pagination: !q && pagination.enabled
-      ? buildPaginationMeta({
-          page: pagination.page,
-          page_size: pagination.page_size,
-          total_items: appointmentResult?.count ?? filteredAppointments.length,
-        })
-      : createPaginatedListResult({
-          items: filteredAppointments,
-          pagination,
-        }).pagination,
+  const statusSummary = currentUser?.role === "ADMIN"
+    ? await buildAppointmentStatusSummary({
+        baseWhere: queryOptions.where || {},
+        specialtyId,
+      })
+    : null;
+
+  return {
+    ...createListResult({
+      items: estimatedAppointments,
+      pagination: !q && pagination.enabled
+        ? buildPaginationMeta({
+            page: pagination.page,
+            page_size: pagination.page_size,
+            total_items: appointmentResult?.count ?? filteredAppointments.length,
+          })
+        : createPaginatedListResult({
+            items: filteredAppointments,
+            pagination,
+          }).pagination,
+    }),
+    summary: statusSummary,
+  };
+};
+
+const buildAppointmentStatusSummary = async ({ baseWhere = {}, specialtyId }) => {
+  const summaryWhere = { ...baseWhere };
+  delete summaryWhere.status;
+
+  const include = [];
+  if (specialtyId) {
+    include.push({
+      model: Doctor,
+      attributes: [],
+      where: { specialty_id: specialtyId },
+      required: true,
+    });
+  }
+
+  const rows = await Appointment.findAll({
+    attributes: ["status"],
+    where: summaryWhere,
+    include,
   });
+
+  return rows.reduce(
+    (result, appointment) => {
+      const status = appointment.status;
+      result.total += 1;
+      result.by_status[status] = (result.by_status[status] || 0) + 1;
+      return result;
+    },
+    { total: 0, by_status: {} },
+  );
 };
 
 export const getAppointmentByIdService = async (id, transaction) => {
