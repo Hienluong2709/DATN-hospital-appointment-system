@@ -765,9 +765,9 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
       return appointment.estimated_start ?? null;
     }
 
-    return this.getDerivedPredictedStart(queue.checked_in_at ?? null, queue.predicted_wait_minutes ?? null)
-      ?? queue.estimated_start
+    return queue.estimated_start
       ?? appointment.estimated_start
+      ?? this.getDerivedPredictedStart(queue.checked_in_at ?? null, queue.predicted_wait_minutes ?? null)
       ?? null;
   }
 

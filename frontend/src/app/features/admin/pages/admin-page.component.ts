@@ -136,7 +136,6 @@ export class AdminPageComponent {
     { label: 'Quan ly chuyen khoa', link: '/specialties' },
     { label: 'Quan ly phong kham', link: '/rooms' },
     { label: 'Quan ly bac si', link: '/doctors' },
-    { label: 'Dieu phoi lich hen', link: '/appointments' },
-    { label: 'Dieu phoi hang doi', link: '/queues' }
+    { label: 'Dieu phoi lich hen va hang doi', link: '/appointments' }
   ];
 }

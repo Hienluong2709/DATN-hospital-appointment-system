@@ -8,6 +8,23 @@
   font-family: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
 }
 
+.feature-page--embedded {
+  padding: 0;
+  background: transparent;
+  min-height: 0;
+}
+
+.feature-page--embedded .feature-card {
+  box-shadow: none;
+}
+
+.feature-page--embedded .table-card {
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
 .feature-header {
   margin-bottom: 20px;
 }
@@ -43,6 +60,10 @@
 
 .doctor-table-card {
   background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+}
+
+.feature-page--embedded .doctor-table-card {
+  background: transparent;
 }
 
 .tab-bar {
@@ -173,6 +194,53 @@
   font-size: 13px;
 }
 
+.queue-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.queue-summary__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  border: 1px solid #d8e4f1;
+  border-radius: 999px;
+  padding: 0 12px;
+  background: #ffffff;
+  color: #46617b;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.queue-summary__chip strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #eef6ff;
+  color: #2563eb;
+  font-size: 13px;
+}
+
+.queue-summary__chip--active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.queue-summary__chip--active strong {
+  background: #2563eb;
+  color: #ffffff;
+}
+
 .alert {
   margin: 0 0 12px;
   border-radius: 10px;
@@ -195,6 +263,42 @@
   text-align: center;
   padding: 24px 12px;
   color: #6b7f95;
+}
+
+.queue-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 28px 16px;
+  border: 1px dashed #c7d8ea;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  text-align: center;
+}
+
+.queue-empty .material-symbols-outlined {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #eef6ff;
+  color: #2563eb;
+  font-size: 24px;
+}
+
+.queue-empty strong {
+  color: #15324d;
+  font-size: 15px;
+}
+
+.queue-empty p {
+  max-width: 520px;
+  margin: 0;
+  color: #6b7f95;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .queue-list {

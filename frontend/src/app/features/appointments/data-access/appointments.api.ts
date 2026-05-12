@@ -72,6 +72,10 @@ export class AppointmentsApiService {
     return this.http.post<ApiResponse<Appointment>>(`${API_BASE_URL}/appointments/${id}/cancel`, {});
   }
 
+  markNoShow(id: number) {
+    return this.http.post<ApiResponse<Appointment>>(`${API_BASE_URL}/appointments/${id}/no-show`, {});
+  }
+
   checkIn(id: number) {
     return this.http.post<ApiResponse<Queue>>(`${API_BASE_URL}/appointments/${id}/check-in`, {});
   }

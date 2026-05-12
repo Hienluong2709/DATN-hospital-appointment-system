@@ -1,19 +1,13 @@
 <section class="feature-page">
   <header class="feature-header">
-    <h1 class="feature-title">{{ isDoctorView ? 'Lịch hẹn khám của tôi' : 'Quản lý lịch hẹn' }}</h1>
-    <p class="feature-subtitle">
-      {{
-        isDoctorView
-          ? 'Theo dõi các ca khám trong ngày, ưu tiên thao tác bắt đầu và hoàn tất khám.'
-          : 'Theo dõi trạng thái lịch hẹn và xử lý nhanh các bước tiếp nhận.'
-      }}
-    </p>
+    <h1 class="feature-title">{{ pageTitle }}</h1>
+    <p class="feature-subtitle">{{ pageSubtitle }}</p>
   </header>
 
   <article class="feature-card filters-card">
     <div class="filters-grid" [class.filters-grid--doctor]="isDoctorView">
       <label class="filter-field">
-        <span>Ngày hẹn</span>
+        <span>{{ isDoctorView ? 'Ngày khám' : 'Ngày hẹn' }}</span>
         <input type="date" [value]="selectedDate" (input)="updateSelectedDate($any($event.target).value)" />
       </label>
 
@@ -26,18 +20,26 @@
       </label>
 
       <label class="filter-field">
-        <span>Trạng thái</span>
+        <span>{{ isDoctorView ? 'Trạng thái lượt khám' : 'Trạng thái' }}</span>
         <select [value]="selectedStatus" (change)="updateSelectedStatus($any($event.target).value)">
           <option value="ALL">Tất cả trạng thái</option>
-          <option value="Confirmed">Đã đặt lịch</option>
-          <option value="CheckedIn">Đã check-in</option>
-          <option value="Cancelled">Đã hủy</option>
-          <option value="Completed">Đã hoàn tất</option>
-          <option value="NoShow">Lỡ hẹn</option>
+          <ng-container *ngIf="isDoctorView; else appointmentStatusOptions">
+            <option value="CheckedIn">Chờ khám</option>
+            <option value="InProgress">Đang khám</option>
+            <option value="Completed">Đã hoàn tất</option>
+            <option value="NoShow">Vắng mặt</option>
+          </ng-container>
+          <ng-template #appointmentStatusOptions>
+            <option value="Confirmed">Đã đặt lịch</option>
+            <option value="CheckedIn">Đã check-in</option>
+            <option value="Cancelled">Đã hủy</option>
+            <option value="Completed">Đã hoàn tất</option>
+            <option value="NoShow">Lỡ hẹn</option>
+          </ng-template>
         </select>
       </label>
 
-      <div class="filter-field">
+      <div class="filter-field" *ngIf="!isDoctorView">
         <span>Chế độ xem</span>
         <div class="view-mode-toggle" role="group" aria-label="Chế độ xem lịch hẹn">
           <button type="button" class="button-secondary" [class.active]="viewMode === 'day'" (click)="setViewMode('day')">
@@ -49,10 +51,9 @@
         </div>
       </div>
 
-      <div class="filter-field filter-actions">
-        <span>&nbsp;</span>
+      <div class="filter-actions">
         <div class="filter-actions__buttons">
-          <ng-container *ngIf="viewMode === 'week'">
+          <ng-container *ngIf="!isDoctorView && viewMode === 'week'">
             <button type="button" class="button-secondary" (click)="goToPreviousWeek()" [disabled]="isLoading">Tuần trước</button>
             <button type="button" class="button-secondary" (click)="goToToday()" [disabled]="isLoading">Hôm nay</button>
             <button type="button" class="button-secondary" (click)="goToNextWeek()" [disabled]="isLoading">Tuần sau</button>
@@ -63,26 +64,32 @@
     </div>
   </article>
 
-  <article class="feature-card table-card" [class.doctor-table-card]="isDoctorView">
+  <article class="feature-card table-card" *ngIf="!isDoctorView && !isReceptionistView">
     <div class="table-header">
-      <h2>{{ viewMode === 'day' ? ('Lịch hẹn ngày ' + selectedDate) : 'Lịch hẹn theo tuần' }}</h2>
+      <h2>
+        {{
+          isReceptionistView
+            ? (viewMode === 'day' ? ('Hàng đợi ngày ' + selectedDate) : 'Hàng đợi theo tuần')
+            : (viewMode === 'day' ? ('Lịch hẹn ngày ' + selectedDate) : 'Lịch hẹn theo tuần')
+        }}
+      </h2>
     </div>
 
     <p *ngIf="errorMessage" class="alert error" role="alert">{{ errorMessage }}</p>
     <p *ngIf="successMessage" class="alert success">{{ successMessage }}</p>
 
-    <p *ngIf="isLoading" class="state-text">Đang tải dữ liệu lịch hẹn...</p>
+    <p *ngIf="isLoading" class="state-text">{{ isReceptionistView ? 'Đang tải dữ liệu hàng đợi...' : 'Đang tải dữ liệu lịch hẹn...' }}</p>
 
     <p *ngIf="!isLoading" class="state-text state-text--left">
-      Tổng số lịch hiển thị: {{ viewMode === 'day' ? filteredAppointments.length : weekAppointmentsCount }}
+      {{ isReceptionistView ? 'Tổng số lượt hiển thị:' : 'Tổng số lịch hiển thị:' }} {{ viewMode === 'day' ? filteredAppointments.length : weekAppointmentsCount }}
     </p>
 
     <div *ngIf="!isLoading && viewMode === 'day' && filteredAppointments.length === 0" class="state-text">
-      Không có lịch hẹn trong ngày đã chọn.
+      {{ isReceptionistView ? 'Không có lượt tiếp nhận trong ngày đã chọn.' : 'Không có lịch hẹn trong ngày đã chọn.' }}
     </div>
 
     <div *ngIf="!isLoading && viewMode === 'week' && !hasAnyWeekAppointment" class="state-text">
-      Không có lịch hẹn trong tuần đã chọn.
+      {{ isReceptionistView ? 'Không có lượt tiếp nhận trong tuần đã chọn.' : 'Không có lịch hẹn trong tuần đã chọn.' }}
     </div>
 
     <div *ngIf="!isLoading && viewMode === 'day' && filteredAppointments.length > 0 && !isDoctorView" class="table-wrapper">
@@ -384,5 +391,9 @@
         </div>
       </section>
     </div>
+  </article>
+
+  <article class="feature-card table-card">
+    <app-queues-page [embedded]="true"></app-queues-page>
   </article>
 </section>

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -15,6 +15,11 @@ import { QueuesApiService } from '../services/queues.api';
 type QueueStatusFilter = QueueStatus | 'ALL';
 type QueueWorkflowStatus = QueueStatus | 'CheckedIn' | 'InProgress' | '-';
 type QueueWorkflowFilter = QueueWorkflowStatus | 'ALL';
+type QueueStatusSummaryItem = {
+  key: QueueWorkflowFilter;
+  label: string;
+  total: number;
+};
 
 @Component({
   selector: 'app-queues-page',
@@ -50,6 +55,7 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   selectedWorkflowStatus: QueueWorkflowFilter = 'ALL';
   activeTab: 'waiting' | 'queue' = 'waiting';
   currentTimestamp = Date.now();
+  @Input() embedded = false;
 
   readonly currentRole: BackendRole | null = this.tokenService.getCurrentRole();
 
@@ -60,7 +66,7 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
         this.selectedDoctorId = this.parsePositiveQueryParam(params.get('doctor_id'));
         this.selectedStatus = this.parseAppointmentStatusParam(params.get('status'));
         this.selectedWorkflowStatus = this.parseWorkflowStatusParam(params.get('workflow'));
-        this.activeTab = params.get('tab') === 'queue' ? 'queue' : 'waiting';
+        this.activeTab = this.isDoctorView ? 'queue' : params.get('tab') === 'queue' ? 'queue' : 'waiting';
         this.loadData();
       })
     );
@@ -88,6 +94,14 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
     return this.canAny(['ADMIN', 'RECEPTIONIST']);
   }
 
+  get canUseWaitingNoShowAction(): boolean {
+    return this.canAny(['ADMIN', 'RECEPTIONIST']);
+  }
+
+  get canUseQueueNoShowAction(): boolean {
+    return this.canAny(['DOCTOR']);
+  }
+
   get canUseStartAction(): boolean {
     return this.canAny(['DOCTOR']);
   }
@@ -113,6 +127,25 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
         this.selectedWorkflowStatus === 'ALL' || this.getWorkflowStatus(queue) === this.selectedWorkflowStatus;
       return matchDate && matchDoctor && matchStatus && matchWorkflowStatus;
     });
+  }
+
+  get statusSummaryItems(): QueueStatusSummaryItem[] {
+    const source = this.queues.filter((queue) => {
+      const matchDate = !this.selectedDate || queue.date === this.selectedDate;
+      const matchDoctor = this.isDoctorView || this.selectedDoctorId === 0 || queue.doctor_id === this.selectedDoctorId;
+      return matchDate && matchDoctor;
+    });
+
+    const countByWorkflow = (status: QueueWorkflowStatus) =>
+      source.filter((queue) => this.getWorkflowStatus(queue) === status).length;
+
+    return [
+      { key: 'ALL', label: 'Tất cả', total: source.length },
+      { key: 'CheckedIn', label: 'Chờ khám', total: countByWorkflow('CheckedIn') },
+      { key: 'InProgress', label: 'Đang khám', total: countByWorkflow('InProgress') },
+      { key: 'Completed', label: 'Đã hoàn tất', total: countByWorkflow('Completed') },
+      { key: 'NoShow', label: 'Vắng mặt', total: countByWorkflow('NoShow') },
+    ];
   }
 
   get pendingCheckInAppointments(): Appointment[] {
@@ -191,7 +224,7 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   resetFilters(): void {
     this.selectedDate = this.getTodayDateString();
     this.selectedDoctorId = 0;
-    this.selectedStatus = 'ALL';
+    this.selectedStatus = this.getDefaultStatusFilter();
     this.selectedWorkflowStatus = 'ALL';
     this.updateQueryParams(true);
   }
@@ -201,6 +234,12 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   }
 
   setActiveTab(tab: 'waiting' | 'queue'): void {
+    if (this.isDoctorView && tab === 'waiting') {
+      this.activeTab = 'queue';
+      this.updateQueryParams(true);
+      return;
+    }
+
     this.activeTab = tab;
     this.updateQueryParams(true);
   }
@@ -220,13 +259,13 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
       case 'Confirmed':
         return 'Đã đặt lịch';
       case 'CheckedIn':
-        return 'Đã check-in';
+        return 'Chờ khám';
       case 'Cancelled':
         return 'Đã hủy';
       case 'Completed':
         return 'Đã hoàn tất';
       case 'NoShow':
-        return 'Lỡ hẹn';
+        return 'Vắng mặt';
       default:
         return status;
     }
@@ -293,7 +332,7 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
 
     switch (workflowStatus) {
       case 'CheckedIn':
-        return 'Đã check-in';
+        return 'Chờ khám';
       case 'InProgress':
         return 'Đang khám';
       case 'Completed':
@@ -301,7 +340,7 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
       case 'Cancelled':
         return 'Đã hủy';
       case 'NoShow':
-        return 'Lỡ hẹn';
+        return 'Vắng mặt';
       case 'Confirmed':
         return 'Đã đặt lịch';
       case 'Pending':
@@ -323,6 +362,25 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
     return this.canUseCancelCheckInAction && !queue.actual_start && !queue.actual_end;
   }
 
+  canMarkWaitingNoShow(appointment: Appointment): boolean {
+    return (
+      this.canUseWaitingNoShowAction &&
+      appointment.status === 'Confirmed' &&
+      appointment.date === this.getTodayDateString() &&
+      !appointment.Queue?.id
+    );
+  }
+
+  canMarkQueueNoShow(queue: Queue): boolean {
+    return (
+      this.canUseQueueNoShowAction &&
+      queue.Appointment?.status === 'CheckedIn' &&
+      !!queue.Appointment?.id &&
+      !queue.actual_start &&
+      !queue.actual_end
+    );
+  }
+
   getPredictedWaitLabel(queue: Queue): string {
     const workflowStatus = this.getWorkflowStatus(queue);
     if (workflowStatus === 'Completed') {
@@ -331,6 +389,10 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
 
     if (workflowStatus === 'InProgress') {
       return 'Đang khám';
+    }
+
+    if (workflowStatus === 'NoShow') {
+      return 'Vắng mặt';
     }
 
     const predictedStart = this.getQueuePredictedStart(queue);
@@ -392,6 +454,28 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
       },
       error: (error: { error?: { message?: string } }) => {
         this.showError(error.error?.message ?? 'Không thể check-in lịch hẹn');
+      },
+      complete: () => {
+        this.processingAppointmentId[appointment.id] = false;
+      }
+    });
+  }
+
+  markWaitingNoShow(appointment: Appointment): void {
+    if (!confirm('Ghi nhận bệnh nhân vắng mặt cho lịch hẹn này?')) {
+      return;
+    }
+
+    this.processingAppointmentId[appointment.id] = true;
+    this.clearMessages();
+
+    this.appointmentsApiService.markNoShow(appointment.id).subscribe({
+      next: () => {
+        this.showSuccess('Ghi nhận vắng mặt thành công');
+        this.loadData(true);
+      },
+      error: (error: { error?: { message?: string } }) => {
+        this.showError(error.error?.message ?? 'Không thể ghi nhận vắng mặt');
       },
       complete: () => {
         this.processingAppointmentId[appointment.id] = false;
@@ -463,10 +547,43 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
     });
   }
 
+  markQueueNoShow(queue: Queue): void {
+    const appointmentId = queue.Appointment?.id;
+    if (!appointmentId) {
+      return;
+    }
+
+    if (!confirm('Ghi nhận bệnh nhân vắng mặt cho lượt khám này?')) {
+      return;
+    }
+
+    this.processingAppointmentId[appointmentId] = true;
+    this.clearMessages();
+
+    this.appointmentsApiService.markNoShow(appointmentId).subscribe({
+      next: () => {
+        this.showSuccess('Ghi nhận vắng mặt thành công');
+        this.loadData(true);
+      },
+      error: (error: { error?: { message?: string } }) => {
+        this.showError(error.error?.message ?? 'Không thể ghi nhận vắng mặt');
+      },
+      complete: () => {
+        this.processingAppointmentId[appointmentId] = false;
+      }
+    });
+  }
+
   private loadData(preserveSuccessMessage = false): void {
-    this.pendingRequests = 2;
+    this.pendingRequests = this.isDoctorView ? 1 : 2;
     this.isLoading = true;
     this.loadQueues();
+
+    if (this.isDoctorView) {
+      this.appointments = [];
+      return;
+    }
+
     this.loadAppointments();
   }
 
@@ -603,6 +720,10 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
       return value;
     }
 
+    return this.getDefaultStatusFilter();
+  }
+
+  private getDefaultStatusFilter(): QueueStatusFilter {
     return 'ALL';
   }
 

@@ -44,12 +44,13 @@
 
 .filters-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  grid-template-columns: repeat(4, minmax(180px, 1fr)) auto;
   gap: 12px;
+  align-items: end;
 }
 
 .filters-grid--doctor {
-  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  grid-template-columns: repeat(3, minmax(180px, 1fr)) auto;
 }
 
 .filter-field {
@@ -75,6 +76,8 @@
 }
 
 .filter-actions {
+  display: flex;
+  align-items: flex-end;
   justify-content: flex-end;
 }
 
@@ -127,6 +130,12 @@
     font-weight: 600;
     margin: 0;
   }
+}
+
+.table-description {
+  margin: 6px 0 0;
+  color: #5f7790;
+  font-size: 14px;
 }
 
 .alert {

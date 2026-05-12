@@ -1,5 +1,5 @@
-<section class="feature-page">
-  <header class="feature-header">
+<section class="feature-page" [class.feature-page--embedded]="embedded">
+  <header class="feature-header" *ngIf="!embedded">
     <h1 class="feature-title">{{ isDoctorView ? 'Hàng đợi khám của tôi' : 'Điều phối hàng đợi khám' }}</h1>
     <p class="feature-subtitle">
       {{
@@ -10,7 +10,7 @@
     </p>
   </header>
 
-  <article class="feature-card filters-card">
+  <article class="feature-card filters-card" *ngIf="!embedded">
     <div class="filters-grid" [class.filters-grid--doctor]="isDoctorView">
       <label class="filter-field">
         <span>Ngày khám</span>
@@ -31,7 +31,7 @@
           <option value="ALL">Tất cả trạng thái</option>
           <option value="Pending">Chờ xác nhận</option>
           <option value="Confirmed">Đã đặt lịch</option>
-          <option value="CheckedIn">Đã check-in</option>
+          <option value="CheckedIn">Chờ khám</option>
           <option value="Cancelled">Đã hủy</option>
           <option value="Completed">Đã hoàn tất</option>
           <option value="NoShow">Lỡ hẹn</option>
@@ -43,7 +43,7 @@
         <select [value]="selectedWorkflowStatus" (change)="updateSelectedWorkflowStatus($any($event.target).value)">
           <option value="ALL">Tất cả trạng thái</option>
           <option value="Confirmed">Đã đặt lịch</option>
-          <option value="CheckedIn">Đã check-in</option>
+          <option value="CheckedIn">Chờ khám</option>
           <option value="InProgress">Đang khám</option>
           <option value="Completed">Đã hoàn tất</option>
           <option value="Cancelled">Đã hủy</option>
@@ -58,7 +58,7 @@
   </article>
 
   <article class="feature-card table-card" [class.doctor-table-card]="isDoctorView">
-    <div class="tab-bar" role="tablist" aria-label="Điều phối hàng đợi">
+    <div *ngIf="!isDoctorView" class="tab-bar" role="tablist" aria-label="Điều phối hàng đợi">
       <button
         type="button"
         class="tab-bar__button"
@@ -79,10 +79,6 @@
       </button>
     </div>
 
-    <p class="state-text">
-      Số tiếp nhận được cấp khi check-in. Thứ tự gọi khám ưu tiên theo giờ hẹn gốc trong nhóm bệnh nhân đã check-in.
-    </p>
-
     @if (activeTab === 'waiting') {
     <div class="table-header">
       <h2>Lịch chờ check-in ngày {{ selectedDate }}</h2>
@@ -91,8 +87,10 @@
 
     <p *ngIf="isLoading" class="state-text">Đang tải dữ liệu lịch chờ check-in...</p>
 
-    <div *ngIf="!isLoading && !pendingCheckInAppointments.length" class="state-text">
-      Không có lịch hẹn nào đang chờ check-in cho bộ lọc đã chọn.
+    <div *ngIf="!isLoading && !pendingCheckInAppointments.length" class="queue-empty">
+      <span class="material-symbols-outlined">event_available</span>
+      <strong>Không có lịch chờ check-in</strong>
+      <p>Không có lịch hẹn nào đang chờ tiếp nhận cho ngày và bộ lọc đã chọn.</p>
     </div>
 
     <div *ngIf="!isLoading && pendingCheckInAppointments.length > 0" class="queue-list">
@@ -139,19 +137,49 @@
           >
             {{ processingAppointmentId[appointment.id] ? 'Đang check-in...' : 'Check-in' }}
           </button>
+          <button
+            *ngIf="canUseWaitingNoShowAction"
+            type="button"
+            class="button-secondary"
+            (click)="markWaitingNoShow(appointment)"
+            [disabled]="!canMarkWaitingNoShow(appointment) || processingAppointmentId[appointment.id]"
+          >
+            {{ processingAppointmentId[appointment.id] ? 'Đang ghi nhận...' : 'Ghi nhận vắng mặt' }}
+          </button>
         </div>
       </article>
     </div>
     } @else {
-    <div class="table-header">
-      <h2>Danh sách hàng đợi ngày {{ selectedDate }}</h2>
-      <span class="queue-counter">Tổng số lượt: {{ filteredQueues.length }}</span>
+    <div class="table-header" *ngIf="!isDoctorView">
+      <h2>{{ isDoctorView ? 'Bệnh nhân đã check-in ngày ' + selectedDate : 'Danh sách hàng đợi ngày ' + selectedDate }}</h2>
+      <span class="queue-counter">{{ isDoctorView ? 'Đã tiếp nhận' : 'Tổng số lượt' }}: {{ filteredQueues.length }}</span>
+    </div>
+
+    <div *ngIf="isDoctorView" class="queue-summary" aria-label="Tổng hợp trạng thái lượt khám">
+      <button
+        *ngFor="let item of statusSummaryItems"
+        type="button"
+        class="queue-summary__chip"
+        [class.queue-summary__chip--active]="selectedWorkflowStatus === item.key"
+        (click)="updateSelectedWorkflowStatus(item.key)"
+      >
+        <span>{{ item.label }}</span>
+        <strong>{{ item.total }}</strong>
+      </button>
     </div>
 
     <p *ngIf="isLoading" class="state-text">Đang tải dữ liệu hàng đợi...</p>
 
-    <div *ngIf="!isLoading && !filteredQueues.length" class="state-text">
-      Không có dữ liệu hàng đợi cho bộ lọc đã chọn.
+    <div *ngIf="!isLoading && !filteredQueues.length" class="queue-empty">
+      <span class="material-symbols-outlined">{{ isDoctorView ? 'personal_injury' : 'groups' }}</span>
+      <strong>{{ isDoctorView ? 'Chưa có bệnh nhân đang chờ khám' : 'Không có lượt trong hàng đợi' }}</strong>
+      <p>
+        {{
+          isDoctorView
+            ? 'Chưa có bệnh nhân đã check-in và có số tiếp nhận cho ngày hoặc trạng thái đang chọn.'
+            : 'Không có dữ liệu hàng đợi phù hợp với bộ lọc hiện tại.'
+        }}
+      </p>
     </div>
 
     <div *ngIf="!isLoading && filteredQueues.length > 0" class="queue-list">
@@ -236,6 +264,15 @@
             [disabled]="!canStart(queue) || processingAppointmentId[queue.Appointment?.id ?? 0]"
           >
             {{ processingAppointmentId[queue.Appointment?.id ?? 0] ? 'Đang bắt đầu...' : 'Bắt đầu khám' }}
+          </button>
+          <button
+            *ngIf="canUseQueueNoShowAction"
+            type="button"
+            class="button-secondary"
+            (click)="markQueueNoShow(queue)"
+            [disabled]="!canMarkQueueNoShow(queue) || processingAppointmentId[queue.Appointment?.id ?? 0]"
+          >
+            {{ processingAppointmentId[queue.Appointment?.id ?? 0] ? 'Đang ghi nhận...' : 'Ghi nhận vắng mặt' }}
           </button>
           <button
             *ngIf="canUseCompleteAction"

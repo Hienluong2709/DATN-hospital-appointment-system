@@ -9,9 +9,7 @@ import {
   DASHBOARD_PATH,
   DOCTOR_PORTAL_PATH,
   DOCTORS_PATH,
-  EQUEUE_NUMBERS_PATH,
   PROFILE_PATH,
-  QUEUES_PATH,
   RECEPTIONIST_PATH,
   ROOMS_PATH,
   SPECIALTIES_PATH,
@@ -141,25 +139,6 @@ export class LayoutComponent implements OnInit {
       ]
     },
     {
-      key: 'operations',
-      title: 'Vận hành khám bệnh',
-      icon: 'local_hospital',
-      items: [
-        {
-          label: 'Hàng đợi',
-          icon: 'groups',
-          link: this.staffLink(QUEUES_PATH),
-          roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
-        },
-        {
-          label: 'Số thứ tự điện tử',
-          icon: 'confirmation_number',
-          link: this.staffLink(EQUEUE_NUMBERS_PATH),
-          roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
-        }
-      ]
-    },
-    {
       key: 'system',
       title: 'Hệ thống',
       icon: 'settings',
@@ -179,7 +158,7 @@ export class LayoutComponent implements OnInit {
 
     return this.menuGroups
       .map((group) => {
-        const allowedItems = this.filterByRole(group.items);
+        const allowedItems = this.filterByRole(group.items).map((item) => this.formatMenuItemForRole(item));
         if (!keyword) {
           return { ...group, items: allowedItems };
         }
@@ -351,6 +330,17 @@ export class LayoutComponent implements OnInit {
     return items.filter((item) => !item.roles || item.roles.includes(roleKey));
   }
 
+  private formatMenuItemForRole(item: MenuItem): MenuItem {
+    if (this.roleKey === 'RECEPTIONIST' && item.link === this.staffLink(APPOINTMENTS_PATH)) {
+      return {
+        ...item,
+        label: 'Quản lý hàng đợi',
+      };
+    }
+
+    return item;
+  }
+
   private asText(value: unknown, fallback: string): string {
     return typeof value === 'string' && value.trim().length > 0 ? value.trim() : fallback;
   }
@@ -367,7 +357,7 @@ export class LayoutComponent implements OnInit {
     const [, feature = ''] = segments;
     const featureMap: Record<string, string> = {
       [DASHBOARD_PATH]: 'Overview',
-      [APPOINTMENTS_PATH]: 'Lịch khám',
+      [APPOINTMENTS_PATH]: this.roleKey === 'RECEPTIONIST' ? 'Quản lý hàng đợi' : 'Lịch khám',
       [PROFILE_PATH]: 'Hồ sơ của tôi',
       [CHANGE_PASSWORD_PATH]: 'Đổi mật khẩu',
       [SPECIALTIES_PATH]: 'Chuyên khoa',
@@ -376,8 +366,6 @@ export class LayoutComponent implements OnInit {
       [USERS_PATH]: 'Người dùng',
       [WORK_SCHEDULES_PATH]: 'Lịch làm việc',
       [WORK_SCHEDULE_BLOCKS_PATH]: 'Lịch nghỉ',
-      [QUEUES_PATH]: 'Hàng đợi',
-      [EQUEUE_NUMBERS_PATH]: 'Số thứ tự điện tử',
       [ADMIN_PATH]: 'Quản trị',
       [RECEPTIONIST_PATH]: 'Lễ tân',
       [DOCTOR_PORTAL_PATH]: 'Bác sĩ',

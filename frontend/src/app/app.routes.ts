@@ -160,13 +160,13 @@ const staffPortalRoutes: Routes = isStaffPortal
 					},
 					{
 						path: QUEUES_PATH,
-						canActivate: [roleGuard(['ADMIN', 'RECEPTIONIST', 'DOCTOR'])],
-						loadChildren: () => import('@features/queues/queues.routes').then((m) => m.QUEUE_ROUTES)
+						pathMatch: 'full',
+						redirectTo: APPOINTMENTS_PATH
 					},
 					{
 						path: EQUEUE_NUMBERS_PATH,
-						canActivate: [roleGuard(['ADMIN', 'RECEPTIONIST', 'DOCTOR'])],
-						loadChildren: () => import('@features/equeue-numbers/equeue-numbers.routes').then((m) => m.EQUEUE_NUMBER_ROUTES)
+						pathMatch: 'full',
+						redirectTo: APPOINTMENTS_PATH
 					},
 					{
 						path: ADMIN_PATH,
@@ -238,12 +238,12 @@ const staffPortalRoutes: Routes = isStaffPortal
 			{
 				path: QUEUES_PATH,
 				pathMatch: 'full',
-				redirectTo: `${STAFF_PATH}/${QUEUES_PATH}`
+				redirectTo: `${STAFF_PATH}/${APPOINTMENTS_PATH}`
 			},
 			{
 				path: EQUEUE_NUMBERS_PATH,
 				pathMatch: 'full',
-				redirectTo: `${STAFF_PATH}/${EQUEUE_NUMBERS_PATH}`
+				redirectTo: `${STAFF_PATH}/${APPOINTMENTS_PATH}`
 			},
 			{
 				path: ADMIN_PATH,

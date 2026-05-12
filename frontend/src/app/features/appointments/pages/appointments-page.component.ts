@@ -6,15 +6,17 @@ import { Subscription } from 'rxjs';
 
 import { BackendRole } from '../../../core/models/auth-role.model';
 import { TokenService } from '../../../core/services/token.service';
+import { QueuesPageComponent } from '../../queues/pages/queues-page.component';
 import { AppointmentsApiService } from '../data-access/appointments.api';
 import { Appointment, AppointmentStatus } from '../models/appointments.model';
 
-type AppointmentStatusFilter = AppointmentStatus | 'ALL';
+type DoctorVisitStatusFilter = 'CheckedIn' | 'InProgress' | 'Completed' | 'NoShow';
+type AppointmentStatusFilter = AppointmentStatus | DoctorVisitStatusFilter | 'ALL';
 
 @Component({
   selector: 'app-appointments-page',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, QueuesPageComponent],
   templateUrl: './appointments-management-page.component.html',
   styleUrls: ['./appointments-page.component.scss']
 })
@@ -48,7 +50,9 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
       this.route.queryParamMap.subscribe((params) => {
         this.selectedDate = params.get('date') || this.getTodayDateString();
         this.selectedDoctorId = this.parsePositiveQueryParam(params.get('doctor_id'));
-        this.selectedStatus = this.parseStatusParam(params.get('status'));
+        this.selectedStatus = this.parseStatusParam(
+          this.isDoctorView ? params.get('workflow') : params.get('status')
+        );
         this.viewMode = params.get('view') === 'week' ? 'week' : 'day';
         this.activeDoctorDayTab = this.parseDoctorDayTab(params.get('tab'));
         this.loadAppointments();
@@ -71,7 +75,7 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
   resetFilters(): void {
     this.selectedDate = this.getTodayDateString();
     this.selectedDoctorId = 0;
-    this.selectedStatus = 'ALL';
+    this.selectedStatus = this.getDefaultStatusFilter();
     this.updateQueryParams(true);
   }
 
@@ -87,7 +91,14 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
   }
 
   updateSelectedStatus(value: string): void {
-    if (value === 'Confirmed' || value === 'CheckedIn' || value === 'Cancelled' || value === 'Completed' || value === 'NoShow') {
+    if (
+      value === 'Confirmed' ||
+      value === 'CheckedIn' ||
+      value === 'Cancelled' ||
+      value === 'Completed' ||
+      value === 'NoShow' ||
+      value === 'InProgress'
+    ) {
       this.selectedStatus = value;
     } else {
       this.selectedStatus = 'ALL';
@@ -200,6 +211,34 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
 
   get isDoctorView(): boolean {
     return this.currentRole === 'DOCTOR';
+  }
+
+  get isReceptionistView(): boolean {
+    return this.currentRole === 'RECEPTIONIST';
+  }
+
+  get pageTitle(): string {
+    if (this.isDoctorView) {
+      return 'Danh sách lịch hẹn khám';
+    }
+
+    if (this.isReceptionistView) {
+      return 'Quản lý hàng đợi';
+    }
+
+    return 'Quản lý lịch hẹn';
+  }
+
+  get pageSubtitle(): string {
+    if (this.isDoctorView) {
+      return 'Bác sĩ xem danh sách bệnh nhân đã check-in, theo dõi trạng thái lượt khám, thời gian chờ dự kiến và xử lý bắt đầu khám, kết thúc khám hoặc ghi nhận vắng mặt.';
+    }
+
+    if (this.isReceptionistView) {
+      return 'Theo dõi lịch chờ tiếp nhận, check-in bệnh nhân, cấp số tiếp nhận và quản lý danh sách hàng đợi trong ngày.';
+    }
+
+    return 'Theo dõi trạng thái lịch hẹn và xử lý nhanh các bước tiếp nhận.';
   }
 
   get canUseCancelAction(): boolean {
@@ -423,6 +462,16 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
   }
 
   private loadAppointments(preserveSuccessMessage = false): void {
+    if (this.isDoctorView) {
+      this.appointments = [];
+      this.isLoading = false;
+      this.errorMessage = '';
+      if (!preserveSuccessMessage) {
+        this.successMessage = '';
+      }
+      return;
+    }
+
     this.isLoading = true;
     this.errorMessage = '';
     if (!preserveSuccessMessage) {
@@ -430,10 +479,12 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
     }
 
     const dateRange = this.getActiveDateRange();
+    const appointmentStatus =
+      this.selectedStatus === 'InProgress' ? 'ALL' : this.selectedStatus;
 
     this.appointmentsApiService.getAll({
       doctor_id: this.selectedDoctorId || undefined,
-      status: this.selectedStatus,
+      status: appointmentStatus,
       date_from: dateRange.dateFrom,
       date_to: dateRange.dateTo
     }).subscribe({
@@ -551,9 +602,10 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
       queryParams: {
         date: this.selectedDate || null,
         doctor_id: this.selectedDoctorId > 0 ? this.selectedDoctorId : null,
-        status: this.selectedStatus !== 'ALL' ? this.selectedStatus : null,
-        view: this.viewMode !== 'day' ? this.viewMode : null,
-        tab: this.activeDoctorDayTab !== 'schedule' ? this.activeDoctorDayTab : null
+        status: !this.isDoctorView && this.selectedStatus !== 'ALL' ? this.selectedStatus : null,
+        workflow: this.isDoctorView && this.selectedStatus !== 'ALL' ? this.selectedStatus : null,
+        view: !this.isDoctorView && this.viewMode !== 'day' ? this.viewMode : null,
+        tab: !this.isDoctorView && this.activeDoctorDayTab !== 'schedule' ? this.activeDoctorDayTab : null
       },
       replaceUrl
     });
@@ -565,10 +617,21 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
   }
 
   private parseStatusParam(value: string | null): AppointmentStatusFilter {
-    if (value === 'Confirmed' || value === 'CheckedIn' || value === 'Cancelled' || value === 'Completed' || value === 'NoShow') {
+    if (
+      value === 'Confirmed' ||
+      value === 'CheckedIn' ||
+      value === 'Cancelled' ||
+      value === 'Completed' ||
+      value === 'NoShow' ||
+      value === 'InProgress'
+    ) {
       return value;
     }
 
+    return this.getDefaultStatusFilter();
+  }
+
+  private getDefaultStatusFilter(): AppointmentStatusFilter {
     return 'ALL';
   }
 
