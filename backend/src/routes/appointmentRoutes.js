@@ -9,6 +9,7 @@ import {
   getDoctorAvailability,
   getAllAppointments,
   getAppointmentById,
+  markAppointmentNoShow,
   rescheduleAppointment,
   startAppointment,
 } from "../controllers/appointmentController.js";
@@ -20,6 +21,7 @@ router.get("/doctor/:doctorId/availability", authenticate, authorize(["ADMIN", "
 router.get("/:id", authenticate, authorize(["ADMIN", "DOCTOR", "RECEPTIONIST", "PATIENT"]), getAppointmentById);
 router.post("/", authenticate, authorize(["ADMIN", "RECEPTIONIST", "PATIENT"]), createAppointment);
 router.post("/:id/cancel", authenticate, authorize(["ADMIN", "RECEPTIONIST", "PATIENT"]), cancelAppointment);
+router.post("/:id/no-show", authenticate, authorize(["ADMIN", "RECEPTIONIST", "DOCTOR"]), markAppointmentNoShow);
 router.post("/:id/check-in", authenticate, authorize(["ADMIN", "RECEPTIONIST"]), checkInAppointment);
 router.post("/:id/reschedule", authenticate, authorize(["ADMIN", "RECEPTIONIST"]), rescheduleAppointment);
 router.post("/:id/start", authenticate, authorize(["DOCTOR"]), startAppointment);

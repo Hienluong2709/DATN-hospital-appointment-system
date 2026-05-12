@@ -34,6 +34,10 @@ const APPOINTMENT_PREFERRED_PERIOD = Object.freeze({
   AFTERNOON: "AFTERNOON",
 });
 const AFTERNOON_START_SECONDS = 12 * 3600;
+const FORECAST_EXCLUDED_APPOINTMENT_STATUSES = new Set(["Cancelled", "NoShow"]);
+
+const shouldExcludeFromActiveForecast = (queueLike) =>
+  FORECAST_EXCLUDED_APPOINTMENT_STATUSES.has(queueLike?.Appointment?.status);
 
 const parseUtcOffsetToMinutes = (offsetValue) => {
   const matched = /^([+-])(\d{2}):(\d{2})$/.exec(offsetValue);
@@ -911,8 +915,22 @@ export const simulateEstimatedStartForAppointmentService = async (appointmentLik
   );
   const earliestWorkingDateTime = workingPeriods[0]?.start || null;
   const originalScheduledTime = await estimateOriginalAppointmentDateTime(appointmentLike, transaction, {
-    filterPastSlots: true,
+    filterPastSlots: false,
   });
+
+  if (appointmentLike.status !== "CheckedIn") {
+    const stableEstimatedStart = originalScheduledTime || earliestWorkingDateTime || null;
+    return stableEstimatedStart
+      ? {
+          original_estimated_start: stableEstimatedStart,
+          estimated_start: stableEstimatedStart,
+          predicted_wait_minutes: null,
+          prediction_source: RULE_ENGINE_FORECAST_SOURCE,
+          model_version: RULE_ENGINE_MODEL_VERSION,
+        }
+      : null;
+  }
+
   const aiContext = await createQueueAiForecastContextService({
     doctorId: appointmentLike.doctor_id,
     transaction,
@@ -952,7 +970,8 @@ export const simulateEstimatedStartForAppointmentService = async (appointmentLik
     },
   };
 
-  const queueLikeItems = [...queues, virtualQueue].sort(compareQueuesByServiceOrder);
+  const activeQueues = queues.filter((queue) => !shouldExcludeFromActiveForecast(queue));
+  const queueLikeItems = [...activeQueues, virtualQueue].sort(compareQueuesByServiceOrder);
   let forecastCursor = null;
 
   for (const queue of queueLikeItems) {
@@ -1103,11 +1122,13 @@ export const recalculateQueueForecastForDoctorDateService = async (doctorId, dat
     transaction,
     lock: transaction?.LOCK?.UPDATE,
   });
-  queues.sort(compareQueuesByServiceOrder);
+  const activeQueues = queues
+    .filter((queue) => !shouldExcludeFromActiveForecast(queue))
+    .sort(compareQueuesByServiceOrder);
 
   let forecastCursor = null;
 
-  for (const queue of queues) {
+  for (const queue of activeQueues) {
     const checkedInAt =
       queue.checked_in_at instanceof Date
         ? queue.checked_in_at
@@ -1180,7 +1201,7 @@ export const recalculateQueueForecastForDoctorDateService = async (doctorId, dat
     } else {
       const adaptiveForecast = await buildAdaptiveWaitingForecast({
         aiContext,
-        queueLikeItems: queues,
+        queueLikeItems: activeQueues,
         queueLike: queue,
         checkedInAt,
         forecastCursor,

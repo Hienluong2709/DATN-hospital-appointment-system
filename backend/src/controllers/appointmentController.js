@@ -6,6 +6,7 @@ import {
   getDoctorAvailabilityService,
   getAllAppointmentsService,
   getAppointmentByIdService,
+  markAppointmentNoShowService,
   rescheduleAppointmentService,
   startAppointmentService,
 } from "../services/appointmentService.js";
@@ -96,6 +97,19 @@ export const cancelAppointment = async (req, res) => {
     });
   } catch (error) {
     return handleError(res, error, "Không thể hủy lịch hẹn");
+  }
+};
+
+export const markAppointmentNoShow = async (req, res) => {
+  try {
+    const data = await markAppointmentNoShowService(req.params.id, req.user);
+
+    return res.json({
+      message: "Ghi nhận vắng mặt thành công",
+      data,
+    });
+  } catch (error) {
+    return handleError(res, error, "Không thể ghi nhận vắng mặt");
   }
 };
 

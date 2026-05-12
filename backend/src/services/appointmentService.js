@@ -14,7 +14,7 @@ import {
   parsePaginationQuery,
 } from "../utils/queryUtils.js";
 
-const { Appointment, User, Doctor, Specialty, Room, WorkSchedule, WorkScheduleBlock, Queue, WaitPrediction } = db;
+const { Appointment, User, Doctor, Specialty, Room, WorkSchedule, WorkScheduleBlock, Queue, WaitPrediction, SmsLog } = db;
 const RETRYABLE_TRANSACTION_ERROR_CODES = new Set(["1213", "1205", "40P01"]);
 const normalizeNonNegativeIntegerEnv = (value, fallback) => {
   const parsed = Number(value);
@@ -38,6 +38,11 @@ const APPOINTMENT_STATUS = Object.freeze({
   COMPLETED: "Completed",
   NO_SHOW: "NoShow",
 });
+const ACTIVE_DUPLICATE_GUARD_STATUSES = [
+  APPOINTMENT_STATUS.PENDING,
+  APPOINTMENT_STATUS.CONFIRMED,
+  APPOINTMENT_STATUS.CHECKED_IN,
+];
 const APPOINTMENT_PREFERRED_PERIOD = Object.freeze({
   MORNING: "MORNING",
   AFTERNOON: "AFTERNOON",
@@ -540,6 +545,40 @@ const executeWithUniqueConstraintHandling = async (callback) => {
   }
 };
 
+const ensureNoActiveDuplicateAppointment = async (
+  patientId,
+  doctorId,
+  date,
+  transaction,
+  options = {},
+) => {
+  const where = {
+    patient_id: patientId,
+    doctor_id: doctorId,
+    date,
+    status: {
+      [Op.in]: ACTIVE_DUPLICATE_GUARD_STATUSES,
+    },
+  };
+
+  if (options.excludeAppointmentId) {
+    where.id = { [Op.ne]: options.excludeAppointmentId };
+  }
+
+  const existingAppointment = await Appointment.findOne({
+    where,
+    attributes: ["id", "status"],
+    transaction,
+    lock: transaction?.LOCK?.UPDATE,
+  });
+
+  if (existingAppointment) {
+    const error = new Error("Bệnh nhân đã có lịch hẹn còn hiệu lực với bác sĩ này trong ngày đã chọn");
+    error.statusCode = 409;
+    throw error;
+  }
+};
+
 const getPendingHoldExpiry = () => {
   return new Date(Date.now() + DEFAULT_APPOINTMENT_HOLD_MINUTES * 60 * 1000);
 };
@@ -630,7 +669,8 @@ export const markAppointmentsAsNoShowForDateService = async (dateValue, options 
       dry_run: true,
       total_candidates: appointments.length,
       marked_no_show: candidates.length,
-      queues_removed: candidates.filter((item) => !!item.queueId).length,
+      queues_removed: 0,
+      queues_retained: candidates.filter((item) => !!item.queueId).length,
       skipped_in_progress: skippedInProgress,
       appointment_ids: candidates.map((item) => item.appointmentId),
     };
@@ -647,11 +687,6 @@ export const markAppointmentsAsNoShowForDateService = async (dateValue, options 
       if (candidate.queueId) {
         await WaitPrediction.destroy({
           where: { queue_id: candidate.queueId },
-          transaction,
-        });
-
-        await Queue.destroy({
-          where: { id: candidate.queueId },
           transaction,
         });
 
@@ -682,7 +717,8 @@ export const markAppointmentsAsNoShowForDateService = async (dateValue, options 
       dry_run: false,
       total_candidates: appointments.length,
       marked_no_show: candidates.length,
-      queues_removed: candidates.filter((item) => !!item.queueId).length,
+      queues_removed: 0,
+      queues_retained: candidates.filter((item) => !!item.queueId).length,
       skipped_in_progress: skippedInProgress,
       appointment_ids: candidates.map((item) => item.appointmentId),
     };
@@ -1297,6 +1333,8 @@ export const createAppointmentService = async (payload, currentUser) => {
         await ensureDoctorWorkingOnDate(doctorId, date, preferredPeriod, transaction);
       }
 
+      await ensureNoActiveDuplicateAppointment(patientId, doctorId, date, transaction);
+
       const created = await Appointment.create(
         {
           patient_id: patientId,
@@ -1607,6 +1645,128 @@ export const cancelAppointmentService = async (id, currentUser) => {
   });
 };
 
+export const markAppointmentNoShowService = async (id, currentUser) => {
+  const appointmentId = parseId(id);
+
+  return runReadCommittedTransaction(async (transaction) => {
+    await cleanupExpiredPendingAppointments(transaction);
+
+    const appointment = await Appointment.findByPk(appointmentId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!appointment) {
+      const error = new Error("Không tìm thấy lịch hẹn");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (appointment.status === APPOINTMENT_STATUS.NO_SHOW) {
+      const error = new Error("Lịch hẹn đã được ghi nhận vắng mặt trước đó");
+      error.statusCode = 409;
+      throw error;
+    }
+
+    if (
+      appointment.status === APPOINTMENT_STATUS.CANCELLED ||
+      appointment.status === APPOINTMENT_STATUS.COMPLETED
+    ) {
+      const error = new Error("Không thể ghi nhận vắng mặt cho lịch hẹn đã hủy hoặc đã hoàn tất");
+      error.statusCode = 409;
+      throw error;
+    }
+
+    const existingQueue = await Queue.findOne({
+      where: { appointment_id: appointment.id },
+      attributes: ["id", "doctor_id", "date", "actual_start", "actual_end"],
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    const todayBusinessDate = getTodayBusinessDateString();
+
+    if (currentUser?.role === "DOCTOR") {
+      await ensureDoctorOwnsAppointment(appointment, currentUser, transaction);
+
+      if (appointment.status !== APPOINTMENT_STATUS.CHECKED_IN || !existingQueue) {
+        const error = new Error("Bác sĩ chỉ có thể ghi nhận vắng mặt cho lượt đã check-in");
+        error.statusCode = 403;
+        throw error;
+      }
+
+      if (existingQueue.date !== todayBusinessDate) {
+        const error = new Error("Bác sĩ chỉ có thể ghi nhận vắng mặt cho hàng đợi trong ngày");
+        error.statusCode = 409;
+        throw error;
+      }
+    } else if (currentUser?.role === "RECEPTIONIST" || currentUser?.role === "ADMIN") {
+      if (appointment.status !== APPOINTMENT_STATUS.CONFIRMED || existingQueue) {
+        const error = new Error("Lễ tân chỉ có thể ghi nhận vắng mặt cho lịch chờ check-in");
+        error.statusCode = 409;
+        throw error;
+      }
+
+      if (appointment.date !== todayBusinessDate) {
+        const error = new Error("Lễ tân chỉ có thể ghi nhận vắng mặt cho lịch chờ check-in trong ngày");
+        error.statusCode = 409;
+        throw error;
+      }
+    } else {
+      const error = new Error("Bạn không có quyền ghi nhận vắng mặt");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    if (existingQueue?.actual_start || existingQueue?.actual_end) {
+      const error = new Error("Không thể ghi nhận vắng mặt cho lượt khám đã bắt đầu hoặc đã hoàn tất");
+      error.statusCode = 409;
+      throw error;
+    }
+
+    let recalcTarget = null;
+
+    if (existingQueue) {
+      await WaitPrediction.destroy({
+        where: { queue_id: existingQueue.id },
+        transaction,
+      });
+
+      if (SmsLog) {
+        await SmsLog.destroy({
+          where: {
+            queue_id: existingQueue.id,
+            status: "Pending",
+          },
+          transaction,
+        });
+      }
+
+      recalcTarget = {
+        doctorId: existingQueue.doctor_id,
+        date: existingQueue.date,
+      };
+    }
+
+    await appointment.update(
+      {
+        status: APPOINTMENT_STATUS.NO_SHOW,
+        hold_expires_at: null,
+      },
+      { transaction }
+    );
+
+    if (recalcTarget) {
+      await recalculateQueueForecastForDoctorDateService(
+        recalcTarget.doctorId,
+        recalcTarget.date,
+        transaction
+      );
+    }
+
+    return getAppointmentByIdService(appointment.id, transaction);
+  });
+};
+
 export const rescheduleAppointmentService = async (id, payload, currentUser) => {
   const appointmentId = parseId(id);
   const safePayload = payload || {};
@@ -1658,6 +1818,13 @@ export const rescheduleAppointmentService = async (id, payload, currentUser) => 
         : oldAppointment.reason;
 
       ensureAppointmentNotInPastForUpdate(nextDate, nextTimeSlot);
+      await ensureNoActiveDuplicateAppointment(
+        oldAppointment.patient_id,
+        nextDoctorId,
+        nextDate,
+        transaction,
+        { excludeAppointmentId: oldAppointment.id },
+      );
 
       const createdAppointment = await Appointment.create(
         {

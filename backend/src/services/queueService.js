@@ -533,7 +533,7 @@ export const reindexQueuesForDoctorDateService = async (doctorId, date, transact
   const activeQueues = [];
 
   for (const queue of queues) {
-    if (queue.Appointment?.status === "Cancelled" || queue.Appointment?.status === "NoShow") {
+    if (queue.Appointment?.status === "Cancelled") {
       await queue.destroy({ transaction });
       continue;
     }
