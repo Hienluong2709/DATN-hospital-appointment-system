@@ -44,6 +44,17 @@
               </a>
             }
 
+            @for (item of visibleTopLevelMenuItems; track item.link) {
+              <a
+                class="subnav-home"
+                [routerLink]="item.link"
+                routerLinkActive="active"
+                [routerLinkActiveOptions]="{ exact: item.exact ?? false }">
+                <span class="material-symbols-outlined">{{ item.icon }}</span>
+                <span>{{ item.label }}</span>
+              </a>
+            }
+
             @for (group of visibleMenuGroups; track group.key) {
               <section class="subnav-group" [class.expanded]="isGroupExpanded(group.key)" [class.active]="isGroupActive(group)">
                 <button class="subnav-group__trigger" type="button" (click)="toggleGroup(group.key)">

@@ -27,3 +27,7 @@ export interface UserUpsertPayload {
   role: UserRole;
   status?: UserStatus;
 }
+
+export interface UserResetPasswordPayload {
+  password: string;
+}

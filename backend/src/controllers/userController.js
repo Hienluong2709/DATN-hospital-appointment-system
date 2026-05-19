@@ -4,6 +4,7 @@ import {
   getAllUsersService,
   getCurrentUserService,
   getUserByIdService,
+  resetUserPasswordService,
   updateUserStatusService,
   updateCurrentUserService,
   updateUserService,
@@ -117,5 +118,18 @@ export const updateUserStatus = async (req, res) => {
     });
   } catch (error) {
     return handleError(res, error, "Không thể cập nhật trạng thái người dùng");
+  }
+};
+
+export const resetUserPassword = async (req, res) => {
+  try {
+    const data = await resetUserPasswordService(req.params.id, req.body);
+
+    return res.json({
+      message: "Reset mật khẩu thành công",
+      data,
+    });
+  } catch (error) {
+    return handleError(res, error, "Không thể reset mật khẩu người dùng");
   }
 };

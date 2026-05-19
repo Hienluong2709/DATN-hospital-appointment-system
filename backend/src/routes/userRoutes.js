@@ -6,6 +6,7 @@ import {
   getAllUsers,
   getCurrentUser,
   getUserById,
+  resetUserPassword,
   updateUserStatus,
   updateCurrentUser,
   updateUser,
@@ -19,6 +20,7 @@ router.get("/", authenticate, authorize(["ADMIN"]), getAllUsers);
 router.get("/:id", authenticate, authorize(["ADMIN"]), getUserById);
 router.post("/", authenticate, authorize(["ADMIN"]), createUser);
 router.patch("/:id/status", authenticate, authorize(["ADMIN"]), updateUserStatus);
+router.patch("/:id/password", authenticate, authorize(["ADMIN"]), resetUserPassword);
 router.put("/:id", authenticate, authorize(["ADMIN"]), updateUser);
 router.delete("/:id", authenticate, authorize(["ADMIN"]), deleteUser);
 

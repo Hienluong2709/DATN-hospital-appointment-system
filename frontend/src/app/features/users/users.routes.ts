@@ -5,6 +5,12 @@ import { UsersPageComponent } from './pages/users-page.component';
 export const USER_ROUTES: Routes = [
   {
     path: '',
-    component: UsersPageComponent
+    component: UsersPageComponent,
+    data: { mode: 'staff' }
+  },
+  {
+    path: 'patients',
+    component: UsersPageComponent,
+    data: { mode: 'patients' }
   }
 ];

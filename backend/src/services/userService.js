@@ -13,8 +13,25 @@ import {
 const { User } = db;
 
 const ALLOWED_ROLES = ["ADMIN", "DOCTOR", "PATIENT", "RECEPTIONIST"];
+const STAFF_ACCOUNT_ROLES = ["DOCTOR", "RECEPTIONIST"];
 const ALLOWED_GENDERS = ["MALE", "FEMALE", "OTHER"];
 const ALLOWED_USER_STATUSES = ["Active", "Inactive"];
+
+const ensureStrongPassword = (password) => {
+  if (
+    password.length < 8 ||
+    !/[a-z]/.test(password) ||
+    !/[A-Z]/.test(password) ||
+    !/\d/.test(password) ||
+    !/[^A-Za-z0-9]/.test(password)
+  ) {
+    const error = new Error(
+      "Password phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt"
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+};
 
 const parseId = (id) => {
   const parsed = Number(id);
@@ -93,6 +110,21 @@ const normalizeRole = (role) => {
   return role;
 };
 
+const normalizeUserScope = (scope) => {
+  const normalized = normalizeOptionalQueryString(scope, 20);
+  if (!normalized) {
+    return null;
+  }
+
+  if (!["staff", "patients"].includes(normalized)) {
+    const error = new Error("Phạm vi người dùng không hợp lệ");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return normalized;
+};
+
 const normalizeOptionalDateOnly = (value, fieldName) => {
   if (value === undefined || value === null || value === "") {
     return null;
@@ -150,6 +182,14 @@ const normalizeUserStatus = (value, { fallback = "Active", required = false } = 
   }
 
   return value;
+};
+
+const ensureStaffAccountRole = (role, message = "Chỉ hỗ trợ tài khoản bác sĩ hoặc lễ tân") => {
+  if (!STAFF_ACCOUNT_ROLES.includes(role)) {
+    const error = new Error(message);
+    error.statusCode = 400;
+    throw error;
+  }
 };
 
 const sanitizeUser = (user) => ({
@@ -211,10 +251,30 @@ export const getAllUsersService = async (filters = {}) => {
   const role = normalizeOptionalQueryString(filters?.role, 30);
   const gender = normalizeOptionalQueryString(filters?.gender, 30);
   const status = normalizeOptionalQueryString(filters?.status, 30);
+  const scope = normalizeUserScope(filters?.scope);
   const where = {};
 
+  if (scope === "staff") {
+    where.role = { [Op.in]: STAFF_ACCOUNT_ROLES };
+  }
+
+  if (scope === "patients") {
+    where.role = "PATIENT";
+  }
+
   if (role) {
-    where.role = normalizeRole(role);
+    const normalizedRole = normalizeRole(role);
+    if (scope === "staff") {
+      ensureStaffAccountRole(normalizedRole, "Vai trò không thuộc phạm vi nhân sự");
+    }
+
+    if (scope === "patients" && normalizedRole !== "PATIENT") {
+      const error = new Error("Vai trò không thuộc phạm vi bệnh nhân");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    where.role = normalizedRole;
   }
 
   if (gender) {
@@ -311,11 +371,9 @@ export const createUserService = async (payload) => {
   const role = normalizeRole(payload?.role);
   const status = normalizeUserStatus(payload?.status);
 
-  if (password.length < 6) {
-    const error = new Error("Password phải có ít nhất 6 ký tự");
-    error.statusCode = 400;
-    throw error;
-  }
+  ensureStaffAccountRole(role, "Admin chỉ được tạo tài khoản cho bác sĩ hoặc lễ tân");
+
+  ensureStrongPassword(password);
 
   await ensureUniqueUserContacts({ username, email, phone });
 
@@ -345,6 +403,8 @@ export const updateUserService = async (id, payload) => {
     throw error;
   }
 
+  ensureStaffAccountRole(user.role, "Chỉ được cập nhật tài khoản bác sĩ hoặc lễ tân");
+
   const username = normalizeRequiredString(payload?.username, "Username");
   const fullname = normalizeRequiredString(payload?.fullname, "Fullname");
   const email = normalizeOptionalString(payload?.email);
@@ -353,6 +413,8 @@ export const updateUserService = async (id, payload) => {
   const gender = normalizeOptionalGender(payload?.gender);
   const address = normalizeOptionalString(payload?.address);
   const role = normalizeRole(payload?.role);
+  ensureStaffAccountRole(role, "Chỉ được cập nhật tài khoản thành bác sĩ hoặc lễ tân");
+
   const status = payload?.status === undefined
     ? user.status
     : normalizeUserStatus(payload?.status, { required: true });
@@ -384,17 +446,34 @@ export const updateUserService = async (id, payload) => {
 
     const password = rawPassword.trim();
     if (password) {
-      if (password.length < 6) {
-        const error = new Error("Password phải có ít nhất 6 ký tự");
-        error.statusCode = 400;
-        throw error;
-      }
+      ensureStrongPassword(password);
 
       user.password = await bcrypt.hash(password, 10);
     }
   }
 
   await user.save();
+  return sanitizeUser(user);
+};
+
+export const resetUserPasswordService = async (id, payload) => {
+  const parsedId = parseId(id);
+  const password = normalizeRequiredString(payload?.password, "Password");
+
+  ensureStrongPassword(password);
+
+  const user = await User.findByPk(parsedId);
+  if (!user) {
+    const error = new Error("Không tìm thấy người dùng");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  ensureStaffAccountRole(user.role, "Chỉ được reset mật khẩu cho bác sĩ hoặc lễ tân");
+
+  user.password = await bcrypt.hash(password, 10);
+  await user.save();
+
   return sanitizeUser(user);
 };
 
@@ -448,6 +527,8 @@ export const deleteUserService = async (id, currentUser) => {
     throw error;
   }
 
+  ensureStaffAccountRole(user.role, "Chỉ được xóa tài khoản bác sĩ hoặc lễ tân");
+
   await user.destroy();
 };
 
@@ -465,6 +546,12 @@ export const updateUserStatusService = async (id, payload, currentUser) => {
   if (!user) {
     const error = new Error("Không tìm thấy người dùng");
     error.statusCode = 404;
+    throw error;
+  }
+
+  if (!STAFF_ACCOUNT_ROLES.includes(user.role) && user.role !== "PATIENT") {
+    const error = new Error("Không thể cập nhật trạng thái tài khoản này");
+    error.statusCode = 400;
     throw error;
   }
 

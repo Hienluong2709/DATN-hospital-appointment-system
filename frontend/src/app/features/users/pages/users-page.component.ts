@@ -14,6 +14,9 @@ import { UserFormModalComponent } from './user-form/user-form-modal.component';
 import { UsersApiService } from '../services/users.api';
 import { getRoleLabel, getUserStatusLabel } from '../../../shared/enum-label.util';
 
+type UserManagementMode = 'staff' | 'patients';
+const STRONG_PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+
 @Component({
   selector: 'app-users-page',
   standalone: true,
@@ -33,9 +36,12 @@ export class UsersPageComponent implements OnInit, OnDestroy {
   users: User[] = [];
   selectedUser: User | null = null;
   editingUserId: number | null = null;
+  passwordResetUser: User | null = null;
+  managementMode: UserManagementMode = 'staff';
 
   isFormModalOpen = false;
   isDetailModalOpen = false;
+  isResetPasswordModalOpen = false;
 
   isLoadingList = false;
   isLoadingDetail = false;
@@ -52,6 +58,7 @@ export class UsersPageComponent implements OnInit, OnDestroy {
   totalItems = 0;
   readonly pageSizeOptions = [10, 20, 50];
   readonly roleOptions: UserRole[] = ['ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATIENT'];
+  readonly staffRoleOptions: UserRole[] = ['RECEPTIONIST', 'DOCTOR'];
   readonly genderOptions: Array<{ value: UserGender; label: string }> = [
     { value: 'MALE', label: 'Nam' },
     { value: 'FEMALE', label: 'Nữ' },
@@ -71,7 +78,12 @@ export class UsersPageComponent implements OnInit, OnDestroy {
     date_of_birth: [''],
     gender: ['' as '' | UserGender],
     address: [''],
-    role: ['PATIENT' as UserRole, [Validators.required]]
+    role: ['RECEPTIONIST' as UserRole, [Validators.required]]
+  });
+
+  readonly resetPasswordForm = this.fb.nonNullable.group({
+    password: ['', [Validators.required, Validators.pattern(STRONG_PASSWORD_PATTERN)]],
+    confirmPassword: ['', [Validators.required]]
   });
 
   get usernameControl() {
@@ -99,14 +111,58 @@ export class UsersPageComponent implements OnInit, OnDestroy {
     }
 
     if (!this.editingUserId) {
-      return value.length < 6;
+      return !STRONG_PASSWORD_PATTERN.test(value);
     }
 
-    return value.length > 0 && value.length < 6;
+    return value.length > 0 && !STRONG_PASSWORD_PATTERN.test(value);
+  }
+
+  get resetPasswordInvalid(): boolean {
+    const control = this.resetPasswordForm.controls.password;
+    return control.invalid && (control.touched || control.dirty);
+  }
+
+  get resetPasswordConfirmInvalid(): boolean {
+    const control = this.resetPasswordForm.controls.confirmPassword;
+    return control.invalid && (control.touched || control.dirty);
+  }
+
+  get resetPasswordMismatch(): boolean {
+    const raw = this.resetPasswordForm.getRawValue();
+    const touched = this.resetPasswordForm.controls.confirmPassword.touched || this.resetPasswordForm.controls.confirmPassword.dirty;
+    return touched && raw.password.trim() !== raw.confirmPassword.trim();
   }
 
   get rowOffset(): number {
     return (this.currentPage - 1) * this.pageSize;
+  }
+
+  get isStaffManagement(): boolean {
+    return this.managementMode === 'staff';
+  }
+
+  get pageTitle(): string {
+    return this.isStaffManagement ? 'Quản lý nhân sự' : 'Quản lý bệnh nhân';
+  }
+
+  get pageSubtitle(): string {
+    return this.isStaffManagement
+      ? 'Tạo tài khoản bác sĩ, lễ tân, khóa đăng nhập và reset mật khẩu cho nhân sự.'
+      : 'Tra cứu tài khoản bệnh nhân và khóa hoặc mở khóa đăng nhập khi cần.';
+  }
+
+  get tableTitle(): string {
+    return this.isStaffManagement ? 'Danh sách nhân sự' : 'Danh sách bệnh nhân';
+  }
+
+  get emptyListMessage(): string {
+    return this.isStaffManagement
+      ? 'Không có nhân sự phù hợp với bộ lọc hiện tại.'
+      : 'Không có bệnh nhân phù hợp với bộ lọc hiện tại.';
+  }
+
+  get availableRoleOptions(): UserRole[] {
+    return this.isStaffManagement ? this.staffRoleOptions : ['PATIENT'];
   }
 
   getRoleLabel(role: string | null | undefined): string {
@@ -119,9 +175,18 @@ export class UsersPageComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.subscriptions.add(
+      this.route.data.subscribe((data) => {
+        this.managementMode = data['mode'] === 'patients' ? 'patients' : 'staff';
+        this.selectedRole = 'ALL';
+        this.currentPage = 1;
+        this.loadList();
+      })
+    );
+
+    this.subscriptions.add(
       this.route.queryParamMap.subscribe((params) => {
         this.searchTerm = params.get('q') ?? '';
-        this.selectedRole = this.parseRoleParam(params.get('role'));
+        this.selectedRole = this.isStaffManagement ? this.parseRoleParam(params.get('role')) : 'ALL';
         this.selectedGender = this.parseGenderParam(params.get('gender'));
         this.selectedStatus = this.parseStatusParam(params.get('status'));
         this.currentPage = this.parsePositiveQueryParam(params.get('page'), 1);
@@ -151,6 +216,11 @@ export class UsersPageComponent implements OnInit, OnDestroy {
 
     if (this.isDetailModalOpen) {
       this.closeDetailModal();
+      return;
+    }
+
+    if (this.isResetPasswordModalOpen) {
+      this.closeResetPasswordModal();
       return;
     }
 
@@ -194,6 +264,10 @@ export class UsersPageComponent implements OnInit, OnDestroy {
   }
 
   openCreateModal(): void {
+    if (!this.isStaffManagement) {
+      return;
+    }
+
     this.startCreateMode();
     this.isFormModalOpen = true;
     this.updateBodyScrollState();
@@ -215,6 +289,20 @@ export class UsersPageComponent implements OnInit, OnDestroy {
     this.updateBodyScrollState();
   }
 
+  closeResetPasswordModal(): void {
+    if (this.isSubmitting) {
+      return;
+    }
+
+    this.isResetPasswordModalOpen = false;
+    this.passwordResetUser = null;
+    this.resetPasswordForm.reset({
+      password: '',
+      confirmPassword: ''
+    });
+    this.updateBodyScrollState();
+  }
+
   startCreateMode(): void {
     this.editingUserId = null;
     this.form.reset({
@@ -226,11 +314,16 @@ export class UsersPageComponent implements OnInit, OnDestroy {
       date_of_birth: '',
       gender: '',
       address: '',
-      role: 'PATIENT'
+      role: 'RECEPTIONIST'
     });
   }
 
   startEdit(user: User): void {
+    if (!this.canManageStaffAccount(user)) {
+      this.showFeedback('error', 'Chỉ chỉnh sửa tài khoản bác sĩ hoặc lễ tân tại màn hình này.');
+      return;
+    }
+
     this.editingUserId = user.id;
     this.isFormModalOpen = true;
     this.updateBodyScrollState();
@@ -245,6 +338,21 @@ export class UsersPageComponent implements OnInit, OnDestroy {
       address: user.address ?? '',
       role: user.role
     });
+  }
+
+  openResetPasswordModal(user: User): void {
+    if (!this.canManageStaffAccount(user)) {
+      this.showFeedback('error', 'Chỉ reset mật khẩu cho tài khoản bác sĩ hoặc lễ tân.');
+      return;
+    }
+
+    this.passwordResetUser = user;
+    this.resetPasswordForm.reset({
+      password: '',
+      confirmPassword: ''
+    });
+    this.isResetPasswordModalOpen = true;
+    this.updateBodyScrollState();
   }
 
   onViewMore(id: number): void {
@@ -267,6 +375,10 @@ export class UsersPageComponent implements OnInit, OnDestroy {
   }
 
   onSubmit(): void {
+    if (!this.isStaffManagement) {
+      return;
+    }
+
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -275,12 +387,12 @@ export class UsersPageComponent implements OnInit, OnDestroy {
     const raw = this.form.getRawValue();
     const password = raw.password.trim();
 
-    if (!this.editingUserId && password.length < 6) {
+    if (!this.editingUserId && !STRONG_PASSWORD_PATTERN.test(password)) {
       this.passwordControl.markAsTouched();
       return;
     }
 
-    if (this.editingUserId && password.length > 0 && password.length < 6) {
+    if (this.editingUserId && password.length > 0 && !STRONG_PASSWORD_PATTERN.test(password)) {
       this.passwordControl.markAsTouched();
       return;
     }
@@ -324,7 +436,48 @@ export class UsersPageComponent implements OnInit, OnDestroy {
     this.createUser(payload);
   }
 
+  onResetPasswordSubmit(): void {
+    if (!this.passwordResetUser) {
+      return;
+    }
+
+    if (this.resetPasswordForm.invalid) {
+      this.resetPasswordForm.markAllAsTouched();
+      return;
+    }
+
+    const raw = this.resetPasswordForm.getRawValue();
+    const password = raw.password.trim();
+    const confirmPassword = raw.confirmPassword.trim();
+
+    if (password !== confirmPassword) {
+      this.resetPasswordForm.controls.confirmPassword.setErrors({ mismatch: true });
+      this.resetPasswordForm.controls.confirmPassword.markAsTouched();
+      return;
+    }
+
+    this.isSubmitting = true;
+
+    this.usersApiService.resetPassword(this.passwordResetUser.id, { password }).subscribe({
+      next: (response) => {
+        this.showFeedback('success', response.message ?? 'Reset mật khẩu thành công.');
+        this.isSubmitting = false;
+        this.closeResetPasswordModal();
+      },
+      error: (error: HttpErrorResponse) => {
+        this.showFeedback('error', error.error?.message ?? 'Không thể reset mật khẩu.');
+      },
+      complete: () => {
+        this.isSubmitting = false;
+      }
+    });
+  }
+
   onDelete(user: User): void {
+    if (!this.isStaffManagement) {
+      return;
+    }
+
     const shouldDelete = globalThis.confirm(`Bạn có chắc chắn muốn xóa người dùng ${user.username}?`);
     if (!shouldDelete) {
       return;
@@ -387,10 +540,19 @@ export class UsersPageComponent implements OnInit, OnDestroy {
     });
   }
 
+  canManageStaffAccount(user: User): boolean {
+    return this.isStaffManagement && this.staffRoleOptions.includes(user.role);
+  }
+
+  canToggleStatus(user: User): boolean {
+    return this.isStaffManagement ? this.canManageStaffAccount(user) : user.role === 'PATIENT';
+  }
+
   private loadList(): void {
     this.isLoadingList = true;
     this.usersApiService.getAll({
       q: this.searchTerm,
+      scope: this.managementMode,
       role: this.selectedRole,
       gender: this.selectedGender,
       status: this.selectedStatus,
@@ -462,7 +624,7 @@ export class UsersPageComponent implements OnInit, OnDestroy {
   }
 
   private updateBodyScrollState(): void {
-    const hasOpenModal = this.isFormModalOpen || this.isDetailModalOpen;
+    const hasOpenModal = this.isFormModalOpen || this.isDetailModalOpen || this.isResetPasswordModalOpen;
 
     if (hasOpenModal) {
       this.lockBodyScroll();
@@ -506,7 +668,7 @@ export class UsersPageComponent implements OnInit, OnDestroy {
   }
 
   private parseRoleParam(value: string | null): UserRole | 'ALL' {
-    return this.roleOptions.includes(value as UserRole) ? (value as UserRole) : 'ALL';
+    return this.availableRoleOptions.includes(value as UserRole) ? (value as UserRole) : 'ALL';
   }
 
   private parseGenderParam(value: string | null): UserGender | 'ALL' {

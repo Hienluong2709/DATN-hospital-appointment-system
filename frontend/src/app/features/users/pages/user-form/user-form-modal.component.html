@@ -2,7 +2,7 @@
   <div class="modal-overlay" (click)="onOverlayClick()">
     <article class="modal-card" (click)="$event.stopPropagation()">
       <header class="modal-header">
-        <h2>{{ isEditMode ? 'Cập nhật người dùng' : 'Tạo người dùng mới' }}</h2>
+        <h2>{{ isEditMode ? 'Cập nhật tài khoản nhân sự' : 'Tạo tài khoản nhân sự' }}</h2>
         <button class="icon-close" type="button" (click)="onCloseClick()" [disabled]="isSubmitting">x</button>
       </header>
 
@@ -23,13 +23,15 @@
           }
         </label>
 
-        <label>
-          <span>Mật khẩu {{ isEditMode ? '(để trống nếu không đổi)' : '' }}</span>
-          <input type="password" formControlName="password" placeholder="Tối thiểu 6 ký tự" />
-          @if (passwordInvalid) {
-            <small>Mật khẩu tối thiểu 6 ký tự.</small>
-          }
-        </label>
+        @if (!isEditMode) {
+          <label>
+            <span>Mật khẩu</span>
+            <input type="password" formControlName="password" placeholder="Ít nhất 8 ký tự, đủ hoa/thường/số/ký tự đặc biệt" />
+            @if (passwordInvalid) {
+              <small>Mật khẩu cần ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.</small>
+            }
+          </label>
+        }
 
         <label>
           <span>Email</span>
@@ -75,7 +77,7 @@
 
         <div class="form-actions">
           <button class="button-primary" type="submit" [disabled]="isSubmitting">
-            {{ isSubmitting ? 'Dang xu ly...' : isEditMode ? 'Lưu cập nhật' : 'Thêm người dùng' }}
+            {{ isSubmitting ? 'Đang xử lý...' : isEditMode ? 'Lưu cập nhật' : 'Thêm tài khoản' }}
           </button>
           <button class="button-secondary" type="button" (click)="onCloseClick()" [disabled]="isSubmitting">
             Đóng

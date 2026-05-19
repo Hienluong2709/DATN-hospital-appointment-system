@@ -114,42 +114,45 @@ export class LayoutComponent implements OnInit {
       ]
     },
     {
-      key: 'schedules',
-      title: 'Quản lý lịch khám',
-      icon: 'calendar_month',
-      items: [
-        {
-          label: 'Lịch làm việc',
-          icon: 'calendar_month',
-          link: this.staffLink(WORK_SCHEDULES_PATH),
-          roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
-        },
-        {
-          label: 'Lịch nghỉ',
-          icon: 'event_busy',
-          link: this.staffLink(WORK_SCHEDULE_BLOCKS_PATH),
-          roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
-        },
-        {
-          label: 'Lịch hẹn khám',
-          icon: 'event_note',
-          link: this.staffLink(APPOINTMENTS_PATH),
-          roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
-        }
-      ]
-    },
-    {
       key: 'system',
-      title: 'Hệ thống',
-      icon: 'settings',
+      title: 'Quản lý người dùng',
+      icon: 'admin_panel_settings',
       items: [
         {
-          label: 'Quản lý người dùng',
+          label: 'Quản lý nhân sự',
           icon: 'manage_accounts',
           link: this.staffLink(USERS_PATH),
+          exact: true,
+          roles: ['ADMIN']
+        },
+        {
+          label: 'Quản lý bệnh nhân',
+          icon: 'personal_injury',
+          link: `${this.staffLink(USERS_PATH)}/patients`,
           roles: ['ADMIN']
         }
       ]
+    }
+  ];
+
+  topLevelMenuItems: MenuItem[] = [
+    {
+      label: 'Lịch làm việc',
+      icon: 'calendar_month',
+      link: this.staffLink(WORK_SCHEDULES_PATH),
+      roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
+    },
+    {
+      label: 'Lịch nghỉ',
+      icon: 'event_busy',
+      link: this.staffLink(WORK_SCHEDULE_BLOCKS_PATH),
+      roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
+    },
+    {
+      label: 'Lịch hẹn khám',
+      icon: 'event_note',
+      link: this.staffLink(APPOINTMENTS_PATH),
+      roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
     }
   ];
 
@@ -175,6 +178,17 @@ export class LayoutComponent implements OnInit {
         };
       })
       .filter((group) => group.items.length > 0);
+  }
+
+  get visibleTopLevelMenuItems(): MenuItem[] {
+    const keyword = this.menuSearchTerm.trim().toLowerCase();
+    const allowedItems = this.filterByRole(this.topLevelMenuItems).map((item) => this.formatMenuItemForRole(item));
+
+    if (!keyword) {
+      return allowedItems;
+    }
+
+    return allowedItems.filter((item) => item.label.toLowerCase().includes(keyword));
   }
 
   get homeMenuItem(): MenuItem | null {
@@ -210,10 +224,11 @@ export class LayoutComponent implements OnInit {
 
   get collapsedMenuItems(): MenuItem[] {
     const rootItems = this.homeMenuItem ? [this.homeMenuItem] : [];
+    const topLevelItems = this.visibleTopLevelMenuItems;
     const groupItems = this.visibleMenuGroups.flatMap((group) => group.items);
     const deduped = new Map<string, MenuItem>();
 
-    [...rootItems, ...groupItems].forEach((item) => {
+    [...rootItems, ...topLevelItems, ...groupItems].forEach((item) => {
       deduped.set(item.link, item);
     });
 
@@ -398,7 +413,7 @@ export class LayoutComponent implements OnInit {
       [SPECIALTIES_PATH]: 'Chuyên khoa',
       [ROOMS_PATH]: 'Phòng khám',
       [DOCTORS_PATH]: 'Bác sĩ',
-      [USERS_PATH]: 'Người dùng',
+      [USERS_PATH]: segments[2] === 'patients' ? 'Bệnh nhân' : 'Nhân sự',
       [WORK_SCHEDULES_PATH]: 'Lịch làm việc',
       [WORK_SCHEDULE_BLOCKS_PATH]: 'Lịch nghỉ',
       [ADMIN_PATH]: 'Quản trị',
