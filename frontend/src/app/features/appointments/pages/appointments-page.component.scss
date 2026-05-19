@@ -2,7 +2,7 @@
   padding: 24px;
   background:
     radial-gradient(circle at 0% 0%, rgba(28, 155, 215, 0.12), transparent 40%),
-    radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.12), transparent 40%),
+    radial-gradient(circle at 100% 100%, rgba(35, 133, 206, 0.1), transparent 40%),
     #f5f7fb;
   min-height: 100vh;
   font-family: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
@@ -168,9 +168,9 @@
 }
 
 .button-primary {
-  border: 1px solid #0f766e;
+  border: 1px solid #155286;
   color: #ffffff;
-  background: linear-gradient(90deg, #0f766e 0%, #0ea5a3 100%);
+  background: linear-gradient(90deg, #155286 0%, #1d6cae 100%);
   border-radius: 10px;
   padding: 10px 16px;
   font-size: 14px;
@@ -402,7 +402,7 @@ table {
 }
 
 .btn-start {
-  color: #7c3aed;
+  color: #155286;
 }
 
 .btn-complete {
@@ -657,7 +657,7 @@ table {
   flex-wrap: wrap;
 
   small {
-    color: #0f766e;
+    color: #1d6cae;
     font-weight: 600;
   }
 }

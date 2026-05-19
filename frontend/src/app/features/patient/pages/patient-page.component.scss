@@ -5,8 +5,8 @@
   --patient-page-border: rgba(197, 216, 231, 0.9);
   --patient-page-border-strong: #d5e4ef;
   --patient-page-surface: rgba(255, 255, 255, 0.96);
-  --patient-page-surface-soft: linear-gradient(180deg, #f8fcff 0%, #f3f8fb 100%);
-  --patient-page-hero: linear-gradient(135deg, #0f3f60 0%, #135d75 52%, #1d8c83 100%);
+  --patient-page-surface-soft: linear-gradient(180deg, #f8fbff 0%, #edf6ff 100%);
+  --patient-page-hero: linear-gradient(135deg, #0f385f 0%, #155286 52%, #1d6cae 100%);
   --patient-page-shadow: 0 18px 36px rgba(25, 65, 104, 0.08);
   --patient-page-shadow-strong: 0 24px 48px rgba(15, 63, 96, 0.2);
   display: grid;
@@ -15,9 +15,9 @@
   min-height: 100vh;
   padding: 0;
   background:
-    radial-gradient(circle at top left, rgba(14, 116, 144, 0.16), transparent 30%),
-    radial-gradient(circle at bottom right, rgba(15, 118, 110, 0.12), transparent 35%),
-    linear-gradient(180deg, #eff7fb 0%, #f7fbfd 45%, #f5f8fc 100%);
+    radial-gradient(circle at top left, rgba(29, 108, 174, 0.16), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(35, 133, 206, 0.1), transparent 35%),
+    linear-gradient(180deg, #edf6ff 0%, #f8fbff 45%, #f5f8fc 100%);
   color: var(--patient-page-text);
   font-family: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
   box-sizing: border-box;
@@ -63,7 +63,7 @@
   justify-content: center;
   background: #e6f4fb;
   border: 1px solid #d6e6f1;
-  color: #0b5b7e;
+  color: #1d6cae;
   flex: 0 0 auto;
 }
 
@@ -154,7 +154,7 @@
 .topbar-icon-button {
   border: 1px solid var(--patient-page-border-strong);
   background: #f7fbfe;
-  color: #0b5b7e;
+  color: #1d6cae;
   min-height: 36px;
   border-radius: 10px;
   transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
@@ -369,7 +369,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: linear-gradient(135deg, #0f5f89 0%, #0f766e 100%);
+  background: linear-gradient(135deg, #155286 0%, #1d6cae 100%);
   color: #ffffff;
   font-weight: 800;
   letter-spacing: 0.05em;
@@ -416,7 +416,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #0f5f89 0%, #0f766e 100%);
+  background: linear-gradient(135deg, #155286 0%, #1d6cae 100%);
   color: #ffffff;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -429,7 +429,7 @@
 
 .doctor-specialty {
   margin: 0.18rem 0 0;
-  color: #0f6c7e;
+  color: #155286;
   font-weight: 700;
   font-size: 0.82rem;
 }
@@ -490,7 +490,7 @@
 }
 
 .callout .btn-primary {
-  background: #0f766e;
+  background: #1d6cae;
   color: #ffffff;
 }
 

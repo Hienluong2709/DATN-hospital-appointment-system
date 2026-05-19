@@ -2,7 +2,7 @@
   padding: 24px;
   background:
     radial-gradient(circle at 0% 0%, rgba(28, 155, 215, 0.12), transparent 40%),
-    radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.12), transparent 40%),
+    radial-gradient(circle at 100% 100%, rgba(35, 133, 206, 0.1), transparent 40%),
     #f5f7fb;
   min-height: 100vh;
   font-family: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
@@ -408,8 +408,8 @@
 }
 
 .button-start {
-  border: 1px solid #c4b5fd;
-  color: #7c3aed;
+  border: 1px solid #b8d5ef;
+  color: #155286;
 }
 
 .button-complete {
@@ -457,8 +457,8 @@
 }
 
 .status--in-progress {
-  color: #7c3aed;
-  background: #f3e8ff;
+  color: #155286;
+  background: #edf6ff;
 }
 
 .patient-detail-overlay {

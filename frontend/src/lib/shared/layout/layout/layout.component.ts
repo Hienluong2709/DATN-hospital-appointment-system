@@ -89,6 +89,31 @@ export class LayoutComponent implements OnInit {
 
   menuGroups: MenuGroup[] = [
     {
+      key: 'schedules',
+      title: 'Quản lý lịch',
+      icon: 'calendar_month',
+      items: [
+        {
+          label: 'Lịch làm việc',
+          icon: 'calendar_month',
+          link: this.staffLink(WORK_SCHEDULES_PATH),
+          roles: ['ADMIN']
+        },
+        {
+          label: 'Lịch nghỉ',
+          icon: 'event_busy',
+          link: this.staffLink(WORK_SCHEDULE_BLOCKS_PATH),
+          roles: ['ADMIN']
+        },
+        {
+          label: 'Lịch hẹn khám',
+          icon: 'event_note',
+          link: this.staffLink(APPOINTMENTS_PATH),
+          roles: ['ADMIN']
+        }
+      ]
+    },
+    {
       key: 'catalog',
       title: 'Quản lý danh mục',
       icon: 'inventory_2',
@@ -140,19 +165,19 @@ export class LayoutComponent implements OnInit {
       label: 'Lịch làm việc',
       icon: 'calendar_month',
       link: this.staffLink(WORK_SCHEDULES_PATH),
-      roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
+      roles: ['RECEPTIONIST', 'DOCTOR']
     },
     {
       label: 'Lịch nghỉ',
       icon: 'event_busy',
       link: this.staffLink(WORK_SCHEDULE_BLOCKS_PATH),
-      roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
+      roles: ['RECEPTIONIST', 'DOCTOR']
     },
     {
       label: 'Lịch hẹn khám',
       icon: 'event_note',
       link: this.staffLink(APPOINTMENTS_PATH),
-      roles: ['ADMIN', 'RECEPTIONIST', 'DOCTOR']
+      roles: ['RECEPTIONIST', 'DOCTOR']
     }
   ];
 

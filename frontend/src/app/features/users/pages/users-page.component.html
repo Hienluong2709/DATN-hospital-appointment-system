@@ -107,7 +107,9 @@
               <th>Họ tên</th>
               <th>Email</th>
               <th>Số điện thoại</th>
-              <th>Vai trò</th>
+              @if (isStaffManagement) {
+                <th>Vai trò</th>
+              }
               <th>Trạng thái</th>
               <th>Thao tác</th>
             </tr>
@@ -120,7 +122,9 @@
                 <td>{{ user.fullname }}</td>
                 <td>{{ user.email || '--' }}</td>
                 <td>{{ user.phone || '--' }}</td>
-                <td><span class="role-badge">{{ getRoleLabel(user.role) }}</span></td>
+                @if (isStaffManagement) {
+                  <td><span class="role-badge">{{ getRoleLabel(user.role) }}</span></td>
+                }
                 <td>
                   <span class="status-badge" [class.status-badge--inactive]="user.status === 'Inactive'">
                     {{ getUserStatusLabel(user.status) }}
