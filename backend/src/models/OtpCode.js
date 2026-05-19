@@ -13,7 +13,11 @@ const OtpCode = sequelize.define("OtpCode", {
   },
   phone: {
     type: DataTypes.STRING(15),
-    allowNull: false,
+    allowNull: true,
+  },
+  email: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
   },
   purpose: {
     type: DataTypes.STRING(30),

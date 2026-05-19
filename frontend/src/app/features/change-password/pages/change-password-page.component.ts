@@ -8,6 +8,8 @@ import { TokenService } from '../../../core/services/token.service';
 import { AuthApiService } from '../../auth/services/auth.api';
 import { UsersApiService } from '../../users/services/users.api';
 
+const STRONG_PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+
 @Component({
   selector: 'app-change-password-page',
   standalone: true,
@@ -43,7 +45,7 @@ export class ChangePasswordPageComponent implements OnInit, OnDestroy {
   readonly form = this.fb.nonNullable.group(
     {
       currentPassword: ['', [Validators.required]],
-      newPassword: ['', [Validators.required, Validators.minLength(6)]],
+      newPassword: ['', [Validators.required, Validators.pattern(STRONG_PASSWORD_PATTERN)]],
       confirmPassword: ['', [Validators.required]],
       otpCode: ['', [Validators.required, Validators.minLength(6), Validators.maxLength(6)]]
     },

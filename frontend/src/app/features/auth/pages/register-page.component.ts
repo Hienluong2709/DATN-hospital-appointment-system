@@ -5,6 +5,8 @@ import { Router, RouterLink } from '@angular/router';
 
 import { AuthApiService } from '../services/auth.api';
 
+const STRONG_PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+
 @Component({
   selector: 'app-register-page',
   standalone: true,
@@ -16,182 +18,215 @@ import { AuthApiService } from '../services/auth.api';
           <p class="register-kicker">Đăng ký tài khoản bệnh nhân</p>
           <h1>Tạo tài khoản để đặt lịch khám trực tuyến</h1>
           <p class="register-subtitle">
-            Hệ thống cần xác thực số điện thoại trước khi tạo tài khoản mới để đảm bảo thông tin liên hệ và nhắc lịch chính xác.
+            Hệ thống cần xác thực email trước khi tạo tài khoản mới để đảm bảo thông tin liên hệ và nhắc lịch chính xác.
           </p>
 
-          <div class="stepper" aria-label="Các bước đăng ký tài khoản">
-            <div class="step" [class.step--active]="!isOtpVerified" [class.step--done]="isOtpVerified">
-              <span class="step-index">{{ isOtpVerified ? '✓' : '1' }}</span>
-              <div>
-                <p class="step-label">Bước 1</p>
-                <strong>Xác thực số điện thoại</strong>
-              </div>
-            </div>
-            <div class="step" [class.step--active]="isOtpVerified">
-              <span class="step-index">2</span>
-              <div>
-                <p class="step-label">Bước 2</p>
-                <strong>Hoàn tất hồ sơ tài khoản</strong>
-              </div>
-            </div>
-          </div>
-        </header>
+	          <div class="stepper" aria-label="Các bước đăng ký tài khoản">
+	            <div class="step" [class.step--active]="!isOtpSent" [class.step--done]="isOtpSent">
+	              <span class="step-index">{{ isOtpSent ? '✓' : '1' }}</span>
+	              <div>
+	                <p class="step-label">Bước 1</p>
+	                <strong>Nhập thông tin tài khoản</strong>
+	              </div>
+	            </div>
+	            <div class="step" [class.step--active]="isOtpSent && !isOtpVerified" [class.step--done]="isOtpVerified">
+	              <span class="step-index">{{ isOtpVerified ? '✓' : '2' }}</span>
+	              <div>
+	                <p class="step-label">Bước 2</p>
+	                <strong>Xác thực OTP qua email</strong>
+	              </div>
+	            </div>
+	          </div>
+	        </header>
 
-        <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="register-form">
-          <section class="form-section otp-section">
-            <div class="section-header">
-              <div>
-                <p class="section-kicker">Bước 1</p>
-                <h2>Xác thực OTP</h2>
-                <p class="section-description">
-                  Nhập số điện thoại bệnh nhân để nhận mã OTP. Mã có hiệu lực trong thời gian ngắn và chỉ dùng cho lần đăng ký này.
-                </p>
-              </div>
-              <span class="status-chip" [class.status-chip--success]="isOtpVerified">
-                {{ isOtpVerified ? 'Đã xác thực' : 'Chưa xác thực' }}
-              </span>
-            </div>
+	        <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="register-form">
+	          <section class="form-section account-section">
+	            <div class="section-header">
+	              <div>
+	                <p class="section-kicker">Bước 1</p>
+	                <h2>Thông tin tài khoản</h2>
+	                <p class="section-description">
+	                  Nhập thông tin bệnh nhân, email và mật khẩu. OTP xác thực sẽ được gửi tới email này.
+	                </p>
+	              </div>
+	              <span class="status-chip" [class.status-chip--success]="canSendOtp">
+	                {{ canSendOtp ? 'Đủ thông tin' : 'Cần bổ sung' }}
+	              </span>
+	            </div>
 
-            <div class="field-grid field-grid--otp">
-              <label class="field field--wide">
+	            <div class="field-grid">
+	              <label class="field">
+	                <span>Họ và tên</span>
+	                <input
+	                  type="text"
+	                  autocomplete="name"
+	                  formControlName="fullname"
+	                  placeholder="Nhập họ và tên bệnh nhân"
+	                  [disabled]="isSubmitting || isOtpVerified"
+	                  (input)="onAccountInput()"
+	                />
+	                <small *ngIf="registerForm.controls.fullname.touched && registerForm.controls.fullname.hasError('required')" class="field-error">
+	                  Vui lòng nhập họ và tên
+	                </small>
+	              </label>
+
+	              <label class="field">
+	                <span>Tên đăng nhập</span>
+	                <input
+	                  type="text"
+	                  autocomplete="username"
+	                  formControlName="username"
+	                  placeholder="Nhập tên đăng nhập"
+	                  [disabled]="isSubmitting || isOtpVerified"
+	                  (input)="onAccountInput()"
+	                />
+	                <small *ngIf="registerForm.controls.username.touched && registerForm.controls.username.hasError('required')" class="field-error">
+	                  Vui lòng nhập tên đăng nhập
+	                </small>
+	              </label>
+
+	              <label class="field">
+	                <span>Email</span>
+	                <input
+	                  type="email"
+	                  autocomplete="email"
+	                  formControlName="email"
+	                  placeholder="you@example.com"
+	                  [disabled]="isSubmitting || isOtpVerified"
+	                  (input)="onEmailInput()"
+	                />
+	                <small *ngIf="emailControl.touched && emailControl.hasError('required')" class="field-error">
+	                  Vui lòng nhập email
+	                </small>
+	                <small *ngIf="emailControl.touched && emailControl.hasError('email')" class="field-error">
+	                  Email không hợp lệ
+	                </small>
+	              </label>
+
+	              <label class="field">
+	                <span>Mật khẩu</span>
+	                <input
+	                  type="password"
+	                  autocomplete="new-password"
+	                  formControlName="password"
+	                  placeholder="Ít nhất 8 ký tự, đủ hoa/thường/số/ký tự đặc biệt"
+	                  [disabled]="isSubmitting || isOtpVerified"
+	                  (input)="onAccountInput()"
+	                />
+		                <small *ngIf="registerForm.controls.password.touched && registerForm.controls.password.hasError('required')" class="field-error">
+		                  Vui lòng nhập mật khẩu
+		                </small>
+		                <small *ngIf="registerForm.controls.password.touched && registerForm.controls.password.hasError('pattern')" class="field-error">
+		                  Mật khẩu cần ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt
+		                </small>
+		              </label>
+
+              <label class="field">
+                <span>Xác nhận mật khẩu</span>
+                <input
+	                  type="password"
+	                  autocomplete="new-password"
+	                  formControlName="confirm_password"
+	                  placeholder="Nhập lại mật khẩu"
+	                  [disabled]="isSubmitting || isOtpVerified"
+	                  (input)="onAccountInput()"
+	                />
+                <small *ngIf="registerForm.controls.confirm_password.touched && registerForm.controls.confirm_password.hasError('required')" class="field-error">
+                  Vui lòng xác nhận mật khẩu
+                </small>
+                <small *ngIf="registerForm.controls.confirm_password.touched && passwordMismatch" class="field-error">
+                  Xác nhận mật khẩu không khớp
+                </small>
+              </label>
+
+              <label class="field">
                 <span>Số điện thoại</span>
                 <input
                   type="tel"
                   inputmode="numeric"
-                  autocomplete="tel"
-                  formControlName="phone"
-                  placeholder="Ví dụ: 0901234567"
-                  [disabled]="isSubmitting"
-                  (input)="onPhoneInput()"
-                />
-                <small *ngIf="phoneControl.touched && phoneControl.hasError('required')" class="field-error">
-                  Vui lòng nhập số điện thoại
-                </small>
-              </label>
+	                  autocomplete="tel"
+	                  formControlName="phone"
+	                  placeholder="Ví dụ: 0901234567"
+	                  [disabled]="isSubmitting || isOtpVerified"
+	                />
+	              </label>
+	            </div>
 
-              <button
-                type="button"
-                class="button-secondary action-button"
-                (click)="sendOtp()"
-                [disabled]="isSubmitting || isSendingOtp || !phoneControl.value.trim()"
-              >
-                {{ isSendingOtp ? 'Đang gửi OTP...' : 'Gửi OTP' }}
-              </button>
+	            <div class="section-actions">
+	              <button
+	                type="button"
+	                class="button-secondary"
+	                (click)="sendOtp()"
+	                [disabled]="isSubmitting || isSendingOtp || !canSendOtp || isOtpVerified"
+	              >
+	                {{ isSendingOtp ? 'Đang gửi OTP...' : isOtpSent ? 'Gửi lại OTP' : 'Gửi OTP qua email' }}
+	              </button>
+	              <p>Hệ thống sẽ gửi mã xác thực thật tới email đã nhập.</p>
+	            </div>
+	          </section>
 
-              <label class="field field--wide">
-                <span>Mã OTP</span>
-                <input
-                  type="text"
-                  inputmode="numeric"
-                  maxlength="6"
-                  autocomplete="one-time-code"
-                  formControlName="otp_code"
-                  placeholder="Nhập 6 chữ số OTP"
-                  [disabled]="isSubmitting"
-                  (input)="onOtpCodeInput()"
-                />
-                <small *ngIf="otpCodeControl.touched && otpCodeControl.hasError('required')" class="field-error">
-                  Vui lòng nhập mã OTP
-                </small>
-                <small *ngIf="otpCodeControl.touched && otpCodeControl.hasError('minlength')" class="field-error">
-                  Mã OTP phải gồm 6 chữ số
-                </small>
-              </label>
+	          <section class="form-section otp-section" [class.otp-section--locked]="!isOtpSent">
+	            <div class="section-header">
+	              <div>
+	                <p class="section-kicker">Bước 2</p>
+	                <h2>Xác thực email</h2>
+	                <p class="section-description">
+	                  Nhập mã OTP nhận được trong email để hoàn tất tạo tài khoản bệnh nhân.
+	                </p>
+	              </div>
+	              <span class="status-chip" [class.status-chip--success]="isOtpVerified">
+	                {{ isOtpVerified ? 'Đã xác thực' : isOtpSent ? 'Chờ OTP' : 'Chưa gửi OTP' }}
+	              </span>
+	            </div>
 
-              <button
-                type="button"
-                class="button-secondary action-button"
-                (click)="verifyOtp()"
-                [disabled]="isSubmitting || isVerifyingOtp || !phoneControl.value.trim() || !otpCodeControl.value.trim()"
-              >
-                {{ isVerifyingOtp ? 'Đang xác thực...' : 'Xác thực OTP' }}
-              </button>
-            </div>
+	            <div class="otp-panel">
+	              <div class="verified-email">
+	                <span>Email xác thực</span>
+	                <strong>{{ emailControl.value || 'Chưa nhập email' }}</strong>
+	              </div>
 
-            <div class="otp-info-card">
-              <p class="otp-info-title">Lưu ý xác thực</p>
-              <p class="otp-info-text">
-                {{ otpDeliveryMessage || 'Sau khi nhận OTP, vui lòng nhập đúng 6 chữ số để mở bước tạo tài khoản.' }}
-              </p>
-            </div>
+	              <div class="field-grid field-grid--otp">
+	                <label class="field field--wide">
+	                  <span>Mã OTP</span>
+	                  <input
+	                    type="text"
+	                    inputmode="numeric"
+	                    maxlength="6"
+	                    autocomplete="one-time-code"
+	                    formControlName="otp_code"
+	                    placeholder="Nhập 6 chữ số OTP"
+	                    [disabled]="isSubmitting || !isOtpSent || isOtpVerified"
+	                    (input)="onOtpCodeInput()"
+	                  />
+	                  <small *ngIf="otpCodeControl.touched && otpCodeControl.hasError('required')" class="field-error">
+	                    Vui lòng nhập mã OTP
+	                  </small>
+	                  <small *ngIf="otpCodeControl.touched && otpCodeControl.hasError('minlength')" class="field-error">
+	                    Mã OTP phải gồm 6 chữ số
+	                  </small>
+	                </label>
 
-            <p *ngIf="otpErrorMessage" class="message message-error">{{ otpErrorMessage }}</p>
-            <p *ngIf="otpSuccessMessage" class="message message-success">{{ otpSuccessMessage }}</p>
-          </section>
+	                <button
+	                  type="button"
+	                  class="button-secondary action-button"
+	                  (click)="verifyOtp()"
+	                  [disabled]="isSubmitting || isVerifyingOtp || !isOtpSent || isOtpVerified || !otpCodeControl.value.trim()"
+	                >
+	                  {{ isVerifyingOtp ? 'Đang xác thực...' : 'Xác thực OTP' }}
+	                </button>
+	              </div>
+	            </div>
 
-          <section class="form-section account-section" [class.account-section--locked]="!canShowAccountSetup">
-            <div class="section-header">
-              <div>
-                <p class="section-kicker">Bước 2</p>
-                <h2>Thông tin tài khoản</h2>
-                <p class="section-description">
-                  Điền đầy đủ thông tin để bệnh nhân có thể đăng nhập, theo dõi lịch hẹn và nhận thông báo từ bệnh viện.
-                </p>
-              </div>
-            </div>
+	            <div class="otp-info-card">
+	              <p class="otp-info-title">Lưu ý xác thực</p>
+	              <p class="otp-info-text">
+	                {{ otpDeliveryMessage || 'Sau khi nhận OTP, vui lòng nhập đúng 6 chữ số. Mã chỉ dùng cho email đang hiển thị.' }}
+	              </p>
+	            </div>
 
-            <p *ngIf="!canShowAccountSetup" class="section-blocked-note">
-              Hoàn tất bước xác thực OTP để mở phần thông tin tài khoản.
-            </p>
-
-            <div class="field-grid">
-              <label class="field">
-                <span>Họ và tên</span>
-                <input
-                  type="text"
-                  autocomplete="name"
-                  formControlName="fullname"
-                  placeholder="Nhập họ và tên bệnh nhân"
-                  [disabled]="isSubmitting || !canShowAccountSetup"
-                />
-                <small *ngIf="registerForm.controls.fullname.touched && registerForm.controls.fullname.hasError('required')" class="field-error">
-                  Vui lòng nhập họ và tên
-                </small>
-              </label>
-
-              <label class="field">
-                <span>Tên đăng nhập</span>
-                <input
-                  type="text"
-                  autocomplete="username"
-                  formControlName="username"
-                  placeholder="Nhập tên đăng nhập"
-                  [disabled]="isSubmitting || !canShowAccountSetup"
-                />
-                <small *ngIf="registerForm.controls.username.touched && registerForm.controls.username.hasError('required')" class="field-error">
-                  Vui lòng nhập tên đăng nhập
-                </small>
-              </label>
-
-              <label class="field">
-                <span>Email</span>
-                <input
-                  type="email"
-                  autocomplete="email"
-                  formControlName="email"
-                  placeholder="you@example.com"
-                  [disabled]="isSubmitting || !canShowAccountSetup"
-                />
-              </label>
-
-              <label class="field">
-                <span>Mật khẩu</span>
-                <input
-                  type="password"
-                  autocomplete="new-password"
-                  formControlName="password"
-                  placeholder="Tối thiểu 6 ký tự"
-                  [disabled]="isSubmitting || !canShowAccountSetup"
-                />
-                <small *ngIf="registerForm.controls.password.touched && registerForm.controls.password.hasError('required')" class="field-error">
-                  Vui lòng nhập mật khẩu
-                </small>
-                <small *ngIf="registerForm.controls.password.touched && registerForm.controls.password.hasError('minlength')" class="field-error">
-                  Mật khẩu phải có ít nhất 6 ký tự
-                </small>
-              </label>
-            </div>
-          </section>
+	            <p *ngIf="otpErrorMessage" class="message message-error">{{ otpErrorMessage }}</p>
+	            <p *ngIf="otpSuccessMessage" class="message message-success">{{ otpSuccessMessage }}</p>
+	          </section>
 
           <p *ngIf="errorMessage" class="message message-error">{{ errorMessage }}</p>
           <p *ngIf="successMessage" class="message message-success">{{ successMessage }}</p>
@@ -336,7 +371,7 @@ import { AuthApiService } from '../services/auth.api';
         background: linear-gradient(180deg, #f8fcff 0%, #fefefe 100%);
       }
 
-      .account-section--locked {
+      .otp-section--locked {
         opacity: 0.72;
       }
 
@@ -489,6 +524,46 @@ import { AuthApiService } from '../services/auth.api';
         color: #9a4b14;
       }
 
+      .section-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding-top: 0.2rem;
+      }
+
+      .section-actions p {
+        margin: 0;
+        color: #607a92;
+        font-size: 0.9rem;
+      }
+
+      .otp-panel {
+        display: grid;
+        gap: 0.95rem;
+      }
+
+      .verified-email {
+        display: grid;
+        gap: 0.25rem;
+        padding: 0.85rem 1rem;
+        border-radius: 16px;
+        border: 1px solid #d7e7f2;
+        background: #f5f9fd;
+      }
+
+      .verified-email span {
+        color: #607a92;
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .verified-email strong {
+        color: #163b5c;
+        word-break: break-word;
+      }
+
       .message {
         margin: 0;
         padding: 0.9rem 1rem;
@@ -562,10 +637,15 @@ import { AuthApiService } from '../services/auth.api';
           justify-content: center;
         }
 
-        .register-actions {
-          flex-direction: column;
-        }
-      }
+	        .register-actions {
+	          flex-direction: column;
+	        }
+
+	        .section-actions {
+	          align-items: stretch;
+	          flex-direction: column;
+	        }
+	      }
     `
   ]
 })
@@ -577,39 +657,60 @@ export class RegisterPageComponent {
   isSubmitting = false;
   isSendingOtp = false;
   isVerifyingOtp = false;
+  isOtpSent = false;
   isOtpVerified = false;
   errorMessage = '';
   successMessage = '';
   otpErrorMessage = '';
   otpSuccessMessage = '';
   otpDeliveryMessage = '';
-  private verifiedPhone = '';
+  private verifiedEmail = '';
   private verifiedOtpCode = '';
 
   readonly registerForm = this.fb.nonNullable.group({
     fullname: ['', [Validators.required]],
     username: ['', [Validators.required]],
-    email: [''],
-    phone: ['', [Validators.required]],
+    email: ['', [Validators.required, Validators.email]],
+    phone: [''],
     otp_code: ['', [Validators.required, Validators.minLength(6), Validators.maxLength(6)]],
-    password: ['', [Validators.required, Validators.minLength(6)]]
+    password: ['', [Validators.required, Validators.pattern(STRONG_PASSWORD_PATTERN)]],
+    confirm_password: ['', [Validators.required]]
   });
 
-  get phoneControl() {
-    return this.registerForm.controls.phone;
+  get emailControl() {
+    return this.registerForm.controls.email;
   }
 
   get otpCodeControl() {
     return this.registerForm.controls.otp_code;
   }
 
-  get canShowAccountSetup(): boolean {
-    return this.isOtpVerified;
+  get passwordMismatch(): boolean {
+    return this.registerForm.controls.password.value !== this.registerForm.controls.confirm_password.value;
   }
 
-  onPhoneInput(): void {
-    const normalizedPhone = this.normalizePhoneValue(this.phoneControl.value);
-    if (!this.isOtpVerified || normalizedPhone === this.verifiedPhone) {
+  get canSendOtp(): boolean {
+    return (
+      this.registerForm.controls.fullname.valid &&
+      this.registerForm.controls.username.valid &&
+      this.emailControl.valid &&
+      this.registerForm.controls.password.valid &&
+      this.registerForm.controls.confirm_password.valid &&
+      !this.passwordMismatch
+    );
+  }
+
+  onEmailInput(): void {
+    const normalizedEmail = this.normalizeEmailValue(this.emailControl.value);
+    if (!this.isOtpVerified || normalizedEmail === this.verifiedEmail) {
+      return;
+    }
+
+    this.resetOtpVerificationState();
+  }
+
+  onAccountInput(): void {
+    if (!this.isOtpSent && !this.isOtpVerified) {
       return;
     }
 
@@ -627,9 +728,10 @@ export class RegisterPageComponent {
   }
 
   sendOtp(): void {
-    const phone = this.phoneControl.value.trim();
-    if (!phone) {
-      this.otpErrorMessage = 'Vui lòng nhập số điện thoại trước khi gửi OTP.';
+    const email = this.emailControl.value.trim();
+    this.markAccountFieldsTouched();
+    if (!this.canSendOtp) {
+      this.otpErrorMessage = 'Vui lòng nhập đầy đủ thông tin hợp lệ trước khi gửi OTP.';
       return;
     }
 
@@ -640,14 +742,15 @@ export class RegisterPageComponent {
     this.successMessage = '';
     this.resetOtpVerificationState();
 
-    this.authApiService.sendPhoneOtp({
-      phone,
+    this.authApiService.sendEmailOtp({
+      email,
       purpose: 'REGISTER'
     }).subscribe({
       next: (response) => {
+        this.isOtpSent = true;
         this.otpDeliveryMessage = response.data?.expires_at
           ? 'OTP đã được gửi. Vui lòng nhập mã trong vòng 5 phút.'
-          : 'OTP đã được gửi tới số điện thoại đã đăng ký.';
+          : 'OTP đã được gửi tới email đã đăng ký.';
       },
       error: (error: { error?: { message?: string } }) => {
         this.otpErrorMessage = error.error?.message ?? 'Không thể gửi OTP.';
@@ -659,11 +762,11 @@ export class RegisterPageComponent {
   }
 
   verifyOtp(): void {
-    const phone = this.phoneControl.value.trim();
+    const email = this.emailControl.value.trim();
     const code = this.otpCodeControl.value.trim();
 
-    if (!phone || !code) {
-      this.otpErrorMessage = 'Vui lòng nhập số điện thoại và mã OTP.';
+    if (!this.isOtpSent || !email || !code) {
+      this.otpErrorMessage = 'Vui lòng nhập email và mã OTP.';
       return;
     }
 
@@ -671,21 +774,23 @@ export class RegisterPageComponent {
     this.otpErrorMessage = '';
     this.otpSuccessMessage = '';
 
-    this.authApiService.verifyPhoneOtp({
-      phone,
+    this.authApiService.verifyEmailOtp({
+      email,
       code,
       purpose: 'REGISTER'
     }).subscribe({
       next: () => {
         this.isOtpVerified = true;
-        this.verifiedPhone = this.normalizePhoneValue(phone);
+        this.verifiedEmail = this.normalizeEmailValue(email);
         this.verifiedOtpCode = code;
-        this.otpSuccessMessage = 'Số điện thoại đã được xác thực. Bạn có thể tiếp tục tạo tài khoản.';
-      },
-      error: (error: { error?: { message?: string } }) => {
-        this.resetOtpVerificationState();
-        this.otpErrorMessage = error.error?.message ?? 'Không thể xác thực OTP.';
-      },
+        this.otpSuccessMessage = 'Email đã được xác thực. Bạn có thể tiếp tục tạo tài khoản.';
+	      },
+	      error: (error: { error?: { message?: string } }) => {
+	        this.isOtpVerified = false;
+	        this.verifiedEmail = '';
+	        this.verifiedOtpCode = '';
+	        this.otpErrorMessage = error.error?.message ?? 'Không thể xác thực OTP.';
+	      },
       complete: () => {
         this.isVerifyingOtp = false;
       }
@@ -698,11 +803,16 @@ export class RegisterPageComponent {
       return;
     }
 
-    const phone = this.phoneControl.value.trim();
+    const email = this.emailControl.value.trim();
     const otpCode = this.otpCodeControl.value.trim();
-    const normalizedPhone = this.normalizePhoneValue(phone);
+    const normalizedEmail = this.normalizeEmailValue(email);
 
-    if (!this.isOtpVerified || normalizedPhone !== this.verifiedPhone || otpCode !== this.verifiedOtpCode) {
+    if (this.passwordMismatch) {
+      this.registerForm.controls.confirm_password.markAsTouched();
+      return;
+    }
+
+    if (!this.isOtpVerified || normalizedEmail !== this.verifiedEmail || otpCode !== this.verifiedOtpCode) {
       this.errorMessage = 'Vui lòng gửi và xác thực OTP hợp lệ trước khi đăng ký.';
       return;
     }
@@ -713,7 +823,7 @@ export class RegisterPageComponent {
 
     this.authApiService.register({
       ...this.registerForm.getRawValue(),
-      phone,
+      email,
       otp_code: otpCode
     }).subscribe({
       next: () => {
@@ -734,17 +844,23 @@ export class RegisterPageComponent {
 
   private resetOtpVerificationState(): void {
     this.isOtpVerified = false;
-    this.verifiedPhone = '';
+    this.isOtpSent = false;
+    this.verifiedEmail = '';
     this.verifiedOtpCode = '';
     this.otpSuccessMessage = '';
+    this.otpDeliveryMessage = '';
+    this.otpCodeControl.setValue('');
   }
 
-  private normalizePhoneValue(value: string): string {
-    const digits = value.replace(/\D/g, '');
-    if (digits.startsWith('84') && digits.length === 11) {
-      return `0${digits.slice(2)}`;
-    }
+  private markAccountFieldsTouched(): void {
+    this.registerForm.controls.fullname.markAsTouched();
+    this.registerForm.controls.username.markAsTouched();
+    this.registerForm.controls.email.markAsTouched();
+    this.registerForm.controls.password.markAsTouched();
+    this.registerForm.controls.confirm_password.markAsTouched();
+  }
 
-    return digits;
+  private normalizeEmailValue(value: string): string {
+    return value.trim().toLowerCase();
   }
 }

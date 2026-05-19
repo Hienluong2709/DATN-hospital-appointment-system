@@ -6,6 +6,7 @@ export interface LoginPayload {
 export interface RegisterPayload {
   username: string;
   password: string;
+  confirm_password: string;
   fullname: string;
   email?: string | null;
   phone?: string | null;
@@ -57,13 +58,23 @@ export interface PhoneOtpVerifyPayload extends PhoneOtpPayload {
   code: string;
 }
 
+export interface EmailOtpPayload {
+  email: string;
+  purpose: 'REGISTER';
+}
+
+export interface EmailOtpVerifyPayload extends EmailOtpPayload {
+  code: string;
+}
+
 export interface ChangePasswordOtpVerifyPayload {
   code: string;
 }
 
 export interface OtpDeliveryData {
   otp_id: number;
-  phone: string;
+  phone?: string;
+  email?: string;
   purpose: string;
   expires_at?: string;
   provider?: string;
@@ -73,7 +84,8 @@ export interface OtpDeliveryData {
 }
 
 export interface OtpVerifyData {
-  phone: string;
+  phone?: string;
+  email?: string;
   purpose: string;
   verified_at: string;
   otp_id: number;

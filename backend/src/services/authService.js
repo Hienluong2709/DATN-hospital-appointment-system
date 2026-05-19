@@ -4,7 +4,9 @@ import crypto from "crypto";
 import { Op } from "sequelize";
 import db from "../models/index.js";
 import {
+  assertEmailOtpVerifiedService,
   assertPhoneOtpVerifiedService,
+  consumeVerifiedEmailOtpService,
   consumeVerifiedPhoneOtpService,
   sendPhoneOtpCodeService,
   verifyPhoneOtpCodeService,
@@ -93,6 +95,22 @@ const normalizeOptionalOtpCode = (value) => {
   }
 
   return trimmed;
+};
+
+const ensureStrongPassword = (password) => {
+  if (
+    password.length < 8 ||
+    !/[a-z]/.test(password) ||
+    !/[A-Z]/.test(password) ||
+    !/\d/.test(password) ||
+    !/[^A-Za-z0-9]/.test(password)
+  ) {
+    const error = new Error(
+      "Password phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt"
+    );
+    error.statusCode = 400;
+    throw error;
+  }
 };
 
 const normalizeRole = (role) => {
@@ -328,13 +346,16 @@ export const loginService = async (username, password, context = {}) => {
 export const registerUserService = async (payload) => {
   const username = normalizeRequiredString(payload?.username, "Username");
   const password = normalizeRequiredString(payload?.password, "Password");
+  const confirmPassword = normalizeRequiredString(payload?.confirm_password, "Xác nhận mật khẩu");
   const fullname = normalizeRequiredString(payload?.fullname, "Fullname");
 
-  if (password.length < 6) {
-    const error = new Error("Password phải có ít nhất 6 ký tự");
+  if (password !== confirmPassword) {
+    const error = new Error("Xác nhận mật khẩu không khớp");
     error.statusCode = 400;
     throw error;
   }
+
+  ensureStrongPassword(password);
 
   const email = normalizeOptionalString(payload?.email);
   const phone = normalizeOptionalPhone(payload?.phone);
@@ -347,8 +368,8 @@ export const registerUserService = async (payload) => {
 
   const role = "PATIENT";
 
-  if (AUTH_REQUIRE_OTP_ON_REGISTER && !phone) {
-    const error = new Error("Cần số điện thoại để đăng ký tài khoản");
+  if (AUTH_REQUIRE_OTP_ON_REGISTER && !email) {
+    const error = new Error("Cần email để đăng ký tài khoản");
     error.statusCode = 400;
     throw error;
   }
@@ -384,10 +405,10 @@ export const registerUserService = async (payload) => {
   }
 
   const created = await sequelize.transaction(async (transaction) => {
-    if (phone && otpCode) {
-      await assertPhoneOtpVerifiedService(
+    if (email && otpCode) {
+      await assertEmailOtpVerifiedService(
         {
-          phone,
+          email,
           code: otpCode,
           purpose: "REGISTER",
         },
@@ -408,10 +429,10 @@ export const registerUserService = async (payload) => {
       { transaction },
     );
 
-    if (phone && otpCode) {
-      await consumeVerifiedPhoneOtpService(
+    if (email && otpCode) {
+      await consumeVerifiedEmailOtpService(
         {
-          phone,
+          email,
           code: otpCode,
           purpose: "REGISTER",
         },
@@ -446,11 +467,7 @@ export const changePasswordService = async (userId, payload) => {
   const confirmPassword = normalizeRequiredString(payload?.confirmPassword, "Xác nhận mật khẩu mới");
   const otpCode = normalizeOptionalOtpCode(payload?.otpCode ?? payload?.otp_code);
 
-  if (newPassword.length < 6) {
-    const error = new Error("Password phải có ít nhất 6 ký tự");
-    error.statusCode = 400;
-    throw error;
-  }
+  ensureStrongPassword(newPassword);
 
   if (newPassword !== confirmPassword) {
     const error = new Error("Xác nhận mật khẩu không khớp");

@@ -8,7 +8,9 @@ import {
   verifyChangePasswordOtpService,
 } from "../services/authService.js";
 import {
+  sendEmailOtpCodeService,
   sendPhoneOtpCodeService,
+  verifyEmailOtpCodeService,
   verifyPhoneOtpCodeService,
 } from "../services/otpService.js";
 
@@ -134,9 +136,47 @@ export const sendPhoneOtp = async (req, res) => {
   }
 };
 
+export const sendEmailOtp = async (req, res) => {
+  try {
+    const data = await sendEmailOtpCodeService(req.body);
+
+    res.status(201).json({
+      message: "Gửi OTP thành công",
+      data,
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    const message =
+      statusCode === 500 ? "Gửi OTP thất bại, vui lòng thử lại" : error.message;
+
+    res.status(statusCode).json({
+      message,
+    });
+  }
+};
+
 export const verifyPhoneOtp = async (req, res) => {
   try {
     const data = await verifyPhoneOtpCodeService(req.body);
+
+    res.json({
+      message: "Xác thực OTP thành công",
+      data,
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    const message =
+      statusCode === 500 ? "Xác thực OTP thất bại, vui lòng thử lại" : error.message;
+
+    res.status(statusCode).json({
+      message,
+    });
+  }
+};
+
+export const verifyEmailOtp = async (req, res) => {
+  try {
+    const data = await verifyEmailOtpCodeService(req.body);
 
     res.json({
       message: "Xác thực OTP thành công",

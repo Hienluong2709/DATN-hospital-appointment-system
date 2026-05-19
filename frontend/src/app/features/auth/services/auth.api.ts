@@ -7,6 +7,8 @@ import {
   ChangePasswordData,
   ChangePasswordOtpVerifyPayload,
   ChangePasswordPayload,
+  EmailOtpPayload,
+  EmailOtpVerifyPayload,
   LoginData,
   LoginPayload,
   OtpDeliveryData,
@@ -47,6 +49,14 @@ export class AuthApiService {
 
   verifyPhoneOtp(payload: PhoneOtpVerifyPayload) {
     return this.http.post<ApiResponse<OtpVerifyData>>(`${API_BASE_URL}/auth/otp/verify`, payload);
+  }
+
+  sendEmailOtp(payload: EmailOtpPayload) {
+    return this.http.post<ApiResponse<OtpDeliveryData>>(`${API_BASE_URL}/auth/otp/email/send`, payload);
+  }
+
+  verifyEmailOtp(payload: EmailOtpVerifyPayload) {
+    return this.http.post<ApiResponse<OtpVerifyData>>(`${API_BASE_URL}/auth/otp/email/verify`, payload);
   }
 
   sendChangePasswordOtp() {
