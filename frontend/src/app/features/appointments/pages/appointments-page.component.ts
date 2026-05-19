@@ -54,7 +54,6 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
   selectedDoctorId = 0;
   selectedStatus: AppointmentStatusFilter = 'ALL';
   viewMode: 'day' | 'week' = 'day';
-  activeDoctorDayTab: 'schedule' | 'in-progress' | 'completed' = 'schedule';
   adminCurrentPage = 1;
   adminPageSize = 10;
   adminTotalItems = 0;
@@ -72,7 +71,6 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
           this.isDoctorView ? params.get('workflow') : params.get('status')
         );
         this.viewMode = params.get('view') === 'week' ? 'week' : 'day';
-        this.activeDoctorDayTab = this.parseDoctorDayTab(params.get('tab'));
         this.adminCurrentPage = this.parsePositiveQueryParam(params.get('page')) || 1;
         this.adminPageSize = this.parsePageSizeParam(params.get('page_size'));
         this.loadAppointments();
@@ -176,11 +174,6 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
     return this.selectedAdminAppointment?.id === appointment.id;
   }
 
-  setDoctorDayTab(tab: 'schedule' | 'in-progress' | 'completed'): void {
-    this.activeDoctorDayTab = tab;
-    this.updateQueryParams(true);
-  }
-
   goToPreviousWeek(): void {
     this.shiftSelectedDateByDays(-7);
     this.viewMode = 'week';
@@ -252,24 +245,6 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
       { key: 'NoShow', label: 'Vắng mặt', total: countStatus('NoShow'), tone: 'danger' },
       { key: 'Cancelled', label: 'Đã hủy', total: countStatus('Cancelled'), tone: 'danger' },
     ];
-  }
-
-  get doctorInProgressAppointments(): Appointment[] {
-    return this.filteredAppointments.filter((appointment) => !!appointment.Queue?.actual_start && !appointment.Queue?.actual_end);
-  }
-
-  get doctorScheduleAppointments(): Appointment[] {
-    return this.filteredAppointments.filter((appointment) => {
-      if (appointment.status === 'Confirmed') {
-        return true;
-      }
-
-      return appointment.status === 'CheckedIn' && !appointment.Queue?.actual_start && !appointment.Queue?.actual_end;
-    });
-  }
-
-  get doctorCompletedAppointments(): Appointment[] {
-    return this.filteredAppointments.filter((appointment) => !!appointment.Queue?.actual_end || appointment.status === 'Completed');
   }
 
   get doctorFilterOptions(): Array<{ id: number; label: string }> {
@@ -446,7 +421,7 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
       case 'Completed':
         return 'Đã hoàn tất';
       case 'NoShow':
-        return 'Lỡ hẹn';
+        return 'Vắng mặt';
       default:
         return status;
     }
@@ -707,7 +682,6 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
         status: !this.isDoctorView && this.selectedStatus !== 'ALL' ? this.selectedStatus : null,
         workflow: this.isDoctorView && this.selectedStatus !== 'ALL' ? this.selectedStatus : null,
         view: !this.isDoctorView && this.viewMode !== 'day' ? this.viewMode : null,
-        tab: !this.isDoctorView && this.activeDoctorDayTab !== 'schedule' ? this.activeDoctorDayTab : null,
         page: this.isAdminView && this.adminCurrentPage > 1 ? this.adminCurrentPage : null,
         page_size: this.isAdminView && this.adminPageSize !== this.adminPageSizeOptions[0] ? this.adminPageSize : null,
       },
@@ -754,7 +728,4 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
     return 'ALL';
   }
 
-  private parseDoctorDayTab(value: string | null): 'schedule' | 'in-progress' | 'completed' {
-    return value === 'in-progress' || value === 'completed' ? value : 'schedule';
-  }
 }

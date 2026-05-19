@@ -6,6 +6,9 @@ export interface QueuePatientRef {
   username: string;
   phone: string | null;
   email: string | null;
+  date_of_birth?: string | null;
+  gender?: 'MALE' | 'FEMALE' | 'OTHER' | null;
+  address?: string | null;
 }
 
 export interface QueueDoctorUserRef {

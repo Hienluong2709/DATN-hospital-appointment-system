@@ -8,6 +8,9 @@ export interface AppointmentPatientRef {
   phone: string | null;
   email: string | null;
   role: string;
+  date_of_birth?: string | null;
+  gender?: 'MALE' | 'FEMALE' | 'OTHER' | null;
+  address?: string | null;
 }
 
 export interface AppointmentDoctorUserRef {

@@ -1103,7 +1103,7 @@ const appointmentQueryOptions = {
     {
       model: User,
       as: "patient",
-      attributes: ["id", "fullname", "username", "phone", "email", "role"],
+      attributes: ["id", "fullname", "username", "phone", "email", "role", "date_of_birth", "gender", "address"],
     },
     {
       model: Doctor,

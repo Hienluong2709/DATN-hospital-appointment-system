@@ -49,6 +49,8 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   isLoading = false;
   private pendingRequests = 0;
   processingAppointmentId: Record<number, boolean> = {};
+  selectedPatientQueue: Queue | null = null;
+  selectedPatientAppointment: Appointment | null = null;
   selectedDate = this.getTodayDateString();
   selectedDoctorId = 0;
   selectedStatus: QueueStatusFilter = 'ALL';
@@ -282,6 +284,139 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
 
   getPatientName(queue: Queue): string {
     return queue.Appointment?.patient?.fullname ?? queue.Appointment?.patient?.username ?? '-';
+  }
+
+  openPatientDetail(queue: Queue): void {
+    this.selectedPatientQueue = queue;
+    this.selectedPatientAppointment = null;
+  }
+
+  openAppointmentPatientDetail(appointment: Appointment): void {
+    this.selectedPatientAppointment = appointment;
+    this.selectedPatientQueue = null;
+  }
+
+  closePatientDetail(): void {
+    this.selectedPatientQueue = null;
+    this.selectedPatientAppointment = null;
+  }
+
+  getSelectedPatientName(): string {
+    return this.selectedPatientQueue
+      ? this.getPatientName(this.selectedPatientQueue)
+      : this.selectedPatientAppointment
+        ? this.getPatientNameForAppointment(this.selectedPatientAppointment)
+        : '-';
+  }
+
+  getSelectedPatientId(): number | null {
+    return this.selectedPatientQueue?.Appointment?.patient?.id ?? this.selectedPatientAppointment?.patient?.id ?? null;
+  }
+
+  getSelectedPatientUsername(): string {
+    return this.selectedPatientQueue?.Appointment?.patient?.username ?? this.selectedPatientAppointment?.patient?.username ?? '-';
+  }
+
+  getSelectedPatientAddress(): string {
+    return this.selectedPatientQueue?.Appointment?.patient?.address
+      ?? this.selectedPatientAppointment?.patient?.address
+      ?? 'Chưa cập nhật';
+  }
+
+  getSelectedAppointmentDate(): string {
+    return this.selectedPatientQueue?.date ?? this.selectedPatientAppointment?.date ?? '-';
+  }
+
+  getSelectedAppointmentTime(): string {
+    return this.selectedPatientQueue?.Appointment?.time_slot?.slice(0, 5)
+      ?? this.selectedPatientAppointment?.time_slot?.slice(0, 5)
+      ?? '--:--';
+  }
+
+  getSelectedQueueNumberLabel(): string {
+    return this.selectedPatientQueue?.queue_number ? `#${this.selectedPatientQueue.queue_number}` : 'Chưa cấp số tiếp nhận';
+  }
+
+  getSelectedAppointmentStatusLabel(): string {
+    if (this.selectedPatientQueue) {
+      return this.getWorkflowStatusLabel(this.selectedPatientQueue);
+    }
+
+    return this.selectedPatientAppointment
+      ? this.getAppointmentStatusLabel(this.selectedPatientAppointment.status)
+      : '-';
+  }
+
+  getSelectedAppointmentPredictedStartLabel(): string {
+    if (this.selectedPatientQueue) {
+      return this.getPredictedStartLabel(this.selectedPatientQueue);
+    }
+
+    return this.selectedPatientAppointment
+      ? this.getQueueEstimateLabel(this.selectedPatientAppointment)
+      : '--:--';
+  }
+
+  getSelectedCheckInLabel(): string {
+    return this.selectedPatientQueue ? this.getTimeLabel(this.selectedPatientQueue.checked_in_at) : 'Chưa check-in';
+  }
+
+  getSelectedActualStartLabel(): string {
+    return this.selectedPatientQueue ? this.getTimeLabel(this.selectedPatientQueue.actual_start) : '--:--';
+  }
+
+  getSelectedActualEndLabel(): string {
+    return this.selectedPatientQueue ? this.getTimeLabel(this.selectedPatientQueue.actual_end) : '--:--';
+  }
+
+  getSelectedReason(): string {
+    return this.selectedPatientQueue
+      ? this.getReason(this.selectedPatientQueue)
+      : this.selectedPatientAppointment?.reason || 'Không có ghi chú';
+  }
+
+  getPatientGenderLabel(): string {
+    const gender = this.selectedPatientQueue?.Appointment?.patient?.gender ?? this.selectedPatientAppointment?.patient?.gender;
+    switch (gender) {
+      case 'MALE':
+        return 'Nam';
+      case 'FEMALE':
+        return 'Nữ';
+      case 'OTHER':
+        return 'Khác';
+      default:
+        return 'Chưa cập nhật';
+    }
+  }
+
+  getPatientBirthdayLabel(): string {
+    const value = this.selectedPatientQueue?.Appointment?.patient?.date_of_birth ?? this.selectedPatientAppointment?.patient?.date_of_birth;
+    if (!value) {
+      return 'Chưa cập nhật';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+
+    return new Intl.DateTimeFormat('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }).format(parsed);
+  }
+
+  getPatientPhoneLabel(): string {
+    const queuePatient = this.selectedPatientQueue?.Appointment?.patient;
+    const appointmentPatient = this.selectedPatientAppointment?.patient;
+    return queuePatient?.phone || appointmentPatient?.phone || 'Chưa cập nhật';
+  }
+
+  getPatientEmailLabel(): string {
+    const queuePatient = this.selectedPatientQueue?.Appointment?.patient;
+    const appointmentPatient = this.selectedPatientAppointment?.patient;
+    return queuePatient?.email || appointmentPatient?.email || 'Chưa cập nhật';
   }
 
   getSpecialtyName(queue: Queue): string {
@@ -591,6 +726,10 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
     this.queuesApiService.getAll(this.queueRequestFilters).subscribe({
       next: (response) => {
         this.queues = response.data;
+        if (this.selectedPatientQueue) {
+          this.selectedPatientQueue =
+            this.queues.find((queue) => queue.id === this.selectedPatientQueue?.id) ?? null;
+        }
       },
       error: (error: { error?: { message?: string } }) => {
         this.showError(error.error?.message ?? 'Không thể tải danh sách hàng đợi');
@@ -610,6 +749,10 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: (response) => {
         this.appointments = response.data.filter((appointment) => appointment.status === 'Confirmed' && !appointment.Queue?.id);
+        if (this.selectedPatientAppointment) {
+          this.selectedPatientAppointment =
+            this.appointments.find((appointment) => appointment.id === this.selectedPatientAppointment?.id) ?? null;
+        }
       },
       error: (error: { error?: { message?: string } }) => {
         this.showError(error.error?.message ?? 'Không thể tải danh sách lịch chờ check-in');

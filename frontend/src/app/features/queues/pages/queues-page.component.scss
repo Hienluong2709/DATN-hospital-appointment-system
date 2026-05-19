@@ -378,6 +378,8 @@
 .queue-card__actions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
   margin-top: 14px;
 }
 
@@ -459,10 +461,112 @@
   background: #f3e8ff;
 }
 
+.patient-detail-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgb(15 23 42 / 45%);
+}
+
+.patient-detail-modal {
+  width: min(960px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  overflow: auto;
+  border: 1px solid #c7d8ea;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgb(15 23 42 / 22%);
+}
+
+.patient-detail-modal__header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #dbe7f3;
+  background: #ffffff;
+}
+
+.patient-detail-modal__header p {
+  margin: 0 0 4px;
+  color: #5b7793;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.patient-detail-modal__header h2 {
+  margin: 0;
+  color: #16324d;
+  font-size: 22px;
+}
+
+.patient-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 16px;
+  padding: 18px 20px 22px;
+}
+
+.patient-detail-section {
+  border: 1px solid #e0eaf5;
+  border-radius: 10px;
+  padding: 14px;
+  background: #fbfdff;
+}
+
+.patient-detail-section h3 {
+  margin: 0 0 12px;
+  color: #17324d;
+  font-size: 16px;
+}
+
+.patient-detail-section dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.patient-detail-section div {
+  min-width: 0;
+  border: 1px solid #e6eef7;
+  border-radius: 10px;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.patient-detail-section__wide {
+  grid-column: 1 / -1;
+}
+
+.patient-detail-section dt {
+  margin-bottom: 5px;
+  color: #688098;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.patient-detail-section dd {
+  margin: 0;
+  color: #17324d;
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 1024px) {
   .filters-grid,
   .filters-grid--doctor,
-  .queue-card__grid {
+  .queue-card__grid,
+  .patient-detail-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -474,7 +578,9 @@
 
   .filters-grid,
   .filters-grid--doctor,
-  .queue-card__grid {
+  .queue-card__grid,
+  .patient-detail-grid,
+  .patient-detail-section dl {
     grid-template-columns: 1fr;
   }
 
