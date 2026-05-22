@@ -37,6 +37,7 @@ export class ChangePasswordPageComponent implements OnInit, OnDestroy {
   successDismissSecondsRemaining = 0;
   phoneNumber = '';
   maskedPhoneNumber = '';
+  readonly isForcedPasswordChange = this.tokenService.mustChangePassword();
   private verifiedOtpCode = '';
 
   private successHideTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -71,10 +72,16 @@ export class ChangePasswordPageComponent implements OnInit, OnDestroy {
   }
 
   get canShowPasswordForm(): boolean {
-    return this.isOtpVerified;
+    return this.isForcedPasswordChange || this.isOtpVerified;
   }
 
   ngOnInit(): void {
+    if (this.isForcedPasswordChange) {
+      this.otpCodeControl.clearValidators();
+      this.otpCodeControl.updateValueAndValidity();
+      return;
+    }
+
     this.loadCurrentUserPhone();
   }
 
@@ -92,7 +99,7 @@ export class ChangePasswordPageComponent implements OnInit, OnDestroy {
 
     const { currentPassword, newPassword, confirmPassword, otpCode } = this.form.getRawValue();
 
-    if (!this.isOtpVerified || otpCode.trim() !== this.verifiedOtpCode) {
+    if (!this.isForcedPasswordChange && (!this.isOtpVerified || otpCode.trim() !== this.verifiedOtpCode)) {
       this.errorMessage = 'Vui lòng gửi và xác thực OTP trước khi đổi mật khẩu.';
       return;
     }
@@ -104,11 +111,12 @@ export class ChangePasswordPageComponent implements OnInit, OnDestroy {
         currentPassword,
         newPassword,
         confirmPassword,
-        otpCode
+        otpCode: this.isForcedPasswordChange ? undefined : otpCode
       })
       .subscribe({
         next: (response) => {
           this.successMessage = response.message ?? 'Đổi mật khẩu thành công';
+          this.tokenService.patchCurrentUser({ must_change_password: false });
           this.form.reset({
             currentPassword: '',
             newPassword: '',
@@ -119,6 +127,14 @@ export class ChangePasswordPageComponent implements OnInit, OnDestroy {
           this.form.markAsUntouched();
           this.resetOtpVerificationState();
           this.otpDeliveryMessage = '';
+          if (this.isForcedPasswordChange) {
+            const roleHomePath = this.tokenService.getRoleHomePath();
+            setTimeout(() => {
+              void this.router.navigateByUrl(roleHomePath ?? `/${DASHBOARD_PATH}`);
+            }, 800);
+            return;
+          }
+
           this.startSuccessFeedbackAutoHide();
         },
         error: (error: { error?: { message?: string } }) => {
@@ -198,6 +214,10 @@ export class ChangePasswordPageComponent implements OnInit, OnDestroy {
   }
 
   goBackToDashboard(): void {
+    if (this.isForcedPasswordChange) {
+      return;
+    }
+
     const roleHomePath = this.tokenService.getRoleHomePath();
     void this.router.navigateByUrl(roleHomePath ?? `/${DASHBOARD_PATH}`);
   }

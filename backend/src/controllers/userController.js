@@ -123,13 +123,13 @@ export const updateUserStatus = async (req, res) => {
 
 export const resetUserPassword = async (req, res) => {
   try {
-    const data = await resetUserPasswordService(req.params.id, req.body);
+    const data = await resetUserPasswordService(req.params.id);
 
     return res.json({
-      message: "Reset mật khẩu thành công",
+      message: "Đã gửi mật khẩu tạm thời qua email",
       data,
     });
   } catch (error) {
-    return handleError(res, error, "Không thể reset mật khẩu người dùng");
+    return handleError(res, error, "Không thể gửi mật khẩu tạm thời");
   }
 };

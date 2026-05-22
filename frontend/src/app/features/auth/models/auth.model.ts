@@ -21,6 +21,7 @@ export interface AuthUser {
   phone?: string | null;
   role: string;
   status?: string;
+  must_change_password?: boolean;
 }
 
 export interface LoginData {
@@ -45,6 +46,20 @@ export interface ChangePasswordPayload {
 export interface ChangePasswordData {
   id: number;
   username: string;
+  must_change_password?: boolean;
+}
+
+export interface ResetPasswordPayload {
+  email: string;
+  otpCode: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface ResetPasswordData {
+  id: number;
+  username: string;
+  email?: string | null;
 }
 
 export interface RegisterData extends AuthUser {}
@@ -60,7 +75,7 @@ export interface PhoneOtpVerifyPayload extends PhoneOtpPayload {
 
 export interface EmailOtpPayload {
   email: string;
-  purpose: 'REGISTER';
+  purpose: 'REGISTER' | 'RESET_PASSWORD';
 }
 
 export interface EmailOtpVerifyPayload extends EmailOtpPayload {

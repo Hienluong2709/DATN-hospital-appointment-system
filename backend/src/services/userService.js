@@ -1,6 +1,8 @@
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 import { Op } from "sequelize";
 import db from "../models/index.js";
+import { sendStaffTemporaryPasswordEmailMessage } from "./emailOtpDeliveryService.js";
 import {
   buildPaginationMeta,
   createPaginatedListResult,
@@ -10,7 +12,7 @@ import {
   parsePaginationQuery,
 } from "../utils/queryUtils.js";
 
-const { User } = db;
+const { User, RefreshToken, sequelize } = db;
 
 const ALLOWED_ROLES = ["ADMIN", "DOCTOR", "PATIENT", "RECEPTIONIST"];
 const STAFF_ACCOUNT_ROLES = ["DOCTOR", "RECEPTIONIST"];
@@ -203,7 +205,36 @@ const sanitizeUser = (user) => ({
   address: user.address,
   role: user.role,
   status: user.status,
+  must_change_password: Boolean(user.must_change_password),
 });
+
+const generateTemporaryPassword = () => {
+  const numberPart = crypto.randomInt(1000, 10000);
+  const upperLetters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lowerLetters = "abcdefghijkmnopqrstuvwxyz";
+  const firstUpper = upperLetters[crypto.randomInt(0, upperLetters.length)];
+  const secondUpper = upperLetters[crypto.randomInt(0, upperLetters.length)];
+  const randomLower = lowerLetters[crypto.randomInt(0, lowerLetters.length)];
+
+  return `Temp-${numberPart}-${firstUpper}${secondUpper}${randomLower}`;
+};
+
+const revokeUserRefreshTokens = async (userId, transaction) => {
+  if (!RefreshToken) {
+    return;
+  }
+
+  await RefreshToken.update(
+    { revoked_at: new Date() },
+    {
+      where: {
+        user_id: userId,
+        revoked_at: null,
+      },
+      transaction,
+    },
+  );
+};
 
 const ensureUniqueUserContacts = async ({ userId = null, email, phone, username }) => {
   const conditions = [
@@ -456,25 +487,53 @@ export const updateUserService = async (id, payload) => {
   return sanitizeUser(user);
 };
 
-export const resetUserPasswordService = async (id, payload) => {
+export const resetUserPasswordService = async (id) => {
   const parsedId = parseId(id);
-  const password = normalizeRequiredString(payload?.password, "Password");
+  const temporaryPassword = generateTemporaryPassword();
 
-  ensureStrongPassword(password);
+  return sequelize.transaction(async (transaction) => {
+    const user = await User.findByPk(parsedId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
 
-  const user = await User.findByPk(parsedId);
-  if (!user) {
-    const error = new Error("Không tìm thấy người dùng");
-    error.statusCode = 404;
-    throw error;
-  }
+    if (!user) {
+      const error = new Error("Không tìm thấy người dùng");
+      error.statusCode = 404;
+      throw error;
+    }
 
-  ensureStaffAccountRole(user.role, "Chỉ được reset mật khẩu cho bác sĩ hoặc lễ tân");
+    ensureStaffAccountRole(user.role, "Chỉ được reset mật khẩu cho bác sĩ hoặc lễ tân");
 
-  user.password = await bcrypt.hash(password, 10);
-  await user.save();
+    if (user.status === "Inactive") {
+      const error = new Error("Tài khoản đang không hoạt động, không thể gửi mật khẩu tạm thời");
+      error.statusCode = 400;
+      throw error;
+    }
 
-  return sanitizeUser(user);
+    if (!user.email) {
+      const error = new Error("Tài khoản chưa có email để nhận mật khẩu tạm thời");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    user.password = await bcrypt.hash(temporaryPassword, 10);
+    user.must_change_password = true;
+    await user.save({ transaction });
+    await revokeUserRefreshTokens(user.id, transaction);
+
+    await sendStaffTemporaryPasswordEmailMessage({
+      email: user.email,
+      fullname: user.fullname,
+      username: user.username,
+      temporaryPassword,
+    });
+
+    return {
+      ...sanitizeUser(user),
+      temporary_password_sent: true,
+    };
+  });
 };
 
 export const updateCurrentUserService = async (currentUser, payload) => {

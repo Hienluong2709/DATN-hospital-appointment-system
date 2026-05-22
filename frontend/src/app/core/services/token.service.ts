@@ -97,6 +97,14 @@ export class TokenService {
     this.persistSession(nextSession);
   }
 
+  patchCurrentUser(partial: Record<string, unknown>): void {
+    const currentUser = this.getCurrentUser() ?? {};
+    this.setCurrentUser({
+      ...currentUser,
+      ...partial
+    });
+  }
+
   setSession(loginData: LoginData): void {
     const accessToken = loginData.accessToken || loginData.token;
     if (!accessToken) {
@@ -159,6 +167,16 @@ export class TokenService {
         : user['role']);
 
     return normalizeBackendRole(roleValue);
+  }
+
+  mustChangePassword(): boolean {
+    const user = this.getCurrentUser();
+    if (!user) {
+      return false;
+    }
+
+    const value = user['must_change_password'] ?? user['mustChangePassword'];
+    return value === true || value === 1 || value === '1' || value === 'true';
   }
 
   getRoleHomePath(): string | null {

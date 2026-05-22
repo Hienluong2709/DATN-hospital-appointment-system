@@ -141,7 +141,10 @@ import { TokenService } from '../../../core/services/token.service';
                     <span>Ghi nhớ đăng nhập</span>
                   </label>
 
-                  <span class="login-form__ghost-link">Quên mật khẩu?</span>
+                  <a *ngIf="audience === 'patient'; else staffForgotPasswordLabel" routerLink="/forgot-password" class="login-form__ghost-link">Quên mật khẩu?</a>
+                  <ng-template #staffForgotPasswordLabel>
+                    <span class="login-form__ghost-link">Quên mật khẩu?</span>
+                  </ng-template>
                 </div>
 
                 <p *ngIf="errorMessage" class="error-banner">
@@ -592,6 +595,7 @@ import { TokenService } from '../../../core/services/token.service';
         color: #1b81d3;
         font-size: 0.92rem;
         font-weight: 600;
+        text-decoration: none;
       }
 
       .error-banner {
@@ -840,6 +844,11 @@ export class LoginPageComponent {
         }
 
         this.tokenService.setSession(response.data);
+        if (this.audience === 'staff' && this.tokenService.mustChangePassword()) {
+          void this.router.navigateByUrl('/staff/change-password');
+          return;
+        }
+
         const roleHomePath = this.tokenService.getRoleHomePath() ?? '/access-denied';
         void this.router.navigateByUrl(this.resolvePostLoginTarget(roleHomePath));
       },

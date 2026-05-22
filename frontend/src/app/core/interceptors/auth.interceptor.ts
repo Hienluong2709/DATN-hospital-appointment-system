@@ -5,7 +5,13 @@ import { catchError, map, Observable, shareReplay, switchMap, throwError } from 
 import { AuthApiService } from '../../features/auth/services/auth.api';
 import { TokenService } from '../services/token.service';
 
-const AUTH_ENDPOINTS_TO_SKIP = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout'];
+const AUTH_ENDPOINTS_TO_SKIP = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/refresh',
+  '/auth/logout',
+  '/auth/forgot-password',
+];
 
 let refreshRequest$: Observable<string | null> | null = null;
 

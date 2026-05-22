@@ -250,27 +250,21 @@
         </header>
 
         <form class="reset-password-form" [formGroup]="resetPasswordForm" (ngSubmit)="onResetPasswordSubmit()">
-          <label>
-            <span>Mật khẩu mới</span>
-            <input type="password" formControlName="password" placeholder="Ít nhất 8 ký tự, đủ hoa/thường/số/ký tự đặc biệt" />
-            @if (resetPasswordInvalid) {
-              <small>Mật khẩu cần ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.</small>
-            }
-          </label>
-
-          <label>
-            <span>Nhập lại mật khẩu</span>
-            <input type="password" formControlName="confirmPassword" placeholder="Nhập lại mật khẩu mới" />
-            @if (resetPasswordMismatch) {
-              <small>Mật khẩu nhập lại không khớp.</small>
-            } @else if (resetPasswordConfirmInvalid) {
-              <small>Vui lòng nhập lại mật khẩu.</small>
-            }
-          </label>
+          <div class="reset-password-note">
+            <span class="material-symbols-outlined">vpn_key</span>
+            <div>
+              <strong>Gửi mật khẩu tạm thời qua email</strong>
+              <p>
+                Hệ thống sẽ tạo mật khẩu tạm thời và gửi tới
+                <b>{{ passwordResetUser?.email || 'email của nhân sự' }}</b>.
+                Sau khi đăng nhập, bác sĩ hoặc lễ tân bắt buộc đổi mật khẩu mới trước khi vào trang chủ.
+              </p>
+            </div>
+          </div>
 
           <div class="form-actions">
-            <button class="button-primary" type="submit" [disabled]="isSubmitting">
-              {{ isSubmitting ? 'Đang xử lý...' : 'Reset mật khẩu' }}
+            <button class="button-primary" type="submit" [disabled]="isSubmitting || !passwordResetUser?.email">
+              {{ isSubmitting ? 'Đang gửi...' : 'Gửi mật khẩu tạm thời' }}
             </button>
             <button class="button-secondary" type="button" (click)="closeResetPasswordModal()" [disabled]="isSubmitting">
               Đóng

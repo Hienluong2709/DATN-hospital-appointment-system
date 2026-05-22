@@ -13,6 +13,7 @@ export interface User {
   address?: string | null;
   role: UserRole;
   status: UserStatus;
+  must_change_password?: boolean;
 }
 
 export interface UserUpsertPayload {
@@ -29,5 +30,5 @@ export interface UserUpsertPayload {
 }
 
 export interface UserResetPasswordPayload {
-  password: string;
+  send_temporary_password?: boolean;
 }

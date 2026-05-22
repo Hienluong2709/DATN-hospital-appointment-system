@@ -201,7 +201,8 @@
             class="status"
             [class.status--pending]="getWorkflowStatus(queue) === 'Pending'"
             [class.status--confirmed]="getWorkflowStatus(queue) === 'Confirmed'"
-            [class.status--cancelled]="getWorkflowStatus(queue) === 'Cancelled' || getWorkflowStatus(queue) === 'NoShow'"
+            [class.status--cancelled]="getWorkflowStatus(queue) === 'Cancelled'"
+            [class.status--no-show]="getWorkflowStatus(queue) === 'NoShow'"
             [class.status--completed]="getWorkflowStatus(queue) === 'Completed'"
             [class.status--checked-in]="getWorkflowStatus(queue) === 'CheckedIn'"
             [class.status--in-progress]="getWorkflowStatus(queue) === 'InProgress'"
@@ -271,6 +272,15 @@
             [disabled]="!canCancelCheckIn(queue) || processingAppointmentId[queue.Appointment?.id ?? 0]"
           >
             {{ processingAppointmentId[queue.Appointment?.id ?? 0] ? 'Đang hủy...' : 'Hủy check-in' }}
+          </button>
+          <button
+            *ngIf="canUseCancelAfterCheckInAction"
+            type="button"
+            class="button-secondary"
+            (click)="cancelAfterCheckIn(queue)"
+            [disabled]="!canCancelAfterCheckIn(queue) || processingAppointmentId[queue.Appointment?.id ?? 0]"
+          >
+            {{ processingAppointmentId[queue.Appointment?.id ?? 0] ? 'Đang hủy...' : 'Hủy lượt khám' }}
           </button>
           <button
             *ngIf="canUseStartAction"
@@ -373,7 +383,8 @@
                   class="status"
                   [class.status--pending]="getWorkflowStatus(selectedPatientQueue) === 'Pending'"
                   [class.status--confirmed]="getWorkflowStatus(selectedPatientQueue) === 'Confirmed'"
-                  [class.status--cancelled]="getWorkflowStatus(selectedPatientQueue) === 'Cancelled' || getWorkflowStatus(selectedPatientQueue) === 'NoShow'"
+                  [class.status--cancelled]="getWorkflowStatus(selectedPatientQueue) === 'Cancelled'"
+                  [class.status--no-show]="getWorkflowStatus(selectedPatientQueue) === 'NoShow'"
                   [class.status--completed]="getWorkflowStatus(selectedPatientQueue) === 'Completed'"
                   [class.status--checked-in]="getWorkflowStatus(selectedPatientQueue) === 'CheckedIn'"
                   [class.status--in-progress]="getWorkflowStatus(selectedPatientQueue) === 'InProgress'"

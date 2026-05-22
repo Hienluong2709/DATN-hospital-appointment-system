@@ -53,6 +53,11 @@ const User = sequelize.define(
       defaultValue: "Active",
       allowNull: false,
     },
+    must_change_password: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      allowNull: false,
+    },
   },
   {
     tableName: "users",

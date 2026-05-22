@@ -93,7 +93,11 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   }
 
   get canUseCancelCheckInAction(): boolean {
-    return this.canAny(['RECEPTIONIST']);
+    return false;
+  }
+
+  get canUseCancelAfterCheckInAction(): boolean {
+    return this.canAny(['DOCTOR']);
   }
 
   get canUseWaitingNoShowAction(): boolean {
@@ -497,6 +501,16 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
     return this.canUseCancelCheckInAction && !queue.actual_start && !queue.actual_end;
   }
 
+  canCancelAfterCheckIn(queue: Queue): boolean {
+    return (
+      this.canUseCancelAfterCheckInAction &&
+      queue.Appointment?.status === 'CheckedIn' &&
+      !!queue.Appointment?.id &&
+      !queue.actual_start &&
+      !queue.actual_end
+    );
+  }
+
   canMarkWaitingNoShow(appointment: Appointment): boolean {
     return (
       this.canUseWaitingNoShowAction &&
@@ -678,6 +692,33 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
       },
       complete: () => {
         this.processingAppointmentId[queue.Appointment?.id ?? 0] = false;
+      }
+    });
+  }
+
+  cancelAfterCheckIn(queue: Queue): void {
+    const appointmentId = queue.Appointment?.id;
+    if (!appointmentId) {
+      return;
+    }
+
+    if (!confirm('Hủy lượt khám đã check-in này?')) {
+      return;
+    }
+
+    this.processingAppointmentId[appointmentId] = true;
+    this.clearMessages();
+
+    this.appointmentsApiService.cancel(appointmentId).subscribe({
+      next: () => {
+        this.showSuccess('Đã hủy lượt khám');
+        this.loadData(true);
+      },
+      error: (error: { error?: { message?: string } }) => {
+        this.showError(error.error?.message ?? 'Không thể hủy lượt khám');
+      },
+      complete: () => {
+        this.processingAppointmentId[appointmentId] = false;
       }
     });
   }

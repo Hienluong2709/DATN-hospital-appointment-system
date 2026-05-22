@@ -8,7 +8,9 @@ import {
   assertPhoneOtpVerifiedService,
   consumeVerifiedEmailOtpService,
   consumeVerifiedPhoneOtpService,
+  sendEmailOtpCodeService,
   sendPhoneOtpCodeService,
+  verifyEmailOtpCodeService,
   verifyPhoneOtpCodeService,
 } from "./otpService.js";
 
@@ -54,6 +56,17 @@ const normalizeOptionalString = (value) => {
 
   const trimmed = value.trim();
   return trimmed || null;
+};
+
+const normalizeRequiredEmail = (value) => {
+  const email = normalizeRequiredString(value, "Email").toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    const error = new Error("Email không hợp lệ");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return email;
 };
 
 const normalizeOptionalPhone = (value) => {
@@ -170,6 +183,7 @@ const buildAuthUser = (user) => ({
   phone: user.phone,
   role: user.role,
   status: user.status,
+  must_change_password: Boolean(user.must_change_password),
 });
 
 const buildAuthTokenPayload = (user) => ({
@@ -483,7 +497,9 @@ export const changePasswordService = async (userId, payload) => {
       throw error;
     }
 
-    if (AUTH_REQUIRE_OTP_ON_CHANGE_PASSWORD) {
+    const isForcedPasswordChange = Boolean(user.must_change_password);
+
+    if (AUTH_REQUIRE_OTP_ON_CHANGE_PASSWORD && !isForcedPasswordChange) {
       if (!user.phone) {
         const error = new Error("Tài khoản chưa có số điện thoại để xác thực OTP");
         error.statusCode = 400;
@@ -511,7 +527,7 @@ export const changePasswordService = async (userId, payload) => {
       throw error;
     }
 
-    if (user.phone && otpCode) {
+    if (!isForcedPasswordChange && user.phone && otpCode) {
       await assertPhoneOtpVerifiedService(
         {
           phone: user.phone,
@@ -523,11 +539,12 @@ export const changePasswordService = async (userId, payload) => {
     }
 
     user.password = await bcrypt.hash(newPassword, 10);
+    user.must_change_password = false;
     await user.save({ transaction });
 
     await revokeAllUserRefreshTokens(user.id, transaction);
 
-    if (user.phone && otpCode) {
+    if (!isForcedPasswordChange && user.phone && otpCode) {
       await consumeVerifiedPhoneOtpService(
         {
           phone: user.phone,
@@ -541,6 +558,7 @@ export const changePasswordService = async (userId, payload) => {
     return {
       id: user.id,
       username: user.username,
+      must_change_password: Boolean(user.must_change_password),
     };
   });
 };
@@ -596,6 +614,126 @@ export const logoutService = async (payload) => {
   const refreshTokenValue = normalizeRefreshToken(payload?.refreshToken ?? payload?.refresh_token);
   await revokeStoredRefreshToken(refreshTokenValue);
   return { revoked: true };
+};
+
+const findActivePatientByEmail = async (email, options = {}) => {
+  return User.findOne({
+    where: {
+      email,
+      role: "PATIENT",
+      status: "Active",
+    },
+    transaction: options.transaction,
+    lock: options.transaction?.LOCK?.UPDATE,
+  });
+};
+
+export const sendPatientResetPasswordOtpService = async (payload) => {
+  const email = normalizeRequiredEmail(payload?.email);
+  const patient = await findActivePatientByEmail(email);
+
+  if (!patient) {
+    const error = new Error("Không tìm thấy tài khoản bệnh nhân đang hoạt động với email này");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const otpDelivery = await sendEmailOtpCodeService({
+    email,
+    purpose: "RESET_PASSWORD",
+  });
+
+  return {
+    ...otpDelivery,
+    username: patient.username,
+  };
+};
+
+export const verifyPatientResetPasswordOtpService = async (payload) => {
+  const email = normalizeRequiredEmail(payload?.email);
+  const code = normalizeRequiredString(payload?.code ?? payload?.otpCode ?? payload?.otp_code, "OTP");
+  const patient = await findActivePatientByEmail(email);
+
+  if (!patient) {
+    const error = new Error("Không tìm thấy tài khoản bệnh nhân đang hoạt động với email này");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return verifyEmailOtpCodeService({
+    email,
+    code,
+    purpose: "RESET_PASSWORD",
+  });
+};
+
+export const resetPatientPasswordService = async (payload) => {
+  const email = normalizeRequiredEmail(payload?.email);
+  const otpCode = normalizeOptionalOtpCode(payload?.otpCode ?? payload?.otp_code);
+  const newPassword = normalizeRequiredString(payload?.newPassword ?? payload?.password, "Mật khẩu mới");
+  const confirmPassword = normalizeRequiredString(
+    payload?.confirmPassword ?? payload?.confirm_password,
+    "Xác nhận mật khẩu mới",
+  );
+
+  if (!otpCode) {
+    const error = new Error("Vui lòng xác thực OTP trước khi đặt lại mật khẩu");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  ensureStrongPassword(newPassword);
+
+  if (newPassword !== confirmPassword) {
+    const error = new Error("Xác nhận mật khẩu không khớp");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return sequelize.transaction(async (transaction) => {
+    const patient = await findActivePatientByEmail(email, { transaction });
+    if (!patient) {
+      const error = new Error("Không tìm thấy tài khoản bệnh nhân đang hoạt động với email này");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    await assertEmailOtpVerifiedService(
+      {
+        email,
+        code: otpCode,
+        purpose: "RESET_PASSWORD",
+      },
+      { transaction },
+    );
+
+    const isSameAsCurrentPassword = await bcrypt.compare(newPassword, patient.password);
+    if (isSameAsCurrentPassword) {
+      const error = new Error("Mật khẩu mới phải khác mật khẩu hiện tại");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    patient.password = await bcrypt.hash(newPassword, 10);
+    await patient.save({ transaction });
+
+    await revokeAllUserRefreshTokens(patient.id, transaction);
+
+    await consumeVerifiedEmailOtpService(
+      {
+        email,
+        code: otpCode,
+        purpose: "RESET_PASSWORD",
+      },
+      { transaction },
+    );
+
+    return {
+      id: patient.id,
+      username: patient.username,
+      email: patient.email,
+    };
+  });
 };
 
 const getCurrentUserPhoneOrThrow = async (userId) => {

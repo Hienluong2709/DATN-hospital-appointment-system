@@ -49,6 +49,11 @@ const patientPortalRoutes: Routes = isPatientPortal
 				loadComponent: () => import('@features/auth/pages/register-page.component').then((m) => m.RegisterPageComponent)
 			},
 			{
+				path: 'forgot-password',
+				canActivate: [noAuthGuard],
+				loadComponent: () => import('@features/auth/pages/forgot-password-page.component').then((m) => m.ForgotPasswordPageComponent)
+			},
+			{
 				path: AUTH_PATH,
 				loadChildren: () => import('@features/auth/auth.routes').then((m) => m.AUTH_ROUTES)
 			},

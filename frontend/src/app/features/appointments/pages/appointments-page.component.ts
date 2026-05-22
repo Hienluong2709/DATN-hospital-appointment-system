@@ -304,7 +304,7 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
   }
 
   get canUseCancelAction(): boolean {
-    return this.canAny(['RECEPTIONIST']);
+    return this.canAny(['RECEPTIONIST', 'DOCTOR']);
   }
 
   get canUseCheckInAction(): boolean {
@@ -320,6 +320,16 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
   }
 
   canCancel(appointment: Appointment): boolean {
+    if (this.currentRole === 'DOCTOR') {
+      return (
+        appointment.status === 'CheckedIn' &&
+        !!appointment.Queue?.id &&
+        !appointment.Queue?.actual_start &&
+        !appointment.Queue?.actual_end &&
+        this.canUseCancelAction
+      );
+    }
+
     return (
       appointment.status === 'Confirmed' &&
       !appointment.Queue?.id &&

@@ -354,6 +354,12 @@ const ensureCanCancelAppointment = (appointment, currentUser) => {
     error.statusCode = 403;
     throw error;
   }
+
+  if (currentUser?.role === "DOCTOR" && appointment.status !== APPOINTMENT_STATUS.CHECKED_IN) {
+    const error = new Error("Bác sĩ chỉ được hủy lượt khám đã check-in");
+    error.statusCode = 403;
+    throw error;
+  }
 };
 
 const ensureCanTransitionStatus = (fromStatus, toStatus) => {
@@ -1651,6 +1657,11 @@ export const cancelAppointmentService = async (id, currentUser) => {
 
     ensureCanCancelAppointment(appointment, currentUser);
 
+    const isDoctorCancelAfterCheckIn = currentUser?.role === "DOCTOR";
+    if (isDoctorCancelAfterCheckIn) {
+      await ensureDoctorOwnsAppointment(appointment, currentUser, transaction);
+    }
+
     if (appointment.status === APPOINTMENT_STATUS.CANCELLED) {
       const error = new Error("Lịch hẹn đã được hủy trước đó");
       error.statusCode = 409;
@@ -1659,16 +1670,30 @@ export const cancelAppointmentService = async (id, currentUser) => {
 
     ensureCanTransitionStatus(appointment.status, APPOINTMENT_STATUS.CANCELLED);
 
-    ensureCanCancelBy24HourRule(appointment);
-
     const existingQueue = await Queue.findOne({
       where: { appointment_id: appointment.id },
-      attributes: ["id", "doctor_id", "date"],
+      attributes: ["id", "doctor_id", "date", "actual_start", "actual_end"],
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
 
-    if (existingQueue) {
+    if (isDoctorCancelAfterCheckIn) {
+      if (!existingQueue) {
+        const error = new Error("Chỉ được hủy lượt khám sau khi bệnh nhân đã check-in");
+        error.statusCode = 409;
+        throw error;
+      }
+
+      if (existingQueue.actual_start || existingQueue.actual_end) {
+        const error = new Error("Không thể hủy lượt khám đã bắt đầu hoặc đã hoàn tất");
+        error.statusCode = 409;
+        throw error;
+      }
+    } else {
+      ensureCanCancelBy24HourRule(appointment);
+    }
+
+    if (existingQueue && !isDoctorCancelAfterCheckIn) {
       const error = new Error("Lịch hẹn đã check-in, vui lòng dùng chức năng hủy check-in thay vì hủy lịch");
       error.statusCode = 409;
       throw error;
@@ -1681,6 +1706,24 @@ export const cancelAppointmentService = async (id, currentUser) => {
       },
       { transaction }
     );
+
+    if (isDoctorCancelAfterCheckIn) {
+      if (SmsLog) {
+        await SmsLog.destroy({
+          where: {
+            queue_id: existingQueue.id,
+            status: "Pending",
+          },
+          transaction,
+        });
+      }
+
+      await recalculateQueueForecastForDoctorDateService(
+        existingQueue.doctor_id,
+        existingQueue.date,
+        transaction
+      );
+    }
 
     return getAppointmentByIdService(appointment.id, transaction);
   });

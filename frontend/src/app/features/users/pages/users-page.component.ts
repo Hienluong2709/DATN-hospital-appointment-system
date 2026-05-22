@@ -82,8 +82,7 @@ export class UsersPageComponent implements OnInit, OnDestroy {
   });
 
   readonly resetPasswordForm = this.fb.nonNullable.group({
-    password: ['', [Validators.required, Validators.pattern(STRONG_PASSWORD_PATTERN)]],
-    confirmPassword: ['', [Validators.required]]
+    confirm: [true]
   });
 
   get usernameControl() {
@@ -118,19 +117,15 @@ export class UsersPageComponent implements OnInit, OnDestroy {
   }
 
   get resetPasswordInvalid(): boolean {
-    const control = this.resetPasswordForm.controls.password;
-    return control.invalid && (control.touched || control.dirty);
+    return false;
   }
 
   get resetPasswordConfirmInvalid(): boolean {
-    const control = this.resetPasswordForm.controls.confirmPassword;
-    return control.invalid && (control.touched || control.dirty);
+    return false;
   }
 
   get resetPasswordMismatch(): boolean {
-    const raw = this.resetPasswordForm.getRawValue();
-    const touched = this.resetPasswordForm.controls.confirmPassword.touched || this.resetPasswordForm.controls.confirmPassword.dirty;
-    return touched && raw.password.trim() !== raw.confirmPassword.trim();
+    return false;
   }
 
   get rowOffset(): number {
@@ -297,8 +292,7 @@ export class UsersPageComponent implements OnInit, OnDestroy {
     this.isResetPasswordModalOpen = false;
     this.passwordResetUser = null;
     this.resetPasswordForm.reset({
-      password: '',
-      confirmPassword: ''
+      confirm: true
     });
     this.updateBodyScrollState();
   }
@@ -348,8 +342,7 @@ export class UsersPageComponent implements OnInit, OnDestroy {
 
     this.passwordResetUser = user;
     this.resetPasswordForm.reset({
-      password: '',
-      confirmPassword: ''
+      confirm: true
     });
     this.isResetPasswordModalOpen = true;
     this.updateBodyScrollState();
@@ -441,31 +434,21 @@ export class UsersPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.resetPasswordForm.invalid) {
-      this.resetPasswordForm.markAllAsTouched();
-      return;
-    }
-
-    const raw = this.resetPasswordForm.getRawValue();
-    const password = raw.password.trim();
-    const confirmPassword = raw.confirmPassword.trim();
-
-    if (password !== confirmPassword) {
-      this.resetPasswordForm.controls.confirmPassword.setErrors({ mismatch: true });
-      this.resetPasswordForm.controls.confirmPassword.markAsTouched();
+    if (!this.passwordResetUser.email) {
+      this.showFeedback('error', 'Tài khoản chưa có email để nhận mật khẩu tạm thời.');
       return;
     }
 
     this.isSubmitting = true;
 
-    this.usersApiService.resetPassword(this.passwordResetUser.id, { password }).subscribe({
+    this.usersApiService.resetPassword(this.passwordResetUser.id, { send_temporary_password: true }).subscribe({
       next: (response) => {
-        this.showFeedback('success', response.message ?? 'Reset mật khẩu thành công.');
+        this.showFeedback('success', response.message ?? 'Đã gửi mật khẩu tạm thời qua email.');
         this.isSubmitting = false;
         this.closeResetPasswordModal();
       },
       error: (error: HttpErrorResponse) => {
-        this.showFeedback('error', error.error?.message ?? 'Không thể reset mật khẩu.');
+        this.showFeedback('error', error.error?.message ?? 'Không thể gửi mật khẩu tạm thời.');
       },
       complete: () => {
         this.isSubmitting = false;

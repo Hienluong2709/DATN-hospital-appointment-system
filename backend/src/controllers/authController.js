@@ -4,7 +4,10 @@ import {
   logoutService,
   refreshSessionService,
   registerUserService,
+  resetPatientPasswordService,
   sendChangePasswordOtpService,
+  sendPatientResetPasswordOtpService,
+  verifyPatientResetPasswordOtpService,
   verifyChangePasswordOtpService,
 } from "../services/authService.js";
 import {
@@ -224,6 +227,63 @@ export const verifyChangePasswordOtp = async (req, res) => {
     const statusCode = error.statusCode || 500;
     const message =
       statusCode === 500 ? "Xác thực OTP thất bại, vui lòng thử lại" : error.message;
+
+    res.status(statusCode).json({
+      message,
+    });
+  }
+};
+
+export const sendPatientResetPasswordOtp = async (req, res) => {
+  try {
+    const data = await sendPatientResetPasswordOtpService(req.body);
+
+    res.status(201).json({
+      message: "Gửi OTP đặt lại mật khẩu thành công",
+      data,
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    const message =
+      statusCode === 500 ? "Gửi OTP thất bại, vui lòng thử lại" : error.message;
+
+    res.status(statusCode).json({
+      message,
+    });
+  }
+};
+
+export const verifyPatientResetPasswordOtp = async (req, res) => {
+  try {
+    const data = await verifyPatientResetPasswordOtpService(req.body);
+
+    res.json({
+      message: "Xác thực OTP đặt lại mật khẩu thành công",
+      data,
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    const message =
+      statusCode === 500 ? "Xác thực OTP thất bại, vui lòng thử lại" : error.message;
+
+    res.status(statusCode).json({
+      message,
+    });
+  }
+};
+
+export const resetPatientPassword = async (req, res) => {
+  try {
+    const data = await resetPatientPasswordService(req.body);
+
+    res.json({
+      message: "Đặt lại mật khẩu thành công",
+      data,
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    const message =
+      statusCode === 500 ? "Đặt lại mật khẩu thất bại, vui lòng thử lại" : error.message;
 
     res.status(statusCode).json({
       message,

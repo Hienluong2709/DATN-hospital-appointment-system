@@ -15,6 +15,8 @@ import {
   OtpVerifyData,
   PhoneOtpPayload,
   PhoneOtpVerifyPayload,
+  ResetPasswordData,
+  ResetPasswordPayload,
   RegisterData,
   RegisterPayload
 } from '../models/auth.model';
@@ -69,5 +71,20 @@ export class AuthApiService {
 
   changePassword(payload: ChangePasswordPayload) {
     return this.http.post<ApiResponse<ChangePasswordData>>(`${API_BASE_URL}/auth/change-password`, payload);
+  }
+
+  sendForgotPasswordOtp(email: string) {
+    return this.http.post<ApiResponse<OtpDeliveryData>>(`${API_BASE_URL}/auth/forgot-password/otp/send`, { email });
+  }
+
+  verifyForgotPasswordOtp(email: string, code: string) {
+    return this.http.post<ApiResponse<OtpVerifyData>>(`${API_BASE_URL}/auth/forgot-password/otp/verify`, {
+      email,
+      code,
+    });
+  }
+
+  resetForgottenPassword(payload: ResetPasswordPayload) {
+    return this.http.post<ApiResponse<ResetPasswordData>>(`${API_BASE_URL}/auth/forgot-password/reset`, payload);
   }
 }

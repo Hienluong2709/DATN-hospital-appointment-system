@@ -79,6 +79,41 @@
   }
 }
 
+.reset-password-note {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #cfe4f6;
+  border-radius: 8px;
+  background: #f3f9ff;
+  color: #163a5f;
+
+  .material-symbols-outlined {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: #e3f1ff;
+    color: #0f5f9f;
+  }
+
+  strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #0f3d66;
+  }
+
+  p {
+    margin: 0;
+    color: #52708d;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+}
+
 .reset-password-form .form-actions {
   display: flex;
   justify-content: flex-end;
