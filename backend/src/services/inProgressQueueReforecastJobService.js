@@ -5,6 +5,7 @@ import {
   getAverageVisitDurationMinutesService,
   recalculateQueueForecastForDoctorDateService,
 } from "./queueForecastService.js";
+import { publishQueueForecastRealtimeEvent } from "./realtimeService.js";
 
 const { JobExecutionLog, Queue, sequelize } = db;
 
@@ -214,6 +215,11 @@ export const runInProgressQueueReforecastJob = async ({
     if (!dryRun) {
       for (const target of detectionSummary.recalc_targets) {
         await recalculateQueueForecastForDoctorDateService(target.doctor_id, target.date);
+        await publishQueueForecastRealtimeEvent({
+          reason: "IN_PROGRESS_REFORECAST",
+          doctor_id: target.doctor_id,
+          date: target.date,
+        });
         summary.recalculated_target_count += 1;
       }
     }

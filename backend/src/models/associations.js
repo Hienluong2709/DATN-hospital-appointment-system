@@ -13,6 +13,7 @@ export default (db) => {
     SmsLog,
     JobExecutionLog,
     RefreshToken,
+    QueueActionLog,
   } = db;
 
   User.hasOne(Doctor, { foreignKey: "user_id" });
@@ -109,5 +110,16 @@ export default (db) => {
 
   if (JobExecutionLog) {
     // Standalone job log table, no associations required for now.
+  }
+
+  if (QueueActionLog) {
+    Queue.hasMany(QueueActionLog, { foreignKey: "queue_id", as: "actionLogs" });
+    QueueActionLog.belongsTo(Queue, { foreignKey: "queue_id", as: "queue" });
+
+    Appointment.hasMany(QueueActionLog, { foreignKey: "appointment_id", as: "queueActionLogs" });
+    QueueActionLog.belongsTo(Appointment, { foreignKey: "appointment_id", as: "appointment" });
+
+    User.hasMany(QueueActionLog, { foreignKey: "actor_user_id", as: "queueActionLogs" });
+    QueueActionLog.belongsTo(User, { foreignKey: "actor_user_id", as: "actor" });
   }
 };

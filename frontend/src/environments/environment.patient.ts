@@ -4,5 +4,6 @@ export const environment: PortalEnvironment = {
   portalMode: 'patient',
   patientPortalOrigin: 'http://localhost:4200',
   staffPortalOrigin: 'http://localhost:4201',
-  idleTimeoutMs: 300000
+  idleTimeoutMs: 300000,
+  realtimeWsUrl: 'ws://localhost:5001/ws'
 };

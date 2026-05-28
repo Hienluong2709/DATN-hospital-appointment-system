@@ -3,12 +3,14 @@ import { NavigationEnd, Router } from '@angular/router';
 
 import { AuthApiService } from '../../features/auth/services/auth.api';
 import { environment } from '../../../environments/environment';
+import { RealtimeService } from './realtime.service';
 import { TokenService } from './token.service';
 
 @Injectable({ providedIn: 'root' })
 export class IdleSessionService {
   private readonly tokenService = inject(TokenService);
   private readonly authApiService = inject(AuthApiService);
+  private readonly realtimeService = inject(RealtimeService);
   private readonly router = inject(Router);
 
   private readonly idleTimeoutMs =
@@ -74,6 +76,7 @@ export class IdleSessionService {
         });
       }
     } finally {
+      this.realtimeService.disconnect();
       this.tokenService.clearSession();
       const loginPath = environment.portalMode === 'staff' ? '/staff/login' : '/login';
       await this.router.navigateByUrl(loginPath);

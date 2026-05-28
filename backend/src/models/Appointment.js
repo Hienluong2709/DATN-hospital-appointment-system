@@ -37,9 +37,18 @@ const Appointment = sequelize.define("Appointment", {
     type: DataTypes.ENUM("MORNING", "AFTERNOON"),
     allowNull: true,
   },
+  priority_level: {
+    type: DataTypes.ENUM("Normal", "Priority", "Emergency"),
+    allowNull: false,
+    defaultValue: "Normal",
+  },
   status: {
     type: DataTypes.ENUM("Pending", "Confirmed", "CheckedIn", "Cancelled", "Completed", "NoShow"),
     defaultValue: "Pending",
+  },
+  no_show_note: {
+    type: DataTypes.TEXT,
+    allowNull: true,
   },
   hold_expires_at: {
     type: DataTypes.DATE,

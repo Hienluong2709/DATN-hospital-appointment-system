@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+import { createServer } from "http";
 import sequelize from "./config/db.js";
 import db from "./models/index.js";
 import initAssociations from "./models/associations.js";
@@ -18,10 +19,12 @@ import { cleanupExpiredPendingAppointmentsService } from "./services/appointment
 import { startInProgressQueueReforecastJob } from "./services/inProgressQueueReforecastJobService.js";
 import { startNoShowEndOfDayJob } from "./services/noShowJobService.js";
 import { startQueueNotificationDispatchJob } from "./services/queueNotificationJobService.js";
+import { initRealtimeServer } from "./services/realtimeService.js";
 
 dotenv.config();
 
 const app = express();
+const server = createServer(app);
 
 app.use(express.json());
 
@@ -58,7 +61,9 @@ const startServer = async () => {
     console.log("MySQL connected successfully!");
 
     // 2. Start server (schema should be managed by migrations)
-    app.listen(PORT, () => {
+    initRealtimeServer(server);
+
+    server.listen(PORT, () => {
       console.log(`Server running at http://localhost:${PORT}`);
     });
 

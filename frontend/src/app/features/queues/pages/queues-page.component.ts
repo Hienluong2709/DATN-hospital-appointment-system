@@ -6,10 +6,11 @@ import { Subscription } from 'rxjs';
 
 import { BackendRole } from '../../../core/models/auth-role.model';
 import { NotificationService } from '../../../core/services/notification.service';
+import { RealtimeEvent, RealtimeService } from '../../../core/services/realtime.service';
 import { TokenService } from '../../../core/services/token.service';
 import { AppointmentsApiService } from '../../appointments/data-access/appointments.api';
 import { Appointment, AppointmentStatus } from '../../appointments/models/appointments.model';
-import { Queue, QueueStatus } from '../models/queues.model';
+import { Queue, QueuePriorityLevel, QueueStatus } from '../models/queues.model';
 import { QueuesApiService } from '../services/queues.api';
 
 type QueueStatusFilter = QueueStatus | 'ALL';
@@ -36,6 +37,7 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   private readonly queuesApiService = inject(QueuesApiService);
   private readonly appointmentsApiService = inject(AppointmentsApiService);
   private readonly notificationService = inject(NotificationService);
+  private readonly realtimeService = inject(RealtimeService);
   private readonly tokenService = inject(TokenService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -49,6 +51,7 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   isLoading = false;
   private pendingRequests = 0;
   processingAppointmentId: Record<number, boolean> = {};
+  checkInPriorityByAppointmentId: Record<number, QueuePriorityLevel> = {};
   selectedPatientQueue: Queue | null = null;
   selectedPatientAppointment: Appointment | null = null;
   selectedDate = this.getTodayDateString();
@@ -60,6 +63,11 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   @Input() embedded = false;
 
   readonly currentRole: BackendRole | null = this.tokenService.getCurrentRole();
+  readonly priorityOptions: Array<{ value: QueuePriorityLevel; label: string }> = [
+    { value: 'Normal', label: 'Bình thường' },
+    { value: 'Priority', label: 'Ưu tiên' },
+    { value: 'Emergency', label: 'Khẩn cấp' },
+  ];
 
   ngOnInit(): void {
     this.subscriptions.add(
@@ -73,6 +81,14 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
       })
     );
 
+    this.subscriptions.add(
+      this.realtimeService.events$.subscribe((event) => {
+        if (this.shouldReloadFromRealtimeEvent(event)) {
+          this.loadData(true);
+        }
+      })
+    );
+    this.realtimeService.connect();
     this.startPolling();
     this.startCountdown();
   }
@@ -97,7 +113,7 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   }
 
   get canUseCancelAfterCheckInAction(): boolean {
-    return this.canAny(['DOCTOR']);
+    return false;
   }
 
   get canUseWaitingNoShowAction(): boolean {
@@ -277,6 +293,40 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
     }
   }
 
+  getPriorityLabel(priority: QueuePriorityLevel | null | undefined): string {
+    switch (priority) {
+      case 'Emergency':
+        return 'Khẩn cấp';
+      case 'Priority':
+        return 'Ưu tiên';
+      default:
+        return 'Bình thường';
+    }
+  }
+
+  getAppointmentPriority(appointment: Appointment | null | undefined): QueuePriorityLevel {
+    const priority = appointment?.priority_level;
+    return priority === 'Emergency' || priority === 'Priority' || priority === 'Normal' ? priority : 'Normal';
+  }
+
+  getQueuePriority(queue: Queue): QueuePriorityLevel {
+    const priority = queue.Appointment?.priority_level;
+    return priority === 'Emergency' || priority === 'Priority' || priority === 'Normal' ? priority : 'Normal';
+  }
+
+  getCheckInPriority(appointment: Appointment): QueuePriorityLevel {
+    return this.checkInPriorityByAppointmentId[appointment.id] || this.getAppointmentPriority(appointment);
+  }
+
+  updateCheckInPriority(appointment: Appointment, value: string): void {
+    if (value === 'Normal' || value === 'Priority' || value === 'Emergency') {
+      this.checkInPriorityByAppointmentId[appointment.id] = value;
+      return;
+    }
+
+    this.checkInPriorityByAppointmentId[appointment.id] = 'Normal';
+  }
+
   getQueueEstimateLabel(appointment: Appointment): string {
     const value = this.getAppointmentPredictedStart(appointment);
     return this.getTimeLabel(value);
@@ -351,6 +401,14 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
       : '-';
   }
 
+  getSelectedPriorityLabel(): string {
+    if (this.selectedPatientQueue) {
+      return this.getPriorityLabel(this.getQueuePriority(this.selectedPatientQueue));
+    }
+
+    return this.getPriorityLabel(this.getAppointmentPriority(this.selectedPatientAppointment));
+  }
+
   getSelectedAppointmentPredictedStartLabel(): string {
     if (this.selectedPatientQueue) {
       return this.getPredictedStartLabel(this.selectedPatientQueue);
@@ -377,6 +435,12 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
     return this.selectedPatientQueue
       ? this.getReason(this.selectedPatientQueue)
       : this.selectedPatientAppointment?.reason || 'Không có ghi chú';
+  }
+
+  getSelectedNoShowNote(): string {
+    return this.selectedPatientQueue?.Appointment?.no_show_note
+      ?? this.selectedPatientAppointment?.no_show_note
+      ?? 'Chưa có ghi chú vắng mặt';
   }
 
   getPatientGenderLabel(): string {
@@ -596,7 +660,7 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
     this.processingAppointmentId[appointment.id] = true;
     this.clearMessages();
 
-    this.appointmentsApiService.checkIn(appointment.id).subscribe({
+    this.appointmentsApiService.checkIn(appointment.id, this.getCheckInPriority(appointment)).subscribe({
       next: () => {
         this.showSuccess('Check-in và cấp số thứ tự thành công');
         this.loadData(true);
@@ -611,14 +675,15 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   }
 
   markWaitingNoShow(appointment: Appointment): void {
-    if (!confirm('Ghi nhận bệnh nhân vắng mặt cho lịch hẹn này?')) {
+    const note = prompt('Nhập ghi chú vắng mặt cho lịch hẹn này:', 'Bệnh nhân không có mặt khi gọi tiếp nhận.');
+    if (note === null) {
       return;
     }
 
     this.processingAppointmentId[appointment.id] = true;
     this.clearMessages();
 
-    this.appointmentsApiService.markNoShow(appointment.id).subscribe({
+    this.appointmentsApiService.markNoShow(appointment.id, note).subscribe({
       next: () => {
         this.showSuccess('Ghi nhận vắng mặt thành công');
         this.loadData(true);
@@ -729,14 +794,15 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (!confirm('Ghi nhận bệnh nhân vắng mặt cho lượt khám này?')) {
+    const note = prompt('Nhập ghi chú vắng mặt cho lượt khám này:', 'Bệnh nhân không vào phòng khám khi đến lượt.');
+    if (note === null) {
       return;
     }
 
     this.processingAppointmentId[appointmentId] = true;
     this.clearMessages();
 
-    this.appointmentsApiService.markNoShow(appointmentId).subscribe({
+    this.appointmentsApiService.markNoShow(appointmentId, note).subscribe({
       next: () => {
         this.showSuccess('Ghi nhận vắng mặt thành công');
         this.loadData(true);
@@ -761,6 +827,24 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
     }
 
     this.loadAppointments();
+  }
+
+  private shouldReloadFromRealtimeEvent(event: RealtimeEvent): boolean {
+    if (event.type !== 'queue.updated' && event.type !== 'queue.forecast.updated') {
+      return false;
+    }
+
+    const eventDate = event.payload.date;
+    if (eventDate && this.selectedDate && eventDate !== this.selectedDate) {
+      return false;
+    }
+
+    const eventDoctorId = Number(event.payload.doctor_id);
+    if (!this.isDoctorView && this.selectedDoctorId > 0 && eventDoctorId !== this.selectedDoctorId) {
+      return false;
+    }
+
+    return true;
   }
 
   private loadQueues(): void {

@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 
 import { BackendRole } from '../../../core/models/auth-role.model';
+import { RealtimeEvent, RealtimeService } from '../../../core/services/realtime.service';
 import { TokenService } from '../../../core/services/token.service';
 import { SharedPaginationComponent } from '../../../shared/components/pagination/pagination.component';
 import { QueuesPageComponent } from '../../queues/pages/queues-page.component';
@@ -36,6 +37,7 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
   private static readonly POLL_INTERVAL_MS = 10000;
 
   private readonly appointmentsApiService = inject(AppointmentsApiService);
+  private readonly realtimeService = inject(RealtimeService);
   private readonly tokenService = inject(TokenService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -77,6 +79,14 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
       })
     );
 
+    this.subscriptions.add(
+      this.realtimeService.events$.subscribe((event) => {
+        if (this.shouldReloadFromRealtimeEvent(event)) {
+          this.loadAppointments(true);
+        }
+      })
+    );
+    this.realtimeService.connect();
     this.startPolling();
   }
 
@@ -580,6 +590,28 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
         this.isLoading = false;
       }
     });
+  }
+
+  private shouldReloadFromRealtimeEvent(event: RealtimeEvent): boolean {
+    if (event.type !== 'queue.updated' && event.type !== 'queue.forecast.updated') {
+      return false;
+    }
+
+    if (this.isDoctorView) {
+      return false;
+    }
+
+    const eventDate = event.payload.date;
+    if (eventDate && !this.isDateInActiveRange(eventDate)) {
+      return false;
+    }
+
+    const eventDoctorId = Number(event.payload.doctor_id);
+    if (this.selectedDoctorId > 0 && eventDoctorId !== this.selectedDoctorId) {
+      return false;
+    }
+
+    return true;
   }
 
   private executeAction(

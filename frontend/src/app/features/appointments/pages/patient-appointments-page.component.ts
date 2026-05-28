@@ -2,10 +2,11 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 
 import { DoctorsApiService } from '../../doctors/services/doctors.api';
 import { NotificationService } from '../../../core/services/notification.service';
+import { RealtimeEvent, RealtimeService } from '../../../core/services/realtime.service';
 import { Specialty } from '../../specialties/models/specialties.model';
 import { SpecialtiesApiService } from '../../specialties/services/specialties.api';
 import { AppointmentsApiService } from '../data-access/appointments.api';
@@ -33,6 +34,8 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
   private readonly specialtiesApiService = inject(SpecialtiesApiService);
   private readonly doctorsApiService = inject(DoctorsApiService);
   private readonly notificationService = inject(NotificationService);
+  private readonly realtimeService = inject(RealtimeService);
+  private readonly subscriptions = new Subscription();
   private pollIntervalId: ReturnType<typeof setInterval> | null = null;
 
   appointments: Appointment[] = [];
@@ -63,10 +66,19 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
     this.restoreHiddenArchivedAppointments();
     this.loadAppointments();
     this.loadSpecialties();
+    this.subscriptions.add(
+      this.realtimeService.events$.subscribe((event) => {
+        if (this.shouldReloadFromRealtimeEvent(event)) {
+          this.loadAppointments();
+        }
+      })
+    );
+    this.realtimeService.connect();
     this.startPolling();
   }
 
   ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
     this.stopPolling();
   }
 
@@ -792,6 +804,10 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
     this.pollIntervalId = setInterval(() => {
       this.loadAppointments();
     }, PatientAppointmentsPageComponent.POLL_INTERVAL_MS);
+  }
+
+  private shouldReloadFromRealtimeEvent(event: RealtimeEvent): boolean {
+    return event.type === 'queue.updated' || event.type === 'queue.forecast.updated';
   }
 
   private stopPolling(): void {

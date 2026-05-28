@@ -103,7 +103,7 @@ export const cancelAppointment = async (req, res) => {
 
 export const markAppointmentNoShow = async (req, res) => {
   try {
-    const data = await markAppointmentNoShowService(req.params.id, req.user);
+    const data = await markAppointmentNoShowService(req.params.id, req.user, req.body);
 
     return res.json({
       message: "Ghi nhận vắng mặt thành công",

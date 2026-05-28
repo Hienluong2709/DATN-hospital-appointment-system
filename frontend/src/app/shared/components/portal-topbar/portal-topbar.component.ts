@@ -2,6 +2,7 @@ import { Component, inject, input } from '@angular/core';
 import { Router } from '@angular/router';
 
 import { AuthApiService } from '../../../features/auth/services/auth.api';
+import { RealtimeService } from '../../../core/services/realtime.service';
 import { TokenService } from '../../../core/services/token.service';
 import {
   CHANGE_PASSWORD_PATH,
@@ -230,6 +231,7 @@ export class PortalTopbarComponent {
   private readonly authApiService = inject(AuthApiService);
   private readonly tokenService = inject(TokenService);
   private readonly router = inject(Router);
+  private readonly realtimeService = inject(RealtimeService);
 
   readonly breadcrumbLabel = input<string>('Overview');
   readonly isAuthenticated = input<boolean>(false);
@@ -307,6 +309,7 @@ export class PortalTopbarComponent {
   onLogout(): void {
     const refreshToken = this.tokenService.getRefreshToken();
     if (!refreshToken) {
+      this.realtimeService.disconnect();
       this.tokenService.clearSession();
       void this.router.navigateByUrl(this.portal() === 'staff' ? '/staff/login' : '/');
       return;
@@ -314,10 +317,12 @@ export class PortalTopbarComponent {
 
     this.authApiService.logout(refreshToken).subscribe({
       next: () => {
+        this.realtimeService.disconnect();
         this.tokenService.clearSession();
         void this.router.navigateByUrl(this.portal() === 'staff' ? '/staff/login' : '/');
       },
       error: () => {
+        this.realtimeService.disconnect();
         this.tokenService.clearSession();
         void this.router.navigateByUrl(this.portal() === 'staff' ? '/staff/login' : '/');
       }

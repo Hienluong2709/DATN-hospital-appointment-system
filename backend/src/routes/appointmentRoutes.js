@@ -20,7 +20,7 @@ router.get("/", authenticate, authorize(["ADMIN", "DOCTOR", "RECEPTIONIST", "PAT
 router.get("/doctor/:doctorId/availability", authenticate, authorize(["ADMIN", "DOCTOR", "RECEPTIONIST", "PATIENT"]), getDoctorAvailability);
 router.get("/:id", authenticate, authorize(["ADMIN", "DOCTOR", "RECEPTIONIST", "PATIENT"]), getAppointmentById);
 router.post("/", authenticate, authorize(["RECEPTIONIST", "PATIENT"]), createAppointment);
-router.post("/:id/cancel", authenticate, authorize(["RECEPTIONIST", "PATIENT", "DOCTOR"]), cancelAppointment);
+router.post("/:id/cancel", authenticate, authorize(["RECEPTIONIST", "PATIENT"]), cancelAppointment);
 router.post("/:id/no-show", authenticate, authorize(["RECEPTIONIST", "DOCTOR"]), markAppointmentNoShow);
 router.post("/:id/check-in", authenticate, authorize(["RECEPTIONIST"]), checkInAppointment);
 router.post("/:id/reschedule", authenticate, authorize(["RECEPTIONIST"]), rescheduleAppointment);

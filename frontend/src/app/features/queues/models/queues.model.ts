@@ -1,4 +1,5 @@
 export type QueueStatus = 'Pending' | 'Confirmed' | 'CheckedIn' | 'Cancelled' | 'Completed' | 'NoShow';
+export type QueuePriorityLevel = 'Normal' | 'Priority' | 'Emergency';
 
 export interface QueuePatientRef {
   id: number;
@@ -41,8 +42,10 @@ export interface QueueAppointmentRef {
   patient?: QueuePatientRef | null;
   Doctor?: QueueDoctorRef | null;
   time_slot: string | null;
+  priority_level?: QueuePriorityLevel;
   reason?: string | null;
   status: QueueStatus;
+  no_show_note?: string | null;
 }
 
 export interface QueueWaitPredictionRef {

@@ -5,6 +5,7 @@ import { API_BASE_URL } from '../../../core/config/api.config';
 import { ApiResponse } from '../../../shared/types/api-response.type';
 import { Appointment, AppointmentTransitionResult, CreateAppointmentPayload } from '../models/appointments.model';
 import { Queue } from '../../queues/models/queues.model';
+import { QueuePriorityLevel } from '../../queues/models/queues.model';
 
 export interface AppointmentListFilters {
   q?: string;
@@ -72,12 +73,16 @@ export class AppointmentsApiService {
     return this.http.post<ApiResponse<Appointment>>(`${API_BASE_URL}/appointments/${id}/cancel`, {});
   }
 
-  markNoShow(id: number) {
-    return this.http.post<ApiResponse<Appointment>>(`${API_BASE_URL}/appointments/${id}/no-show`, {});
+  markNoShow(id: number, note?: string | null) {
+    return this.http.post<ApiResponse<Appointment>>(`${API_BASE_URL}/appointments/${id}/no-show`, {
+      note: note?.trim() || null
+    });
   }
 
-  checkIn(id: number) {
-    return this.http.post<ApiResponse<Queue>>(`${API_BASE_URL}/appointments/${id}/check-in`, {});
+  checkIn(id: number, priorityLevel?: QueuePriorityLevel) {
+    return this.http.post<ApiResponse<Queue>>(`${API_BASE_URL}/appointments/${id}/check-in`, {
+      priority_level: priorityLevel || 'Normal'
+    });
   }
 
   start(id: number) {

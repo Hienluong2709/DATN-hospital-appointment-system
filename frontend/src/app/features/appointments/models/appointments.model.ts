@@ -1,5 +1,6 @@
 export type AppointmentStatus = 'Pending' | 'Confirmed' | 'CheckedIn' | 'Cancelled' | 'Completed' | 'NoShow';
 export type AppointmentPreferredPeriod = 'MORNING' | 'AFTERNOON';
+export type AppointmentPriorityLevel = 'Normal' | 'Priority' | 'Emergency';
 
 export interface AppointmentPatientRef {
   id: number;
@@ -58,8 +59,10 @@ export interface Appointment {
   date: string;
   time_slot: string | null;
   preferred_period?: AppointmentPreferredPeriod | null;
+  priority_level?: AppointmentPriorityLevel;
   reason?: string | null;
   status: AppointmentStatus;
+  no_show_note?: string | null;
   hold_expires_at?: string | null;
   estimated_start?: string | null;
   patient?: AppointmentPatientRef | null;
@@ -77,6 +80,7 @@ export interface CreateAppointmentPayload {
   date: string;
   time_slot?: string | null;
   preferred_period?: AppointmentPreferredPeriod | null;
+  priority_level?: AppointmentPriorityLevel;
   reason?: string | null;
 }
 

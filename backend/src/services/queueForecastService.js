@@ -33,6 +33,11 @@ const APPOINTMENT_PREFERRED_PERIOD = Object.freeze({
 });
 const AFTERNOON_START_SECONDS = 12 * 3600;
 const FORECAST_EXCLUDED_APPOINTMENT_STATUSES = new Set(["Cancelled", "NoShow"]);
+const QUEUE_PRIORITY_RANK = Object.freeze({
+  Emergency: 0,
+  Priority: 1,
+  Normal: 2,
+});
 
 const shouldExcludeFromActiveForecast = (queueLike) =>
   FORECAST_EXCLUDED_APPOINTMENT_STATUSES.has(queueLike?.Appointment?.status);
@@ -380,6 +385,11 @@ const getQueueCategoryRank = (queueLike) => {
   return 2;
 };
 
+const getQueuePriorityRank = (queueLike) => {
+  const priorityLevel = queueLike?.Appointment?.priority_level || queueLike?.priority_level || "Normal";
+  return QUEUE_PRIORITY_RANK[priorityLevel] ?? QUEUE_PRIORITY_RANK.Normal;
+};
+
 export const compareQueuesByServiceOrder = (left, right) => {
   const categoryDelta = getQueueCategoryRank(left) - getQueueCategoryRank(right);
   if (categoryDelta !== 0) {
@@ -398,6 +408,11 @@ export const compareQueuesByServiceOrder = (left, right) => {
     if (actualStartDelta !== 0) {
       return actualStartDelta;
     }
+  }
+
+  const priorityLevelDelta = getQueuePriorityRank(left) - getQueuePriorityRank(right);
+  if (priorityLevelDelta !== 0) {
+    return priorityLevelDelta;
   }
 
   const leftPriorityDate = getQueueServicePriorityDate(left);

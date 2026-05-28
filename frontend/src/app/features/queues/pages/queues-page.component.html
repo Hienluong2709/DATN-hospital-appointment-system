@@ -120,6 +120,16 @@
             <span>Dự kiến vào khám</span>
             <strong>{{ getQueueEstimateLabel(appointment) }}</strong>
           </div>
+          <label class="queue-card__item queue-card__item--select">
+            <span>Mức ưu tiên</span>
+            <select
+              [ngModel]="getCheckInPriority(appointment)"
+              (ngModelChange)="updateCheckInPriority(appointment, $event)"
+              [disabled]="processingAppointmentId[appointment.id]"
+            >
+              <option *ngFor="let option of priorityOptions" [ngValue]="option.value">{{ option.label }}</option>
+            </select>
+          </label>
         </div>
 
         <div class="queue-card__reason">
@@ -210,6 +220,16 @@
             {{ getWorkflowStatusLabel(queue) }}
           </span>
         </header>
+
+        <div class="priority-line">
+          <span
+            class="priority-chip"
+            [class.priority-chip--priority]="getQueuePriority(queue) === 'Priority'"
+            [class.priority-chip--emergency]="getQueuePriority(queue) === 'Emergency'"
+          >
+            {{ getPriorityLabel(getQueuePriority(queue)) }}
+          </span>
+        </div>
 
         <div class="queue-card__grid">
           <div class="queue-card__item">
@@ -397,6 +417,10 @@
               </dd>
             </div>
             <div>
+              <dt>Mức ưu tiên</dt>
+              <dd>{{ getSelectedPriorityLabel() }}</dd>
+            </div>
+            <div>
               <dt>Dự kiến vào khám</dt>
               <dd>{{ getSelectedAppointmentPredictedStartLabel() }}</dd>
             </div>
@@ -415,6 +439,10 @@
             <div class="patient-detail-section__wide">
               <dt>Lý do khám</dt>
               <dd>{{ getSelectedReason() }}</dd>
+            </div>
+            <div class="patient-detail-section__wide">
+              <dt>Ghi chú vắng mặt</dt>
+              <dd>{{ getSelectedNoShowNote() }}</dd>
             </div>
           </dl>
         </section>

@@ -6,6 +6,11 @@ import {
   recalculateQueueForecastForDoctorDateService,
 } from "./queueForecastService.js";
 import { enqueueCheckInEstimateNotificationForQueue } from "./notificationService.js";
+import { createQueueActionLog } from "./queueActionLogService.js";
+import {
+  publishQueueForecastRealtimeEvent,
+  publishQueueRealtimeEvent,
+} from "./realtimeService.js";
 import {
   buildPaginationMeta,
   createListResult,
@@ -128,6 +133,7 @@ const APPOINTMENT_STATUS_VALUES = new Set([
   "Completed",
   "NoShow",
 ]);
+const APPOINTMENT_PRIORITY_VALUES = new Set(["Normal", "Priority", "Emergency"]);
 
 const normalizeOptionalDoctorId = (value) => {
   if (value === undefined || value === null || value === "") {
@@ -160,6 +166,21 @@ const normalizeOptionalAppointmentStatus = (value) => {
   const trimmed = String(value).trim();
   if (!APPOINTMENT_STATUS_VALUES.has(trimmed)) {
     const error = new Error("status không hợp lệ");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return trimmed;
+};
+
+const normalizeOptionalPriorityLevel = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  const trimmed = String(value).trim();
+  if (!APPOINTMENT_PRIORITY_VALUES.has(trimmed)) {
+    const error = new Error("priority_level không hợp lệ");
     error.statusCode = 400;
     throw error;
   }
@@ -695,6 +716,7 @@ export const createQueueService = async (payload) => {
       });
 
       const queueNumber = await generateQueueNumber(appointment.date, appointment.doctor_id, transaction);
+      const fromStatus = appointment.status;
 
       const queue = await Queue.create(
         {
@@ -720,12 +742,40 @@ export const createQueueService = async (payload) => {
         { transaction }
       );
 
+      await createQueueActionLog({
+        queueId: queue.id,
+        appointmentId: appointment.id,
+        action: "CHECK_IN",
+        fromStatus,
+        toStatus: "CheckedIn",
+        metadata: {
+          queue_number: queueNumber,
+          source: "queue_create",
+        },
+      }, transaction);
+
       await recalculateQueueForecastForDoctorDateService(appointment.doctor_id, appointment.date, transaction);
 
       return queue;
     });
 
-    return getQueueByIdService(created.id);
+    const queue = await getQueueByIdService(created.id);
+    await publishQueueRealtimeEvent({
+      reason: "CHECK_IN",
+      queue_id: queue.id,
+      appointment_id: queue.appointment_id,
+      doctor_id: queue.doctor_id,
+      date: queue.date,
+      patient_id: queue.Appointment?.patient_id,
+      status: queue.Appointment?.status,
+    });
+    await publishQueueForecastRealtimeEvent({
+      reason: "FORECAST_RECALCULATED",
+      doctor_id: queue.doctor_id,
+      date: queue.date,
+    });
+
+    return queue;
   } catch (error) {
     if (isUniqueConstraintViolation(error)) {
       throw toQueueConflictError(error);
@@ -740,6 +790,7 @@ export const checkInAppointmentService = async (appointmentId, payload, currentU
     const created = await sequelize.transaction(async (transaction) => {
       const appointment = await ensureAppointmentExists(appointmentId, transaction);
       await ensureCanCheckInAppointment(appointment, currentUser, transaction);
+      const priorityLevel = normalizeOptionalPriorityLevel(payload?.priority_level);
 
       if (appointment.date !== getTodayBusinessDateString()) {
         const error = new Error("Chỉ có thể check-in lịch hẹn trong đúng ngày khám");
@@ -770,6 +821,7 @@ export const checkInAppointmentService = async (appointmentId, payload, currentU
       });
 
       const queueNumber = await generateQueueNumber(appointment.date, appointment.doctor_id, transaction);
+      const fromStatus = appointment.status;
 
       const queue = await Queue.create(
         {
@@ -791,9 +843,23 @@ export const checkInAppointmentService = async (appointmentId, payload, currentU
       await appointment.update(
         {
           status: "CheckedIn",
+          ...(priorityLevel ? { priority_level: priorityLevel } : {}),
         },
         { transaction }
       );
+
+      await createQueueActionLog({
+        queueId: queue.id,
+        appointmentId: appointment.id,
+        actor: currentUser,
+        action: "CHECK_IN",
+        fromStatus,
+        toStatus: "CheckedIn",
+        metadata: {
+          queue_number: queueNumber,
+          priority_level: priorityLevel || appointment.priority_level || "Normal",
+        },
+      }, transaction);
 
       await recalculateQueueForecastForDoctorDateService(appointment.doctor_id, appointment.date, transaction);
 
@@ -809,6 +875,21 @@ export const checkInAppointmentService = async (appointmentId, payload, currentU
         `[notification] failed to enqueue CHECKIN_ESTIMATE for queue #${created.id}: ${notificationError.message}`
       );
     }
+
+    await publishQueueRealtimeEvent({
+      reason: "CHECK_IN",
+      queue_id: queue.id,
+      appointment_id: queue.appointment_id,
+      doctor_id: queue.doctor_id,
+      date: queue.date,
+      patient_id: queue.Appointment?.patient_id,
+      status: queue.Appointment?.status,
+    });
+    await publishQueueForecastRealtimeEvent({
+      reason: "FORECAST_RECALCULATED",
+      doctor_id: queue.doctor_id,
+      date: queue.date,
+    });
 
     return queue;
   } catch (error) {
@@ -878,7 +959,7 @@ export const deleteQueueService = async (id, currentUser) => {
     include: [
       {
         model: Appointment,
-        attributes: ["status"],
+        attributes: ["id", "patient_id", "status"],
       },
     ],
   });
@@ -907,12 +988,12 @@ export const deleteQueueService = async (id, currentUser) => {
     throw error;
   }
 
-  await sequelize.transaction(async (transaction) => {
+  const realtimePayload = await sequelize.transaction(async (transaction) => {
     const lockedQueue = await Queue.findByPk(queueId, {
       include: [
         {
           model: Appointment,
-          attributes: ["status"],
+          attributes: ["id", "patient_id", "status"],
         },
       ],
       transaction,
@@ -942,6 +1023,18 @@ export const deleteQueueService = async (id, currentUser) => {
       { transaction }
     );
 
+    await createQueueActionLog({
+      queueId: lockedQueue.id,
+      appointmentId: lockedQueue.appointment_id,
+      actor: currentUser,
+      action: "CANCEL_CHECK_IN",
+      fromStatus: lockedQueue.Appointment?.status || null,
+      toStatus: "Confirmed",
+      metadata: {
+        queue_number: lockedQueue.queue_number,
+      },
+    }, transaction);
+
     await WaitPrediction.destroy({
       where: { queue_id: queueId },
       transaction,
@@ -958,7 +1051,27 @@ export const deleteQueueService = async (id, currentUser) => {
 
     const doctorId = lockedQueue.doctor_id;
     const queueDate = lockedQueue.date;
+    const payload = {
+      reason: "CANCEL_CHECK_IN",
+      queue_id: lockedQueue.id,
+      appointment_id: lockedQueue.appointment_id,
+      doctor_id: doctorId,
+      date: queueDate,
+      patient_id: lockedQueue.Appointment?.patient_id,
+      status: "Confirmed",
+    };
     await lockedQueue.destroy({ transaction });
     await recalculateQueueForecastForDoctorDateService(doctorId, queueDate, transaction);
+
+    return payload;
   });
+
+  if (realtimePayload) {
+    await publishQueueRealtimeEvent(realtimePayload);
+    await publishQueueForecastRealtimeEvent({
+      reason: "FORECAST_RECALCULATED",
+      doctor_id: realtimePayload.doctor_id,
+      date: realtimePayload.date,
+    });
+  }
 };

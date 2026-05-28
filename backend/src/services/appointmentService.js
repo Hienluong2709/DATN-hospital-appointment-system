@@ -13,6 +13,11 @@ import {
   normalizeOptionalQueryString,
   parsePaginationQuery,
 } from "../utils/queryUtils.js";
+import { createQueueActionLog } from "./queueActionLogService.js";
+import {
+  publishQueueForecastRealtimeEvent,
+  publishQueueRealtimeEvent,
+} from "./realtimeService.js";
 
 const { Appointment, User, Doctor, Specialty, Room, WorkSchedule, WorkScheduleBlock, Queue, WaitPrediction, SmsLog } = db;
 const RETRYABLE_TRANSACTION_ERROR_CODES = new Set(["1213", "1205", "40P01"]);
@@ -47,6 +52,12 @@ const APPOINTMENT_PREFERRED_PERIOD = Object.freeze({
   MORNING: "MORNING",
   AFTERNOON: "AFTERNOON",
 });
+const APPOINTMENT_PRIORITY = Object.freeze({
+  NORMAL: "Normal",
+  PRIORITY: "Priority",
+  EMERGENCY: "Emergency",
+});
+const APPOINTMENT_PRIORITY_VALUES = new Set(Object.values(APPOINTMENT_PRIORITY));
 const AFTERNOON_START_SECONDS = 12 * 3600;
 const STATUS_TRANSITIONS = Object.freeze({
   [APPOINTMENT_STATUS.PENDING]: new Set([
@@ -322,6 +333,27 @@ const normalizeReason = (reason) => {
   return trimmed || null;
 };
 
+const normalizePriorityLevel = (value, { allowEmpty = true } = {}) => {
+  if (value === undefined || value === null || value === "") {
+    if (allowEmpty) {
+      return APPOINTMENT_PRIORITY.NORMAL;
+    }
+
+    const error = new Error("priority_level là bắt buộc");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const trimmed = String(value).trim();
+  if (!APPOINTMENT_PRIORITY_VALUES.has(trimmed)) {
+    const error = new Error("priority_level không hợp lệ");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return trimmed;
+};
+
 const normalizeJobDate = (value) => {
   if (typeof value !== "string") {
     const error = new Error("date là bắt buộc");
@@ -355,8 +387,8 @@ const ensureCanCancelAppointment = (appointment, currentUser) => {
     throw error;
   }
 
-  if (currentUser?.role === "DOCTOR" && appointment.status !== APPOINTMENT_STATUS.CHECKED_IN) {
-    const error = new Error("Bác sĩ chỉ được hủy lượt khám đã check-in");
+  if (currentUser?.role === "DOCTOR") {
+    const error = new Error("Bác sĩ không thực hiện hủy lịch hẹn, vui lòng dùng chức năng ghi nhận vắng mặt");
     error.statusCode = 403;
     throw error;
   }
@@ -537,6 +569,20 @@ const toConflictErrorFromUniqueConstraint = (error) => {
   const fallbackError = new Error("Khung giờ đã được đặt, vui lòng chọn thời gian khác");
   fallbackError.statusCode = 409;
   return fallbackError;
+};
+
+const isDoctorSlotUniqueConstraintViolation = (error) => {
+  if (!isUniqueConstraintViolation(error)) {
+    return false;
+  }
+
+  const constraintName = String(error?.original?.constraint || error?.parent?.constraint || "");
+  const fields = Object.keys(error?.fields || {});
+
+  return (
+    constraintName === DOCTOR_SLOT_UNIQUE_INDEX ||
+    (fields.includes("doctor_id") && fields.includes("date") && fields.includes("time_slot"))
+  );
 };
 
 const executeWithUniqueConstraintHandling = async (callback) => {
@@ -896,7 +942,7 @@ const ensureQueueIsCurrentTurnForStart = async (queue, transaction) => {
     include: [
       {
         model: Appointment,
-        attributes: ["id", "status"],
+        attributes: ["id", "status", "date", "time_slot", "priority_level"],
       },
     ],
     transaction,
@@ -1091,6 +1137,127 @@ const ensureDoctorWorkingOnDate = async (
     error.statusCode = 409;
     throw error;
   }
+};
+
+const resolveAutoTimeSlotForDoctorDate = async (
+  doctorId,
+  date,
+  preferredPeriod,
+  transaction,
+) => {
+  const dayOfWeek = getDayOfWeekFromDate(date);
+  const slotMinutes = normalizeSlotMinutes(DEFAULT_APPOINTMENT_SLOT_MINUTES);
+  const schedules = await WorkSchedule.findAll({
+    where: {
+      doctor_id: doctorId,
+      day_of_week: dayOfWeek,
+    },
+    order: [["start_time", "ASC"]],
+    transaction,
+  });
+
+  if (schedules.length === 0) {
+    const error = new Error("Bác sĩ không có lịch làm việc trong ngày đã chọn");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const blocks = await WorkScheduleBlock.findAll({
+    where: {
+      doctor_id: doctorId,
+      date,
+      status: "Approved",
+    },
+    attributes: ["is_off", "start_time", "end_time"],
+    transaction,
+  });
+
+  if (blocks.some((block) => block.is_off)) {
+    const error = new Error("Bác sĩ nghỉ trong ngày đã chọn");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const candidateSlots = new Set();
+  for (const schedule of schedules) {
+    const slots = buildTimeSlots(
+      toTimeString(schedule.start_time),
+      toTimeString(schedule.end_time),
+      slotMinutes
+    );
+
+    for (const slot of slots) {
+      candidateSlots.add(slot);
+    }
+  }
+
+  const blockRanges = blocks
+    .filter((block) => !block.is_off && block.start_time && block.end_time)
+    .map((block) => ({
+      startSeconds: timeToSeconds(toTimeString(block.start_time)),
+      endSeconds: timeToSeconds(toTimeString(block.end_time)),
+    }));
+
+  const validSlots = filterPastSlotsForDate(
+    filterSlotsByPreferredPeriod(Array.from(candidateSlots).sort(), preferredPeriod)
+      .filter((slot) => !isSlotBlockedByRange(slot, slotMinutes, blockRanges)),
+    date,
+    slotMinutes,
+  );
+
+  if (validSlots.length === 0) {
+    const error = new Error(
+      preferredPeriod === APPOINTMENT_PREFERRED_PERIOD.MORNING
+        ? "Bác sĩ không có khung giờ trống trong buổi sáng đã chọn"
+        : preferredPeriod === APPOINTMENT_PREFERRED_PERIOD.AFTERNOON
+          ? "Bác sĩ không có khung giờ trống trong buổi chiều đã chọn"
+          : "Bác sĩ không có khung giờ trống trong ngày đã chọn"
+    );
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const existingAppointments = await Appointment.findAll({
+    where: {
+      doctor_id: doctorId,
+      date,
+      status: {
+        [Op.notIn]: [APPOINTMENT_STATUS.CANCELLED, APPOINTMENT_STATUS.NO_SHOW],
+      },
+    },
+    attributes: ["id", "time_slot"],
+    order: [["time_slot", "ASC"], ["id", "ASC"]],
+    transaction,
+    lock: transaction?.LOCK?.UPDATE,
+  });
+
+  const bookedSlots = new Set();
+  let unslottedCount = 0;
+  for (const appointment of existingAppointments) {
+    if (appointment.time_slot) {
+      bookedSlots.add(toTimeString(appointment.time_slot));
+    } else {
+      unslottedCount += 1;
+    }
+  }
+
+  const unbookedSlots = validSlots.filter((slot) => !bookedSlots.has(slot));
+  const availableSlots = unbookedSlots.slice(Math.min(unslottedCount, unbookedSlots.length));
+  const selectedSlot = availableSlots[0];
+
+  if (!selectedSlot) {
+    const error = new Error(
+      preferredPeriod === APPOINTMENT_PREFERRED_PERIOD.MORNING
+        ? "Bác sĩ đã kín lịch trong buổi sáng đã chọn"
+        : preferredPeriod === APPOINTMENT_PREFERRED_PERIOD.AFTERNOON
+          ? "Bác sĩ đã kín lịch trong buổi chiều đã chọn"
+          : "Bác sĩ đã kín lịch trong ngày đã chọn"
+    );
+    error.statusCode = 409;
+    throw error;
+  }
+
+  return selectedSlot;
 };
 
 const estimateAppointmentStart = async (appointmentLike, transaction) => {
@@ -1346,59 +1513,89 @@ export const getAppointmentByIdService = async (id, transaction) => {
 };
 
 export const createAppointmentService = async (payload, currentUser) => {
-  return executeWithUniqueConstraintHandling(async () => {
-    return runReadCommittedTransaction(async (transaction) => {
-      await cleanupExpiredPendingAppointments(transaction);
+  const isPatientSelfBooking = currentUser?.role === "PATIENT";
+  const hasExplicitTimeSlot = Boolean(normalizeOptionalTime(payload?.time_slot));
+  const maxAutoSlotAttempts = isPatientSelfBooking && !hasExplicitTimeSlot
+    ? Math.max(1, MAX_TRANSACTION_RETRIES + 1)
+    : 1;
 
-      const requestedPatientId = currentUser?.role === "PATIENT" ? currentUser.id : payload?.patient_id;
-      const patientId = await ensurePatientExists(requestedPatientId, transaction);
-      const doctorId = await ensureDoctorExists(payload?.doctor_id, transaction);
-      const date = normalizeDate(payload?.date);
-      const isPatientSelfBooking = currentUser?.role === "PATIENT";
-      const timeSlot = isPatientSelfBooking ? normalizeOptionalTime(payload?.time_slot) : normalizeTime(payload?.time_slot);
-      const preferredPeriod = normalizePreferredPeriod(payload?.preferred_period, false);
-      const reason = normalizeReason(payload?.reason);
+  for (let attempt = 0; attempt < maxAutoSlotAttempts; attempt += 1) {
+    try {
+      return await runReadCommittedTransaction(async (transaction) => {
+        await cleanupExpiredPendingAppointments(transaction);
 
-      if (Object.prototype.hasOwnProperty.call(payload || {}, "status")) {
-        const error = new Error(
-          "Không được truyền status khi tạo lịch hẹn"
-        );
-        error.statusCode = 400;
-        throw error;
-      }
+        const requestedPatientId = currentUser?.role === "PATIENT" ? currentUser.id : payload?.patient_id;
+        const patientId = await ensurePatientExists(requestedPatientId, transaction);
+        const doctorId = await ensureDoctorExists(payload?.doctor_id, transaction);
+        const date = normalizeDate(payload?.date);
+        const requestedTimeSlot = isPatientSelfBooking
+          ? normalizeOptionalTime(payload?.time_slot)
+          : normalizeTime(payload?.time_slot);
+        const preferredPeriod = normalizePreferredPeriod(payload?.preferred_period, false);
+        const priorityLevel = isPatientSelfBooking
+          ? APPOINTMENT_PRIORITY.NORMAL
+          : normalizePriorityLevel(payload?.priority_level);
+        const reason = normalizeReason(payload?.reason);
 
-      const status = APPOINTMENT_STATUS.CONFIRMED;
-      const holdExpiresAt = null;
+        if (Object.prototype.hasOwnProperty.call(payload || {}, "status")) {
+          const error = new Error(
+            "Không được truyền status khi tạo lịch hẹn"
+          );
+          error.statusCode = 400;
+          throw error;
+        }
 
-      if (isPatientSelfBooking) {
-        ensurePatientBookingDateAllowed(date);
-      }
+        const status = APPOINTMENT_STATUS.CONFIRMED;
+        const holdExpiresAt = null;
 
-      if (timeSlot) {
-        await ensureDoctorWorkingAtTime(doctorId, date, timeSlot, transaction);
-      } else {
-        await ensureDoctorWorkingOnDate(doctorId, date, preferredPeriod, transaction);
-      }
+        if (isPatientSelfBooking) {
+          ensurePatientBookingDateAllowed(date);
+        }
 
-      await ensureNoActiveDuplicateAppointment(patientId, doctorId, date, transaction);
-
-      const created = await Appointment.create(
-        {
-          patient_id: patientId,
-          doctor_id: doctorId,
+        const timeSlot = requestedTimeSlot || await resolveAutoTimeSlotForDoctorDate(
+          doctorId,
           date,
-          time_slot: timeSlot,
-          preferred_period: preferredPeriod,
-          reason,
-          status,
-          hold_expires_at: holdExpiresAt,
-        },
-        { transaction }
-      );
+          preferredPeriod,
+          transaction,
+        );
 
-      return getAppointmentByIdService(created.id, transaction);
-    });
-  });
+        await ensureDoctorWorkingAtTime(doctorId, date, timeSlot, transaction);
+        await ensureNoActiveDuplicateAppointment(patientId, doctorId, date, transaction);
+
+        const created = await Appointment.create(
+          {
+            patient_id: patientId,
+            doctor_id: doctorId,
+            date,
+            time_slot: timeSlot,
+            preferred_period: preferredPeriod,
+            priority_level: priorityLevel,
+            reason,
+            status,
+            hold_expires_at: holdExpiresAt,
+          },
+          { transaction }
+        );
+
+        return getAppointmentByIdService(created.id, transaction);
+      });
+    } catch (error) {
+      if (
+        isPatientSelfBooking &&
+        !hasExplicitTimeSlot &&
+        isDoctorSlotUniqueConstraintViolation(error) &&
+        attempt < maxAutoSlotAttempts - 1
+      ) {
+        continue;
+      }
+
+      if (isUniqueConstraintViolation(error)) {
+        throw toConflictErrorFromUniqueConstraint(error);
+      }
+
+      throw error;
+    }
+  }
 };
 
 export const getDoctorAvailabilityService = async (doctorId, query) => {
@@ -1657,11 +1854,6 @@ export const cancelAppointmentService = async (id, currentUser) => {
 
     ensureCanCancelAppointment(appointment, currentUser);
 
-    const isDoctorCancelAfterCheckIn = currentUser?.role === "DOCTOR";
-    if (isDoctorCancelAfterCheckIn) {
-      await ensureDoctorOwnsAppointment(appointment, currentUser, transaction);
-    }
-
     if (appointment.status === APPOINTMENT_STATUS.CANCELLED) {
       const error = new Error("Lịch hẹn đã được hủy trước đó");
       error.statusCode = 409;
@@ -1672,28 +1864,16 @@ export const cancelAppointmentService = async (id, currentUser) => {
 
     const existingQueue = await Queue.findOne({
       where: { appointment_id: appointment.id },
-      attributes: ["id", "doctor_id", "date", "actual_start", "actual_end"],
+      attributes: ["id", "doctor_id", "date", "queue_number", "actual_start", "actual_end"],
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
 
-    if (isDoctorCancelAfterCheckIn) {
-      if (!existingQueue) {
-        const error = new Error("Chỉ được hủy lượt khám sau khi bệnh nhân đã check-in");
-        error.statusCode = 409;
-        throw error;
-      }
-
-      if (existingQueue.actual_start || existingQueue.actual_end) {
-        const error = new Error("Không thể hủy lượt khám đã bắt đầu hoặc đã hoàn tất");
-        error.statusCode = 409;
-        throw error;
-      }
-    } else {
+    if (currentUser?.role === "PATIENT") {
       ensureCanCancelBy24HourRule(appointment);
     }
 
-    if (existingQueue && !isDoctorCancelAfterCheckIn) {
+    if (existingQueue) {
       const error = new Error("Lịch hẹn đã check-in, vui lòng dùng chức năng hủy check-in thay vì hủy lịch");
       error.statusCode = 409;
       throw error;
@@ -1707,32 +1887,15 @@ export const cancelAppointmentService = async (id, currentUser) => {
       { transaction }
     );
 
-    if (isDoctorCancelAfterCheckIn) {
-      if (SmsLog) {
-        await SmsLog.destroy({
-          where: {
-            queue_id: existingQueue.id,
-            status: "Pending",
-          },
-          transaction,
-        });
-      }
-
-      await recalculateQueueForecastForDoctorDateService(
-        existingQueue.doctor_id,
-        existingQueue.date,
-        transaction
-      );
-    }
-
     return getAppointmentByIdService(appointment.id, transaction);
   });
 };
 
-export const markAppointmentNoShowService = async (id, currentUser) => {
+export const markAppointmentNoShowService = async (id, currentUser, payload = {}) => {
   const appointmentId = parseId(id);
+  const noShowNote = normalizeReason(payload?.note ?? payload?.no_show_note);
 
-  return runReadCommittedTransaction(async (transaction) => {
+  const result = await runReadCommittedTransaction(async (transaction) => {
     await cleanupExpiredPendingAppointments(transaction);
 
     const appointment = await Appointment.findByPk(appointmentId, {
@@ -1831,13 +1994,29 @@ export const markAppointmentNoShowService = async (id, currentUser) => {
       };
     }
 
+    const fromStatus = appointment.status;
     await appointment.update(
       {
         status: APPOINTMENT_STATUS.NO_SHOW,
         hold_expires_at: null,
+        no_show_note: noShowNote,
       },
       { transaction }
     );
+
+    await createQueueActionLog({
+      queueId: existingQueue?.id ?? null,
+      appointmentId: appointment.id,
+      actor: currentUser,
+      action: "NO_SHOW",
+      fromStatus,
+      toStatus: APPOINTMENT_STATUS.NO_SHOW,
+      note: noShowNote,
+      metadata: {
+        source: currentUser?.role === "DOCTOR" ? "doctor_queue" : "reception_waiting",
+        queue_number: existingQueue?.queue_number ?? null,
+      },
+    }, transaction);
 
     if (recalcTarget) {
       await recalculateQueueForecastForDoctorDateService(
@@ -1849,6 +2028,23 @@ export const markAppointmentNoShowService = async (id, currentUser) => {
 
     return getAppointmentByIdService(appointment.id, transaction);
   });
+
+  await publishQueueRealtimeEvent({
+    reason: "NO_SHOW",
+    appointment_id: result.id,
+    queue_id: result.Queue?.id ?? null,
+    doctor_id: result.doctor_id,
+    date: result.date,
+    patient_id: result.patient_id,
+    status: result.status,
+  });
+  await publishQueueForecastRealtimeEvent({
+    reason: "FORECAST_RECALCULATED",
+    doctor_id: result.doctor_id,
+    date: result.date,
+  });
+
+  return result;
 };
 
 export const rescheduleAppointmentService = async (id, payload, currentUser) => {
@@ -1900,6 +2096,9 @@ export const rescheduleAppointmentService = async (id, payload, currentUser) => 
       const nextReason = Object.prototype.hasOwnProperty.call(safePayload, "reason")
         ? normalizeReason(safePayload.reason)
         : oldAppointment.reason;
+      const nextPriorityLevel = Object.prototype.hasOwnProperty.call(safePayload, "priority_level")
+        ? normalizePriorityLevel(safePayload.priority_level)
+        : oldAppointment.priority_level || APPOINTMENT_PRIORITY.NORMAL;
 
       ensureAppointmentNotInPastForUpdate(nextDate, nextTimeSlot);
       await ensureNoActiveDuplicateAppointment(
@@ -1917,6 +2116,7 @@ export const rescheduleAppointmentService = async (id, payload, currentUser) => 
           date: nextDate,
           time_slot: nextTimeSlot,
           reason: nextReason,
+          priority_level: nextPriorityLevel,
           status: APPOINTMENT_STATUS.CONFIRMED,
           hold_expires_at: null,
         },
@@ -1961,7 +2161,7 @@ export const startAppointmentService = async (id, payload, currentUser) => {
   const appointmentId = parseId(id);
   const safePayload = payload || {};
 
-  return runReadCommittedTransaction(async (transaction) => {
+  const result = await runReadCommittedTransaction(async (transaction) => {
     await cleanupExpiredPendingAppointments(transaction);
 
     const appointment = await Appointment.findByPk(appointmentId, {
@@ -2019,6 +2219,19 @@ export const startAppointmentService = async (id, payload, currentUser) => {
       { transaction }
     );
 
+    await createQueueActionLog({
+      queueId: queue.id,
+      appointmentId: appointment.id,
+      actor: currentUser,
+      action: "START_EXAM",
+      fromStatus: appointment.status,
+      toStatus: appointment.status,
+      metadata: {
+        actual_start: resolvedActualStart.toISOString(),
+        queue_number: queue.queue_number,
+      },
+    }, transaction);
+
     await recalculateQueueForecastForDoctorDateService(appointment.doctor_id, appointment.date, transaction);
 
     const refreshedQueue = await Queue.findOne({
@@ -2033,13 +2246,30 @@ export const startAppointmentService = async (id, payload, currentUser) => {
       queue: serializeQueueDateTimes(refreshedQueue),
     };
   });
+
+  await publishQueueRealtimeEvent({
+    reason: "START_EXAM",
+    appointment_id: result.appointment?.id,
+    queue_id: result.queue?.id ?? null,
+    doctor_id: result.appointment?.doctor_id,
+    date: result.appointment?.date,
+    patient_id: result.appointment?.patient_id,
+    status: result.appointment?.status,
+  });
+  await publishQueueForecastRealtimeEvent({
+    reason: "FORECAST_RECALCULATED",
+    doctor_id: result.appointment?.doctor_id,
+    date: result.appointment?.date,
+  });
+
+  return result;
 };
 
 export const completeAppointmentService = async (id, payload, currentUser) => {
   const appointmentId = parseId(id);
   const safePayload = payload || {};
 
-  return runReadCommittedTransaction(async (transaction) => {
+  const result = await runReadCommittedTransaction(async (transaction) => {
     await cleanupExpiredPendingAppointments(transaction);
 
     const appointment = await Appointment.findByPk(appointmentId, {
@@ -2084,6 +2314,7 @@ export const completeAppointmentService = async (id, payload, currentUser) => {
       throw error;
     }
 
+    const fromStatus = appointment.status;
     await queue.update(
       {
         actual_end: actualEnd || db.sequelize.literal("CURRENT_TIMESTAMP"),
@@ -2104,6 +2335,19 @@ export const completeAppointmentService = async (id, payload, currentUser) => {
       { transaction }
     );
 
+    await createQueueActionLog({
+      queueId: queue.id,
+      appointmentId: appointment.id,
+      actor: currentUser,
+      action: "COMPLETE_EXAM",
+      fromStatus,
+      toStatus: APPOINTMENT_STATUS.COMPLETED,
+      metadata: {
+        actual_end: resolvedActualEnd.toISOString(),
+        queue_number: queue.queue_number,
+      },
+    }, transaction);
+
     await recalculateQueueForecastForDoctorDateService(appointment.doctor_id, appointment.date, transaction);
 
     const appointmentData = await getAppointmentByIdService(appointment.id, transaction);
@@ -2113,6 +2357,23 @@ export const completeAppointmentService = async (id, payload, currentUser) => {
       queue: serializeQueueDateTimes(refreshedQueue),
     };
   });
+
+  await publishQueueRealtimeEvent({
+    reason: "COMPLETE_EXAM",
+    appointment_id: result.appointment?.id,
+    queue_id: result.queue?.id ?? null,
+    doctor_id: result.appointment?.doctor_id,
+    date: result.appointment?.date,
+    patient_id: result.appointment?.patient_id,
+    status: result.appointment?.status,
+  });
+  await publishQueueForecastRealtimeEvent({
+    reason: "FORECAST_RECALCULATED",
+    doctor_id: result.appointment?.doctor_id,
+    date: result.appointment?.date,
+  });
+
+  return result;
 };
 
 export const deleteAppointmentService = async (id) => {
