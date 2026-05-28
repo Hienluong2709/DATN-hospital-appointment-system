@@ -17,6 +17,7 @@ import { WorkScheduleFormModalComponent } from './work-schedule-form/work-schedu
 import { SharedPaginationComponent } from '../../../shared/components/pagination/pagination.component';
 
 type ReceptionistScheduleFilter = 'ALL' | 'WORKING' | 'ON_LEAVE' | 'WORKING_AND_LEAVE' | 'NO_WORKING';
+type ReceptionistCalendarCellState = 'WORKING' | 'ON_LEAVE' | 'WORKING_AND_LEAVE' | 'NO_WORKING';
 
 @Component({
   selector: 'app-work-schedules-page',
@@ -472,9 +473,44 @@ export class WorkSchedulesPageComponent implements OnInit, OnDestroy {
     return this.dayLabel(this.selectedDayOfWeek);
   }
 
+  get receptionistCalendarDays(): Array<{
+    day: WorkScheduleDayOfWeek;
+    dayLabel: string;
+    dateInput: string;
+    dateLabel: string;
+    shortDateLabel: string;
+    isSelected: boolean;
+  }> {
+    const weekStart = this.getWeekStart(this.selectedDateObject);
+    const weekDays = this.dayOptions
+      .filter((item) => item.value !== 0)
+      .concat(this.dayOptions.filter((item) => item.value === 0));
+
+    return weekDays.map((item, index) => {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + index);
+      const dateInput = this.toDateInputValue(date);
+
+      return {
+        day: item.value,
+        dayLabel: item.label,
+        dateInput,
+        dateLabel: this.formatDateLabel(date),
+        shortDateLabel: this.formatShortDateLabel(date),
+        isSelected: dateInput === this.selectedDate
+      };
+    });
+  }
+
   getSchedulesForDoctorDate(doctorId: number): WorkSchedule[] {
     return this.schedules
       .filter((schedule) => schedule.doctor_id === doctorId && schedule.day_of_week === this.selectedDayOfWeek)
+      .sort((left, right) => left.start_time.localeCompare(right.start_time));
+  }
+
+  getSchedulesForDoctorCalendarDay(doctorId: number, dayOfWeek: WorkScheduleDayOfWeek): WorkSchedule[] {
+    return this.schedules
+      .filter((schedule) => schedule.doctor_id === doctorId && schedule.day_of_week === dayOfWeek)
       .sort((left, right) => left.start_time.localeCompare(right.start_time));
   }
 
@@ -482,6 +518,61 @@ export class WorkSchedulesPageComponent implements OnInit, OnDestroy {
     return this.approvedScheduleBlocks
       .filter((block) => block.doctor_id === doctorId && block.status === 'Approved' && block.date === this.selectedDate)
       .sort((left, right) => (left.start_time || '').localeCompare(right.start_time || ''));
+  }
+
+  getApprovedBlocksForDoctorCalendarDate(doctorId: number, dateInput: string): WorkScheduleBlock[] {
+    return this.approvedScheduleBlocks
+      .filter((block) => block.doctor_id === doctorId && block.status === 'Approved' && block.date === dateInput)
+      .sort((left, right) => (left.start_time || '').localeCompare(right.start_time || ''));
+  }
+
+  getReceptionistCalendarCellState(doctorId: number, dayOfWeek: WorkScheduleDayOfWeek, dateInput: string): ReceptionistCalendarCellState {
+    const hasWorkingSchedule = this.getSchedulesForDoctorCalendarDay(doctorId, dayOfWeek).length > 0;
+    const hasApprovedLeave = this.getApprovedBlocksForDoctorCalendarDate(doctorId, dateInput).length > 0;
+
+    if (hasWorkingSchedule && hasApprovedLeave) {
+      return 'WORKING_AND_LEAVE';
+    }
+
+    if (hasApprovedLeave) {
+      return 'ON_LEAVE';
+    }
+
+    if (hasWorkingSchedule) {
+      return 'WORKING';
+    }
+
+    return 'NO_WORKING';
+  }
+
+  getReceptionistCalendarCellClass(doctorId: number, dayOfWeek: WorkScheduleDayOfWeek, dateInput: string): string {
+    const state = this.getReceptionistCalendarCellState(doctorId, dayOfWeek, dateInput);
+
+    switch (state) {
+      case 'WORKING_AND_LEAVE':
+        return 'calendar-cell--mixed';
+      case 'ON_LEAVE':
+        return 'calendar-cell--leave';
+      case 'WORKING':
+        return 'calendar-cell--working';
+      default:
+        return 'calendar-cell--empty';
+    }
+  }
+
+  getReceptionistCalendarStatusLabel(doctorId: number, dayOfWeek: WorkScheduleDayOfWeek, dateInput: string): string {
+    const state = this.getReceptionistCalendarCellState(doctorId, dayOfWeek, dateInput);
+
+    switch (state) {
+      case 'WORKING_AND_LEAVE':
+        return 'Có ca và nghỉ';
+      case 'ON_LEAVE':
+        return 'Nghỉ';
+      case 'WORKING':
+        return 'Có ca';
+      default:
+        return 'Trống';
+    }
   }
 
   getDoctorRoomLabel(doctor: Doctor): string {
@@ -771,6 +862,13 @@ export class WorkSchedulesPageComponent implements OnInit, OnDestroy {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
+    }).format(date);
+  }
+
+  private formatShortDateLabel(date: Date): string {
+    return new Intl.DateTimeFormat('vi-VN', {
+      day: '2-digit',
+      month: '2-digit'
     }).format(date);
   }
 

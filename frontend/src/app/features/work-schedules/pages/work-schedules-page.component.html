@@ -76,8 +76,13 @@
     <article class="workday-directory-panel">
       <div class="workday-directory-panel__header">
         <div>
-          <h2>Lịch làm việc ngày {{ selectedDateDisplayLabel }}</h2>
-          <p>{{ selectedDateDayLabel }} • {{ receptionistDoctors.length }}/{{ receptionistBaseDoctorCount }} bác sĩ phù hợp với bộ lọc hiện tại.</p>
+          <h2>Lịch làm việc tuần {{ selectedWeekRangeLabel }}</h2>
+          <p>Ngày đang chọn: {{ selectedDateDayLabel }} {{ selectedDateDisplayLabel }} • {{ receptionistDoctors.length }}/{{ receptionistBaseDoctorCount }} bác sĩ phù hợp.</p>
+        </div>
+        <div class="week-quick-nav">
+          <button class="button-secondary" type="button" (click)="goToPreviousWeek()">Tuần trước</button>
+          <button class="button-secondary" type="button" (click)="goToToday()">Hôm nay</button>
+          <button class="button-secondary" type="button" (click)="goToNextWeek()">Tuần sau</button>
         </div>
       </div>
 
@@ -120,15 +125,35 @@
         </button>
       </div>
 
+      <div class="calendar-legend" aria-label="Chú giải trạng thái lịch">
+        <span><i class="legend-dot legend-dot--working"></i>Có ca làm việc</span>
+        <span><i class="legend-dot legend-dot--leave"></i>Lịch nghỉ đã duyệt</span>
+        <span><i class="legend-dot legend-dot--mixed"></i>Có ca và có nghỉ</span>
+        <span><i class="legend-dot legend-dot--empty"></i>Không có ca</span>
+      </div>
+
       @if (isLoadingReceptionistDirectory) {
         <p class="state-text">Đang tải lịch làm việc và lịch nghỉ đã duyệt...</p>
       } @else if (!receptionistDoctors.length) {
         <p class="state-text">Không có bác sĩ phù hợp với bộ lọc hiện tại.</p>
       } @else {
-        <div class="workday-directory">
+        <div class="work-calendar">
+          <div class="work-calendar__grid">
+            <div class="work-calendar__doctor-heading">Bác sĩ / phòng khám</div>
+            @for (day of receptionistCalendarDays; track day.dateInput) {
+              <button
+                type="button"
+                class="work-calendar__day-heading"
+                [class.work-calendar__day-heading--selected]="day.isSelected"
+                (click)="updateSelectedDate(day.dateInput)"
+              >
+                <span>{{ day.dayLabel }}</span>
+                <strong>{{ day.shortDateLabel }}</strong>
+              </button>
+            }
+
           @for (doctor of receptionistDoctors; track doctor.id) {
-            <article class="workday-doctor-card">
-              <header class="workday-doctor-card__header">
+              <section class="work-calendar__doctor-cell">
                 <div>
                   <h3>{{ doctorOptionLabel(doctor) }}</h3>
                   <p>{{ doctor.Specialty?.name || 'Chưa có chuyên khoa' }} • {{ getDoctorRoomLabel(doctor) }}</p>
@@ -136,40 +161,47 @@
                 <span class="doctor-status" [class.doctor-status--inactive]="doctor.status === 'Inactive'">
                   {{ doctor.status === 'Active' ? 'Đang hoạt động' : 'Ngưng hoạt động' }}
                 </span>
-              </header>
+              </section>
 
-              <div class="workday-doctor-card__content">
-                <section class="workday-section">
-                  <h4>Ca làm việc</h4>
-                  @if (getSchedulesForDoctorDate(doctor.id).length) {
-                    <div class="schedule-chip-list">
-                      @for (schedule of getSchedulesForDoctorDate(doctor.id); track schedule.id) {
+              @for (day of receptionistCalendarDays; track day.dateInput) {
+                <section
+                  class="work-calendar__cell"
+                  [class.work-calendar__cell--selected]="day.isSelected"
+                  [ngClass]="getReceptionistCalendarCellClass(doctor.id, day.day, day.dateInput)"
+                >
+                  <div class="calendar-cell-status">
+                    {{ getReceptionistCalendarStatusLabel(doctor.id, day.day, day.dateInput) }}
+                  </div>
+
+                  @if (getSchedulesForDoctorCalendarDay(doctor.id, day.day).length) {
+                    <div class="schedule-chip-list schedule-chip-list--calendar">
+                      @for (schedule of getSchedulesForDoctorCalendarDay(doctor.id, day.day); track schedule.id) {
                         <span class="schedule-chip">{{ getTimeRangeLabel(schedule.start_time, schedule.end_time) }}</span>
                       }
                     </div>
-                  } @else {
-                    <p class="directory-empty">Không có ca làm việc trong ngày đã chọn.</p>
                   }
-                </section>
 
-                <section class="workday-section">
-                  <h4>Lịch nghỉ đã duyệt</h4>
-                  @if (getApprovedBlocksForDoctorDate(doctor.id).length) {
-                    <div class="approved-block-list">
-                      @for (block of getApprovedBlocksForDoctorDate(doctor.id); track block.id) {
-                        <div class="approved-block">
+                  @if (getApprovedBlocksForDoctorCalendarDate(doctor.id, day.dateInput).length) {
+                    <div class="approved-block-list approved-block-list--calendar">
+                      @for (block of getApprovedBlocksForDoctorCalendarDate(doctor.id, day.dateInput); track block.id) {
+                        <div class="approved-block approved-block--compact">
                           <strong>{{ getBlockLabel(block) }}</strong>
                           <span>{{ block.reason || 'Không có ghi chú' }}</span>
                         </div>
                       }
                     </div>
-                  } @else {
-                    <p class="directory-empty">Không có lịch nghỉ đã duyệt trong ngày đã chọn.</p>
+                  }
+
+                  @if (
+                    !getSchedulesForDoctorCalendarDay(doctor.id, day.day).length &&
+                    !getApprovedBlocksForDoctorCalendarDate(doctor.id, day.dateInput).length
+                  ) {
+                    <p class="calendar-empty-text">Không có lịch</p>
                   }
                 </section>
-              </div>
-            </article>
+              }
           }
+          </div>
         </div>
       }
     </article>
