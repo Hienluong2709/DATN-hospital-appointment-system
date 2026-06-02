@@ -81,7 +81,7 @@ export interface CreateAppointmentPayload {
   time_slot?: string | null;
   preferred_period?: AppointmentPreferredPeriod | null;
   priority_level?: AppointmentPriorityLevel;
-  reason?: string | null;
+  reason: string;
 }
 
 export interface AvailableDoctorSlot {

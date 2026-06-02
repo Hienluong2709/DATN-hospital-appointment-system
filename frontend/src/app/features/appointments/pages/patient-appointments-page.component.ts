@@ -249,6 +249,12 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const reason = this.bookingReason.trim();
+    if (!reason) {
+      this.showError('Vui lòng nhập lý do khám.');
+      return;
+    }
+
     this.isValidatingBooking = true;
 
     try {
@@ -272,7 +278,7 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
     const payload: CreateAppointmentPayload = {
       doctor_id: this.selectedDoctorId,
       date: this.bookingDate,
-      reason: this.bookingReason.trim() || null
+      reason
     };
 
     this.isCreatingAppointment = true;

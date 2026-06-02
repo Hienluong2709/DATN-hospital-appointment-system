@@ -133,11 +133,13 @@
       </p>
 
       <label class="booking-reason">
-        <span>Lý do khám</span>
+        <span>Lý do khám <strong aria-hidden="true">*</strong></span>
         <textarea
           rows="3"
           [value]="bookingReason"
           (input)="updateReason($any($event.target).value)"
+          required
+          aria-required="true"
           placeholder="Ví dụ: Đau bụng 2 ngày, cần tư vấn tim mạch, tái khám sau điều trị"
         ></textarea>
       </label>

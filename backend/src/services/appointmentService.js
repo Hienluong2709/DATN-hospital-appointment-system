@@ -333,6 +333,18 @@ const normalizeReason = (reason) => {
   return trimmed || null;
 };
 
+const normalizeRequiredReason = (reason) => {
+  const normalized = normalizeReason(reason);
+
+  if (!normalized) {
+    const error = new Error("Lý do khám là bắt buộc");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return normalized;
+};
+
 const normalizePriorityLevel = (value, { allowEmpty = true } = {}) => {
   if (value === undefined || value === null || value === "") {
     if (allowEmpty) {
@@ -975,7 +987,7 @@ const ensureQueueIsCurrentTurnForStart = async (queue, transaction) => {
   }
 
   const error = new Error(
-    `Chưa thể bắt đầu ca này vì số thứ tự #${blockingQueue.queue_number} có giờ hẹn ưu tiên hơn và đang chờ khám`
+    `Chưa thể bắt đầu ca này vì số tiếp nhận #${blockingQueue.queue_number} đang là lượt khám tiếp theo theo mức ưu tiên và thứ tự hàng đợi`
   );
   error.statusCode = 409;
   throw error;
@@ -1535,7 +1547,7 @@ export const createAppointmentService = async (payload, currentUser) => {
         const priorityLevel = isPatientSelfBooking
           ? APPOINTMENT_PRIORITY.NORMAL
           : normalizePriorityLevel(payload?.priority_level);
-        const reason = normalizeReason(payload?.reason);
+        const reason = normalizeRequiredReason(payload?.reason);
 
         if (Object.prototype.hasOwnProperty.call(payload || {}, "status")) {
           const error = new Error(
