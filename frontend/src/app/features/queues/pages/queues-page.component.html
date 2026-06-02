@@ -201,10 +201,19 @@
     </div>
 
     <div *ngIf="!isLoading && filteredQueues.length > 0" class="queue-list">
-      <article class="queue-card" *ngFor="let queue of filteredQueues">
+      <article
+        class="queue-card"
+        *ngFor="let queue of filteredQueues"
+        [class.queue-card--next]="isNextStartableQueue(queue)"
+      >
         <header class="queue-card__header">
           <div>
-            <p class="queue-card__number">Số tiếp nhận #{{ queue.queue_number }}</p>
+            <div class="queue-card__meta">
+              <span class="service-order" [class.service-order--next]="isNextStartableQueue(queue)">
+                {{ getServiceOrderLabel(queue) }}
+              </span>
+              <span class="queue-card__number">Số tiếp nhận #{{ queue.queue_number }}</span>
+            </div>
             <h3>{{ getPatientName(queue) }}</h3>
           </div>
           <span
@@ -229,6 +238,7 @@
           >
             {{ getPriorityLabel(getQueuePriority(queue)) }}
           </span>
+          <span class="service-hint">{{ getServiceOrderHint(queue) }}</span>
         </div>
 
         <div class="queue-card__grid">
@@ -308,6 +318,7 @@
             class="button-start"
             (click)="start(queue)"
             [disabled]="!canStart(queue) || processingAppointmentId[queue.Appointment?.id ?? 0]"
+            [title]="getStartDisabledReason(queue)"
           >
             {{ processingAppointmentId[queue.Appointment?.id ?? 0] ? 'Đang bắt đầu...' : 'Bắt đầu khám' }}
           </button>

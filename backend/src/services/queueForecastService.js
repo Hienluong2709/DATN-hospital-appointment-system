@@ -945,7 +945,7 @@ export const simulateEstimatedStartForAppointmentService = async (appointmentLik
     include: [
       {
         model: Appointment,
-        attributes: ["id", "doctor_id", "date", "status", "time_slot", "preferred_period"],
+        attributes: ["id", "doctor_id", "date", "status", "time_slot", "preferred_period", "priority_level"],
       },
     ],
     transaction,
@@ -1118,7 +1118,7 @@ export const recalculateQueueForecastForDoctorDateService = async (doctorId, dat
     include: [
       {
         model: Appointment,
-        attributes: ["id", "doctor_id", "date", "status", "time_slot", "preferred_period"],
+        attributes: ["id", "doctor_id", "date", "status", "time_slot", "preferred_period", "priority_level"],
       },
     ],
     transaction,

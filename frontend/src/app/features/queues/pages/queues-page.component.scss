@@ -313,6 +313,11 @@
   background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
 }
 
+.queue-card--next {
+  border-color: #1d72b8;
+  box-shadow: 0 10px 28px rgba(29, 114, 184, 0.12);
+}
+
 .queue-card__header {
   display: flex;
   justify-content: space-between;
@@ -321,11 +326,36 @@
   margin-bottom: 14px;
 }
 
+.queue-card__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
 .queue-card__number {
-  margin: 0 0 4px;
+  margin: 0;
   color: #5b7793;
   font-size: 13px;
   font-weight: 700;
+}
+
+.service-order {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: #eef5fb;
+  color: #165a92;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.service-order--next {
+  background: #e8f6ff;
+  color: #075985;
 }
 
 .queue-card__header h3 {
@@ -375,6 +405,10 @@
 }
 
 .priority-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   margin: -4px 0 12px;
 }
 
@@ -397,6 +431,12 @@
 .priority-chip--emergency {
   background: #fff1f2;
   color: #be123c;
+}
+
+.service-hint {
+  color: #5b7793;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .queue-card__reason {

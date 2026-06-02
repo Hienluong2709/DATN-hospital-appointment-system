@@ -68,6 +68,11 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
     { value: 'Priority', label: 'Ưu tiên' },
     { value: 'Emergency', label: 'Khẩn cấp' },
   ];
+  private readonly queuePriorityRank: Record<QueuePriorityLevel, number> = {
+    Emergency: 0,
+    Priority: 1,
+    Normal: 2,
+  };
 
   ngOnInit(): void {
     this.subscriptions.add(
@@ -141,14 +146,38 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   }
 
   get filteredQueues(): Queue[] {
-    return this.queues.filter((queue) => {
-      const matchDate = !this.selectedDate || queue.date === this.selectedDate;
-      const matchDoctor = this.isDoctorView || this.selectedDoctorId === 0 || queue.doctor_id === this.selectedDoctorId;
-      const matchStatus = this.selectedStatus === 'ALL' || queue.Appointment?.status === this.selectedStatus;
-      const matchWorkflowStatus =
-        this.selectedWorkflowStatus === 'ALL' || this.getWorkflowStatus(queue) === this.selectedWorkflowStatus;
-      return matchDate && matchDoctor && matchStatus && matchWorkflowStatus;
-    });
+    return this.queues
+      .filter((queue) => {
+        const matchDate = !this.selectedDate || queue.date === this.selectedDate;
+        const matchDoctor = this.isDoctorView || this.selectedDoctorId === 0 || queue.doctor_id === this.selectedDoctorId;
+        const matchStatus = this.selectedStatus === 'ALL' || queue.Appointment?.status === this.selectedStatus;
+        const matchWorkflowStatus =
+          this.selectedWorkflowStatus === 'ALL' || this.getWorkflowStatus(queue) === this.selectedWorkflowStatus;
+        return matchDate && matchDoctor && matchStatus && matchWorkflowStatus;
+      })
+      .sort((left, right) => this.compareQueuesForDisplay(left, right));
+  }
+
+  get currentInProgressQueue(): Queue | null {
+    return this.queues
+      .filter((queue) => this.matchesQueueScopeForServiceOrder(queue))
+      .filter((queue) => this.getWorkflowStatus(queue) === 'InProgress')
+      .sort((left, right) => this.compareDateLike(left.actual_start, right.actual_start))[0] ?? null;
+  }
+
+  get waitingServiceQueues(): Queue[] {
+    return this.queues
+      .filter((queue) => this.matchesQueueScopeForServiceOrder(queue))
+      .filter((queue) => this.getWorkflowStatus(queue) === 'CheckedIn' && !queue.actual_start && !queue.actual_end)
+      .sort((left, right) => this.compareWaitingQueues(left, right));
+  }
+
+  get nextStartableQueue(): Queue | null {
+    if (this.currentInProgressQueue) {
+      return null;
+    }
+
+    return this.waitingServiceQueues[0] ?? null;
   }
 
   get statusSummaryItems(): QueueStatusSummaryItem[] {
@@ -312,6 +341,45 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   getQueuePriority(queue: Queue): QueuePriorityLevel {
     const priority = queue.Appointment?.priority_level;
     return priority === 'Emergency' || priority === 'Priority' || priority === 'Normal' ? priority : 'Normal';
+  }
+
+  isNextStartableQueue(queue: Queue): boolean {
+    return this.nextStartableQueue?.id === queue.id;
+  }
+
+  getServiceOrderLabel(queue: Queue): string {
+    const workflowStatus = this.getWorkflowStatus(queue);
+    if (workflowStatus === 'InProgress') {
+      return 'Đang khám';
+    }
+
+    if (workflowStatus !== 'CheckedIn') {
+      return this.getWorkflowStatusLabel(queue);
+    }
+
+    if (this.isNextStartableQueue(queue)) {
+      return 'Tiếp theo';
+    }
+
+    const order = this.getWaitingServiceOrder(queue);
+    return order > 0 ? `Lượt chờ #${order}` : 'Chờ khám';
+  }
+
+  getServiceOrderHint(queue: Queue): string {
+    const workflowStatus = this.getWorkflowStatus(queue);
+    if (workflowStatus === 'InProgress') {
+      return 'Ca này đang được bác sĩ xử lý.';
+    }
+
+    if (workflowStatus !== 'CheckedIn') {
+      return 'Lượt này không còn trong nhóm chờ khám.';
+    }
+
+    if (this.isNextStartableQueue(queue)) {
+      return 'Đây là lượt được phép bắt đầu khám tiếp theo theo mức ưu tiên và thứ tự hàng đợi.';
+    }
+
+    return this.getStartDisabledReason(queue);
   }
 
   getCheckInPriority(appointment: Appointment): QueuePriorityLevel {
@@ -554,7 +622,43 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   }
 
   canStart(queue: Queue): boolean {
-    return this.canUseStartAction && queue.Appointment?.status === 'CheckedIn' && !queue.actual_start;
+    return (
+      this.canUseStartAction &&
+      queue.Appointment?.status === 'CheckedIn' &&
+      !queue.actual_start &&
+      this.isNextStartableQueue(queue)
+    );
+  }
+
+  getStartDisabledReason(queue: Queue): string {
+    if (!this.canUseStartAction) {
+      return '';
+    }
+
+    if (queue.Appointment?.status !== 'CheckedIn') {
+      return 'Chỉ có thể bắt đầu lượt đang ở trạng thái chờ khám.';
+    }
+
+    if (queue.actual_start) {
+      return 'Lượt khám này đã được bắt đầu.';
+    }
+
+    const inProgressQueue = this.currentInProgressQueue;
+    if (inProgressQueue && inProgressQueue.id !== queue.id) {
+      return `Chưa thể bắt đầu vì số tiếp nhận #${inProgressQueue.queue_number} đang được khám.`;
+    }
+
+    const nextQueue = this.nextStartableQueue;
+    if (nextQueue && nextQueue.id !== queue.id) {
+      return `Chưa tới lượt. Lượt tiếp theo là số tiếp nhận #${nextQueue.queue_number} theo mức ưu tiên và thời điểm check-in.`;
+    }
+
+    return '';
+  }
+
+  getWaitingServiceOrder(queue: Queue): number {
+    const index = this.waitingServiceQueues.findIndex((item) => item.id === queue.id);
+    return index >= 0 ? index + 1 : 0;
   }
 
   canComplete(queue: Queue): boolean {
@@ -1009,6 +1113,103 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
     }
 
     return 'ALL';
+  }
+
+  private matchesQueueScopeForServiceOrder(queue: Queue): boolean {
+    const matchDate = !this.selectedDate || queue.date === this.selectedDate;
+    const matchDoctor = this.isDoctorView || this.selectedDoctorId === 0 || queue.doctor_id === this.selectedDoctorId;
+    return matchDate && matchDoctor;
+  }
+
+  private compareQueuesForDisplay(left: Queue, right: Queue): number {
+    const leftRank = this.getDisplayCategoryRank(left);
+    const rightRank = this.getDisplayCategoryRank(right);
+    if (leftRank !== rightRank) {
+      return leftRank - rightRank;
+    }
+
+    if (this.getWorkflowStatus(left) === 'CheckedIn' && this.getWorkflowStatus(right) === 'CheckedIn') {
+      return this.compareWaitingQueues(left, right);
+    }
+
+    return (
+      this.compareDateLike(left.actual_start, right.actual_start) ||
+      this.compareDateLike(left.actual_end, right.actual_end) ||
+      this.compareByQueueNumber(left, right)
+    );
+  }
+
+  private compareWaitingQueues(left: Queue, right: Queue): number {
+    const priorityDelta = this.queuePriorityRank[this.getQueuePriority(left)] - this.queuePriorityRank[this.getQueuePriority(right)];
+    if (priorityDelta !== 0) {
+      return priorityDelta;
+    }
+
+    return (
+      this.compareDateLike(this.getQueueServicePriorityValue(left), this.getQueueServicePriorityValue(right)) ||
+      this.compareDateLike(left.checked_in_at, right.checked_in_at) ||
+      this.compareByQueueNumber(left, right)
+    );
+  }
+
+  private getDisplayCategoryRank(queue: Queue): number {
+    const workflowStatus = this.getWorkflowStatus(queue);
+    if (workflowStatus === 'InProgress') {
+      return 0;
+    }
+
+    if (workflowStatus === 'CheckedIn') {
+      return 1;
+    }
+
+    if (workflowStatus === 'Completed') {
+      return 2;
+    }
+
+    return 3;
+  }
+
+  private getQueueServicePriorityValue(queue: Queue): string | null {
+    const timeSlot = queue.Appointment?.time_slot;
+    if (queue.date && timeSlot) {
+      return `${queue.date}T${String(timeSlot).slice(0, 8)}`;
+    }
+
+    return this.getQueuePredictedStart(queue) ?? queue.checked_in_at ?? null;
+  }
+
+  private compareDateLike(leftValue: string | null | undefined, rightValue: string | null | undefined): number {
+    const leftTime = this.toDateLikeTimestamp(leftValue);
+    const rightTime = this.toDateLikeTimestamp(rightValue);
+
+    if (leftTime !== null && rightTime !== null && leftTime !== rightTime) {
+      return leftTime - rightTime;
+    }
+
+    if (leftTime !== null || rightTime !== null) {
+      return leftTime !== null ? -1 : 1;
+    }
+
+    return 0;
+  }
+
+  private compareByQueueNumber(left: Queue, right: Queue): number {
+    const leftQueueNumber = Number.isInteger(left.queue_number) ? left.queue_number : Number.MAX_SAFE_INTEGER;
+    const rightQueueNumber = Number.isInteger(right.queue_number) ? right.queue_number : Number.MAX_SAFE_INTEGER;
+    if (leftQueueNumber !== rightQueueNumber) {
+      return leftQueueNumber - rightQueueNumber;
+    }
+
+    return left.id - right.id;
+  }
+
+  private toDateLikeTimestamp(value: string | null | undefined): number | null {
+    if (!value) {
+      return null;
+    }
+
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
   }
 
   private getAppointmentPredictedStart(appointment: Appointment): string | null {

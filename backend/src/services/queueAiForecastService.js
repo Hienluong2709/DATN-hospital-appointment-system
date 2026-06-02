@@ -115,8 +115,28 @@ const getMinuteOfDay = (value) => {
   return shifted.getUTCHours() * 60 + shifted.getUTCMinutes();
 };
 
+const getPriorityLevel = (queueLike) =>
+  queueLike?.Appointment?.priority_level || queueLike?.priority_level || "Normal";
+
+const getPriorityRank = (priorityLevel) => {
+  if (priorityLevel === "Emergency") {
+    return 0;
+  }
+
+  if (priorityLevel === "Priority") {
+    return 1;
+  }
+
+  return 2;
+};
+
 const buildQueueNumberOrderItems = (queueLikeItems = []) =>
   [...queueLikeItems].sort((left, right) => {
+    const priorityDiff = getPriorityRank(getPriorityLevel(left)) - getPriorityRank(getPriorityLevel(right));
+    if (priorityDiff !== 0) {
+      return priorityDiff;
+    }
+
     const leftQueueNumber = Number.isInteger(left?.queue_number)
       ? left.queue_number
       : Number.MAX_SAFE_INTEGER;
@@ -172,6 +192,7 @@ const buildCatboostFeatureRow = ({
     specialty_id: aiContext?.doctor_profile?.specialty_id ?? null,
     room_id: aiContext?.doctor_profile?.room_id ?? null,
     queue_number: queueLike?.queue_number ?? null,
+    priority_level: getPriorityLevel(queueLike),
     doctor_daily_queue_count: queuesInTrainingOrder.length,
     queues_ahead_total_count: priorRows.length,
     queues_ahead_checked_in_count: checkedInAheadRows.length,
