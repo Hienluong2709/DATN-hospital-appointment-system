@@ -20,15 +20,17 @@
 
   <article class="feature-card filters-card">
     <div class="filters-grid">
-      <label class="filter-field">
-        <span>Bác sĩ</span>
-        <select [ngModel]="selectedDoctorId" (ngModelChange)="updateSelectedDoctor($event)" [disabled]="isDoctorView">
-          <option [ngValue]="0">Tất cả bác sĩ</option>
-          @for (doctor of doctors; track doctor.id) {
-            <option [ngValue]="doctor.id">{{ doctorOptionLabel(doctor) }}</option>
-          }
-        </select>
-      </label>
+      @if (!isDoctorView) {
+        <label class="filter-field">
+          <span>Bác sĩ</span>
+          <select [ngModel]="selectedDoctorId" (ngModelChange)="updateSelectedDoctor($event)">
+            <option [ngValue]="0">Tất cả bác sĩ</option>
+            @for (doctor of doctors; track doctor.id) {
+              <option [ngValue]="doctor.id">{{ doctorOptionLabel(doctor) }}</option>
+            }
+          </select>
+        </label>
+      }
 
       <label class="filter-field">
         <span>Ngày</span>
@@ -229,12 +231,14 @@
       </div>
     </div>
 
-    <p class="state-text state-text--left">
-      Đang xem: {{ doctorFilterLabel }} • Ngày chọn: {{ selectedDate }}
-      @if (viewMode === 'week') {
-        • Tuần: {{ selectedWeekRangeLabel }}
-      }
-    </p>
+    @if (!isDoctorView) {
+      <p class="state-text state-text--left">
+        Đang xem: {{ doctorFilterLabel }} • Ngày chọn: {{ selectedDate }}
+        @if (viewMode === 'week') {
+          • Tuần: {{ selectedWeekRangeLabel }}
+        }
+      </p>
+    }
 
     @if (isLoadingList) {
       <p class="state-text">Đang tải danh sách lịch làm việc...</p>
@@ -242,7 +246,7 @@
       <p class="state-text">Chưa có lịch làm việc nào.</p>
     } @else if (viewMode === 'day') {
       @if (!daySchedules.length) {
-        <p class="state-text">Không có lịch làm việc trong ngày đã chọn.</p>
+        <p class="state-text">{{ isDoctorView ? doctorEmptyDayMessage : 'Không có lịch làm việc trong ngày đã chọn.' }}</p>
       } @else if (isDoctorView) {
         <div class="doctor-shift-list">
           @for (schedule of daySchedules; track schedule.id; let index = $index) {

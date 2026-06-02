@@ -19,6 +19,7 @@ export class WorkScheduleBlockDetailModalComponent {
   @Input() startTimeLabel = '--';
   @Input() endTimeLabel = '--';
   @Input() statusLabel = '--';
+  @Input() isSubmitting = false;
 
   @Output() closeModal = new EventEmitter<void>();
 

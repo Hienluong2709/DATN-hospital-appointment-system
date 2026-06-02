@@ -421,6 +421,56 @@
     [startTimeLabel]="selectedBlock ? formatTime(selectedBlock.start_time) : '--'"
     [endTimeLabel]="selectedBlock ? formatTime(selectedBlock.end_time) : '--'"
     [statusLabel]="selectedBlock ? getWorkScheduleBlockStatusLabel(selectedBlock.status) : '--'"
+    [isSubmitting]="isSubmitting"
     (closeModal)="closeDetailModal()"
   />
+
+  @if (isRejectModalOpen && rejectingBlock) {
+    <div class="reject-modal-overlay" (click)="closeRejectModal()">
+      <article class="reject-modal" (click)="$event.stopPropagation()">
+        <header class="reject-modal__header">
+          <div>
+            <p>Từ chối yêu cầu nghỉ</p>
+            <h2>{{ displayDoctorName(rejectingBlock) }}</h2>
+          </div>
+          <button class="reject-modal__close" type="button" (click)="closeRejectModal()" [disabled]="isSubmitting">x</button>
+        </header>
+
+        <div class="reject-modal__summary">
+          <div>
+            <span>Ngày nghỉ</span>
+            <strong>{{ formatDate(rejectingBlock.date) }}</strong>
+          </div>
+          <div>
+            <span>Loại</span>
+            <strong>{{ rejectingBlock.is_off ? 'Nghỉ cả ngày' : 'Nghỉ theo giờ' }}</strong>
+          </div>
+        </div>
+
+        <label class="reject-modal__field">
+          <span>Lý do từ chối <strong>*</strong></span>
+          <textarea
+            rows="4"
+            [value]="rejectReason"
+            (input)="updateRejectReason($any($event.target).value)"
+            [class.reject-modal__textarea--invalid]="rejectReasonTouched && !rejectReason.trim()"
+            placeholder="Nhập lý do để bác sĩ biết và điều chỉnh yêu cầu nghỉ"
+          ></textarea>
+        </label>
+
+        @if (rejectReasonTouched && !rejectReason.trim()) {
+          <p class="reject-modal__error">Vui lòng nhập lý do từ chối.</p>
+        }
+
+        <footer class="reject-modal__actions">
+          <button class="button-secondary" type="button" (click)="closeRejectModal()" [disabled]="isSubmitting">
+            Hủy
+          </button>
+          <button class="button-danger" type="button" (click)="confirmReject()" [disabled]="isSubmitting">
+            {{ isSubmitting ? 'Đang xử lý...' : 'Xác nhận từ chối' }}
+          </button>
+        </footer>
+      </article>
+    </div>
+  }
 </section>

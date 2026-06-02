@@ -345,7 +345,17 @@ export class WorkSchedulesPageComponent implements OnInit, OnDestroy {
   }
 
   get activeDayLabel(): string {
+    if (this.isDoctorView && this.isSelectedDateToday) {
+      return 'Hôm nay';
+    }
+
     return this.dayLabel(this.selectedDayOfWeek);
+  }
+
+  get doctorEmptyDayMessage(): string {
+    return this.isSelectedDateToday
+      ? 'Không có lịch làm việc hôm nay.'
+      : 'Không có lịch làm việc trong ngày đã chọn.';
   }
 
   get daySchedules(): WorkSchedule[] {
@@ -835,6 +845,10 @@ export class WorkSchedulesPageComponent implements OnInit, OnDestroy {
 
   private get selectedDayOfWeek(): WorkScheduleDayOfWeek {
     return this.selectedDateObject.getDay() as WorkScheduleDayOfWeek;
+  }
+
+  private get isSelectedDateToday(): boolean {
+    return this.selectedDate === this.getTodayDateInputValue();
   }
 
   private getWeekStart(date: Date): Date {

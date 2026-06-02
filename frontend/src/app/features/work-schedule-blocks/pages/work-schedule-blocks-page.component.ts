@@ -41,6 +41,7 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
 
   isFormModalOpen = false;
   isDetailModalOpen = false;
+  isRejectModalOpen = false;
   isLoadingList = false;
   isLoadingDetail = false;
   isLoadingDoctors = false;
@@ -51,6 +52,9 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
 
   selectedDoctorId = 0;
   selectedStatus: WorkScheduleBlockStatus | 'ALL' = 'ALL';
+  rejectingBlock: WorkScheduleBlock | null = null;
+  rejectReason = '';
+  rejectReasonTouched = false;
   activeTab: 'requests' | 'approved' = 'requests';
   viewMode: 'day' | 'week' = 'day';
   selectedDate = '';
@@ -117,6 +121,11 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
 
     if (this.isDetailModalOpen) {
       this.closeDetailModal();
+      return;
+    }
+
+    if (this.isRejectModalOpen) {
+      this.closeRejectModal();
       return;
     }
 
@@ -210,6 +219,18 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
   closeDetailModal(): void {
     this.isDetailModalOpen = false;
     this.selectedBlock = null;
+    this.updateBodyScrollState();
+  }
+
+  closeRejectModal(): void {
+    if (this.isSubmitting) {
+      return;
+    }
+
+    this.isRejectModalOpen = false;
+    this.rejectingBlock = null;
+    this.rejectReason = '';
+    this.rejectReasonTouched = false;
     this.updateBodyScrollState();
   }
 
@@ -580,10 +601,38 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
   }
 
   onReject(block: WorkScheduleBlock): void {
-    const reviewNote = globalThis.prompt('Nhập lý do từ chối (không bắt buộc):', block.review_note ?? '') ?? null;
-    this.reviewBlock(block, {
+    if (!this.canReviewBlocks || block.status !== 'Pending') {
+      return;
+    }
+
+    this.rejectingBlock = block;
+    this.rejectReason = block.review_note ?? '';
+    this.rejectReasonTouched = false;
+    this.isRejectModalOpen = true;
+    this.updateBodyScrollState();
+  }
+
+  updateRejectReason(value: string): void {
+    this.rejectReason = value;
+    if (this.rejectReasonTouched && this.rejectReason.trim()) {
+      this.rejectReasonTouched = false;
+    }
+  }
+
+  confirmReject(): void {
+    const reason = this.rejectReason.trim();
+    if (!this.rejectingBlock || this.isSubmitting) {
+      return;
+    }
+
+    if (!reason) {
+      this.rejectReasonTouched = true;
+      return;
+    }
+
+    this.reviewBlock(this.rejectingBlock, {
       status: 'Rejected',
-      review_note: reviewNote
+      review_note: reason
     });
   }
 
@@ -690,6 +739,14 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
 
         if (this.selectedBlock?.id === block.id) {
           this.selectedBlock = response.data;
+        }
+
+        if (payload.status === 'Rejected') {
+          this.isRejectModalOpen = false;
+          this.rejectingBlock = null;
+          this.rejectReason = '';
+          this.rejectReasonTouched = false;
+          this.updateBodyScrollState();
         }
 
         this.loadList();
@@ -846,7 +903,7 @@ export class WorkScheduleBlocksPageComponent implements OnInit, OnDestroy {
   }
 
   private updateBodyScrollState(): void {
-    const hasOpenModal = this.isFormModalOpen || this.isDetailModalOpen;
+    const hasOpenModal = this.isFormModalOpen || this.isDetailModalOpen || this.isRejectModalOpen;
 
     if (hasOpenModal) {
       this.lockBodyScroll();

@@ -2,7 +2,7 @@
   <div class="modal-overlay" (click)="onOverlayClick()">
     <article class="modal-card" (click)="$event.stopPropagation()">
       <header class="modal-header">
-        <h2>Chi tiết chặn lịch</h2>
+        <h2>Chi tiết lịch nghỉ</h2>
         <button class="icon-close" type="button" (click)="onCloseClick()">x</button>
       </header>
 
@@ -49,6 +49,12 @@
             </div>
           }
         </dl>
+
+        <footer class="modal-actions">
+          <button class="button-secondary" type="button" (click)="onCloseClick()" [disabled]="isSubmitting">
+            Thoát
+          </button>
+        </footer>
       } @else {
         <p class="state-text">Không có dữ liệu chi tiết.</p>
       }

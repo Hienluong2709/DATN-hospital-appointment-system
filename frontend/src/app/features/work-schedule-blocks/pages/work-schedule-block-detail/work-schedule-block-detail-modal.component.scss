@@ -77,6 +77,51 @@ dd {
   font-weight: 600;
 }
 
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #dce8f3;
+}
+
+.modal-actions button {
+  min-height: 40px;
+  border-radius: 10px;
+  padding: 0 1rem;
+  font-weight: 700;
+}
+
+.button-primary,
+.button-secondary,
+.button-warning {
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.button-primary {
+  background: #0f76bc;
+  color: #fff;
+}
+
+.button-secondary {
+  background: #f7fbff;
+  border-color: #c9dced;
+  color: #163a5d;
+}
+
+.button-warning {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+}
+
+.modal-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 @keyframes modalFadeIn {
   from {
     opacity: 0;
