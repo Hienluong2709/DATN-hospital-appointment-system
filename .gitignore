@@ -46,3 +46,4 @@ uploads/
 outputs/
 backend/exports/
 ai-engine/artifacts/
+ai-engine/catboost_info/
