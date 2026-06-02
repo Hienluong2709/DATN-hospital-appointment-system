@@ -32,6 +32,7 @@ const TRAIN_FEATURE_COLUMNS = [
   "specialty_id",
   "room_id",
   "queue_number",
+  "priority_level",
   "doctor_daily_queue_count",
   "queues_ahead_total_count",
   "queues_ahead_checked_in_count",
@@ -87,6 +88,10 @@ const parseUtcOffsetToMinutes = (offsetValue) => {
 };
 
 const BUSINESS_TIMEZONE_OFFSET_MINUTES = parseUtcOffsetToMinutes(BUSINESS_TIMEZONE_OFFSET);
+const MIN_VALID_VISIT_DURATION_MINUTES = Number(process.env.MIN_TRAIN_VISIT_DURATION_MINUTES || 8);
+const MAX_VALID_VISIT_DURATION_MINUTES = Number(process.env.MAX_TRAIN_VISIT_DURATION_MINUTES || 90);
+const MAX_VALID_WAIT_MINUTES = Number(process.env.MAX_TRAIN_WAIT_MINUTES || 480);
+const MAX_VALID_DELAY_ABS_MINUTES = Number(process.env.MAX_TRAIN_DELAY_ABS_MINUTES || 360);
 
 const parseDateTime = (value) => {
   if (!value) {
@@ -108,6 +113,18 @@ const diffMinutes = (start, end) => {
   return Math.round((right.getTime() - left.getTime()) / 60000);
 };
 
+const isFiniteNumber = (value) => Number.isFinite(Number(value));
+
+const toBusinessDateString = (value) => {
+  const parsed = parseDateTime(value);
+  if (!parsed) {
+    return null;
+  }
+
+  const shifted = new Date(parsed.getTime() + BUSINESS_TIMEZONE_OFFSET_MINUTES * 60 * 1000);
+  return shifted.toISOString().slice(0, 10);
+};
+
 const average = (values) => {
   if (!values.length) {
     return null;
@@ -116,7 +133,24 @@ const average = (values) => {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 };
 
+const getPriorityRank = (priorityLevel) => {
+  if (priorityLevel === "Emergency") {
+    return 0;
+  }
+
+  if (priorityLevel === "Priority") {
+    return 1;
+  }
+
+  return 2;
+};
+
 const compareRowsInQueueOrder = (left, right) => {
+  const priorityDiff = getPriorityRank(left?.priority_level) - getPriorityRank(right?.priority_level);
+  if (priorityDiff !== 0) {
+    return priorityDiff;
+  }
+
   const queueNumberDiff = Number(left?.queue_number ?? 0) - Number(right?.queue_number ?? 0);
   if (queueNumberDiff !== 0) {
     return queueNumberDiff;
@@ -281,8 +315,73 @@ const toCsv = (rows) => {
   ].join("\n");
 };
 
+const getRegressionRejectReason = (row) => {
+  if (row.no_show_flag === 1) {
+    return "no_show";
+  }
+
+  if (row.completed_flag !== 1) {
+    return "not_completed";
+  }
+
+  if (!row.checked_in_at || !row.actual_start || !row.actual_end || !row.appointment_date) {
+    return "missing_required_time";
+  }
+
+  const checkedInAt = parseDateTime(row.checked_in_at);
+  const actualStart = parseDateTime(row.actual_start);
+  const actualEnd = parseDateTime(row.actual_end);
+  if (!checkedInAt || !actualStart || !actualEnd) {
+    return "invalid_datetime";
+  }
+
+  if (actualStart < checkedInAt) {
+    return "actual_start_before_checkin";
+  }
+
+  if (actualEnd <= actualStart) {
+    return "actual_end_not_after_start";
+  }
+
+  const visitDurationMinutes = Number(row.visit_duration_minutes ?? diffMinutes(row.actual_start, row.actual_end));
+  if (
+    !isFiniteNumber(visitDurationMinutes) ||
+    visitDurationMinutes < MIN_VALID_VISIT_DURATION_MINUTES ||
+    visitDurationMinutes > MAX_VALID_VISIT_DURATION_MINUTES
+  ) {
+    return "visit_duration_out_of_range";
+  }
+
+  const actualWaitMinutes = Number(row.checkin_to_start_minutes ?? diffMinutes(row.checked_in_at, row.actual_start));
+  if (
+    !isFiniteNumber(actualWaitMinutes) ||
+    actualWaitMinutes < 0 ||
+    actualWaitMinutes > MAX_VALID_WAIT_MINUTES
+  ) {
+    return "wait_minutes_out_of_range";
+  }
+
+  const startDelayFromOriginal = Number(
+    row.start_delay_from_original_minutes ?? diffMinutes(row.original_estimated_start, row.actual_start)
+  );
+  if (
+    isFiniteNumber(startDelayFromOriginal) &&
+    Math.abs(startDelayFromOriginal) > MAX_VALID_DELAY_ABS_MINUTES
+  ) {
+    return "original_delay_out_of_range";
+  }
+
+  const businessStartDate = toBusinessDateString(row.actual_start);
+  const businessEndDate = toBusinessDateString(row.actual_end);
+  if (businessStartDate !== row.appointment_date || businessEndDate !== row.appointment_date) {
+    return "outside_appointment_date";
+  }
+
+  return null;
+};
+
 const shouldKeepRowForRegression = (row) => {
-  return row.no_show_flag !== 1 && row.completed_flag === 1 && row.actual_start && row.checked_in_at;
+  return !getRegressionRejectReason(row);
 };
 
 const pickColumns = (row, columns) =>
@@ -304,9 +403,18 @@ const main = async () => {
   const parsed = JSON.parse(rawContent);
   const sourceRows = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.rows) ? parsed.rows : [];
   const queueStateByQueueId = buildQueueStateByQueueId(sourceRows);
+  const rejectSummary = {};
 
   const featureRows = sourceRows
-    .filter((row) => shouldKeepRowForRegression(row))
+    .filter((row) => {
+      const reason = getRegressionRejectReason(row);
+      if (reason) {
+        rejectSummary[reason] = (rejectSummary[reason] || 0) + 1;
+        return false;
+      }
+
+      return true;
+    })
     .map((row) => ({
       ...(queueStateByQueueId.get(row.queue_id) || {}),
       queue_id: row.queue_id ?? null,
@@ -316,6 +424,7 @@ const main = async () => {
       specialty_id: row.specialty_id ?? null,
       room_id: row.room_id ?? null,
       queue_number: row.queue_number ?? null,
+      priority_level: row.priority_level ?? "Normal",
       appointment_weekday: getWeekday(row.appointment_date),
       appointment_month: getMonth(row.appointment_date),
       appointment_day: getDayOfMonth(row.appointment_date),
@@ -356,6 +465,8 @@ const main = async () => {
   console.info(
     [
       `[feature export] wrote ${featureRows.length} regression row(s) from ${sourceRows.length} source row(s)`,
+      `rejected=${sourceRows.length - featureRows.length}`,
+      `reject_summary=${JSON.stringify(rejectSummary)}`,
       `full=${outputFullPath}`,
       `train_features=${outputTrainFeaturesPath}`,
       `train_targets=${outputTrainTargetsPath}`,

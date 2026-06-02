@@ -31,6 +31,7 @@ const defaultSimulationProfile = {
   visitSpreadMinutes: 8,
   occupancyBase: 0.54,
   noShowRate: 0.04,
+  priorityRate: 0.08,
   maxEarlyStartMinutes: 8,
   maxEarlyCheckInMinutes: 35,
   maxLateCheckInMinutes: 10,
@@ -42,6 +43,7 @@ const specialtySimulationProfiles = {
     visitSpreadMinutes: 10,
     occupancyBase: 0.63,
     noShowRate: 0.03,
+    priorityRate: 0.11,
     maxEarlyStartMinutes: 6,
     maxEarlyCheckInMinutes: 40,
     maxLateCheckInMinutes: 8,
@@ -51,6 +53,7 @@ const specialtySimulationProfiles = {
     visitSpreadMinutes: 7,
     occupancyBase: 0.56,
     noShowRate: 0.06,
+    priorityRate: 0.06,
     maxEarlyStartMinutes: 10,
     maxEarlyCheckInMinutes: 30,
     maxLateCheckInMinutes: 12,
@@ -60,6 +63,7 @@ const specialtySimulationProfiles = {
     visitSpreadMinutes: 9,
     occupancyBase: 0.66,
     noShowRate: 0.05,
+    priorityRate: 0.12,
     maxEarlyStartMinutes: 7,
     maxEarlyCheckInMinutes: 28,
     maxLateCheckInMinutes: 15,
@@ -69,6 +73,7 @@ const specialtySimulationProfiles = {
     visitSpreadMinutes: 8,
     occupancyBase: 0.6,
     noShowRate: 0.04,
+    priorityRate: 0.08,
     maxEarlyStartMinutes: 8,
     maxEarlyCheckInMinutes: 36,
     maxLateCheckInMinutes: 10,
@@ -78,6 +83,7 @@ const specialtySimulationProfiles = {
     visitSpreadMinutes: 7,
     occupancyBase: 0.58,
     noShowRate: 0.05,
+    priorityRate: 0.07,
     maxEarlyStartMinutes: 10,
     maxEarlyCheckInMinutes: 32,
     maxLateCheckInMinutes: 10,
@@ -87,6 +93,7 @@ const specialtySimulationProfiles = {
     visitSpreadMinutes: 9,
     occupancyBase: 0.62,
     noShowRate: 0.04,
+    priorityRate: 0.1,
     maxEarlyStartMinutes: 6,
     maxEarlyCheckInMinutes: 35,
     maxLateCheckInMinutes: 8,
@@ -96,6 +103,7 @@ const specialtySimulationProfiles = {
     visitSpreadMinutes: 11,
     occupancyBase: 0.57,
     noShowRate: 0.03,
+    priorityRate: 0.12,
     maxEarlyStartMinutes: 5,
     maxEarlyCheckInMinutes: 35,
     maxLateCheckInMinutes: 10,
@@ -105,6 +113,7 @@ const specialtySimulationProfiles = {
     visitSpreadMinutes: 10,
     occupancyBase: 0.53,
     noShowRate: 0.03,
+    priorityRate: 0.09,
     maxEarlyStartMinutes: 5,
     maxEarlyCheckInMinutes: 42,
     maxLateCheckInMinutes: 8,
@@ -114,6 +123,7 @@ const specialtySimulationProfiles = {
     visitSpreadMinutes: 9,
     occupancyBase: 0.58,
     noShowRate: 0.04,
+    priorityRate: 0.07,
     maxEarlyStartMinutes: 7,
     maxEarlyCheckInMinutes: 34,
     maxLateCheckInMinutes: 9,
@@ -439,9 +449,39 @@ const buildVisitDurationMinutes = ({
         dayPaceFactor +
         backlogPressure,
     ),
-    8,
-    85,
+    10,
+    75,
   );
+};
+
+const buildPriorityLevel = ({ slotKey, profile, dailyLoadFactor, slotTime }) => {
+  const slotMinutes = timeToMinutes(slotTime);
+  const peakHourBoost = slotMinutes >= 8 * 60 && slotMinutes <= 10 * 60 + 30 ? 0.02 : 0;
+  const priorityChance = clamp(profile.priorityRate + Math.max(0, dailyLoadFactor) * 0.15 + peakHourBoost, 0.04, 0.18);
+  const emergencyChance = clamp(0.008 + Math.max(0, dailyLoadFactor) * 0.025, 0.006, 0.035);
+  const roll = ratioFromKey(`${slotKey}|priority-level`);
+
+  if (roll < emergencyChance) {
+    return "Emergency";
+  }
+
+  if (roll < emergencyChance + priorityChance) {
+    return "Priority";
+  }
+
+  return "Normal";
+};
+
+const getPriorityStartPullForwardMinutes = (priorityLevel) => {
+  if (priorityLevel === "Emergency") {
+    return 18;
+  }
+
+  if (priorityLevel === "Priority") {
+    return 9;
+  }
+
+  return 0;
 };
 
 const buildExpectedVisitDurationMinutes = ({ slotKey, profile, queueNumber, dayPaceFactor }) => {
@@ -748,6 +788,13 @@ async function seedTrainingHistoryAdditive() {
             queueNumber,
             dailyLoadFactor,
           });
+          const priorityLevel = buildPriorityLevel({
+            slotKey,
+            profile,
+            dailyLoadFactor,
+            slotTime,
+          });
+          const priorityPullForwardMinutes = getPriorityStartPullForwardMinutes(priorityLevel);
           const checkedInAt = addMinutes(slotDateTime, -checkInLeadMinutes);
           const forecastUpdatedAt = addMinutes(
             checkedInAt,
@@ -774,15 +821,22 @@ async function seedTrainingHistoryAdditive() {
           let estimatedStart = new Date(
             Math.max(forecastDoctorAvailableAt.getTime(), predictedStartFloor.getTime()),
           );
-          estimatedStart = addMinutes(
-            estimatedStart,
-            randomIntBetween(`${slotKey}|forecast-error`, -4, 7),
-          );
+          const forecastErrorRoll = ratioFromKey(`${slotKey}|forecast-error-scenario`);
+          const forecastErrorMinutes =
+            forecastErrorRoll < 0.18
+              ? randomIntBetween(`${slotKey}|forecast-optimistic-error`, -14, -5)
+              : forecastErrorRoll < 0.34
+                ? randomIntBetween(`${slotKey}|forecast-conservative-error`, 6, 16)
+                : randomIntBetween(`${slotKey}|forecast-normal-error`, -4, 7);
+          estimatedStart = addMinutes(estimatedStart, forecastErrorMinutes - Math.floor(priorityPullForwardMinutes / 2));
           if (estimatedStart < addMinutes(checkedInAt, 1)) {
             estimatedStart = addMinutes(checkedInAt, randomIntBetween(`${slotKey}|forecast-floor`, 1, 5));
           }
 
-          const actualStartFloor = addMinutes(slotDateTime, -earlyStartAllowanceMinutes);
+          const actualStartFloor = addMinutes(
+            slotDateTime,
+            -(earlyStartAllowanceMinutes + priorityPullForwardMinutes),
+          );
           const patientReadyAt =
             checkInLeadMinutes >= 0
               ? checkedInAt
@@ -813,6 +867,7 @@ async function seedTrainingHistoryAdditive() {
             time_slot: slotTime,
             reason,
             status: "Completed",
+            priority_level: priorityLevel,
             preferred_period: timeToMinutes(slotTime) < 12 * 60 ? "MORNING" : "AFTERNOON",
             hold_expires_at: null,
             created_at: createdAt,

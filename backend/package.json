@@ -17,6 +17,7 @@
     "queue:verify-forecast-integrity": "node src/scripts/verify-queue-forecast-integrity.js",
     "queue:audit-data-quality": "node src/scripts/audit-queue-data-quality.js",
     "queue:cleanup-legacy-data": "node src/scripts/cleanup-legacy-queue-data.js",
+    "queue:cleanup-invalid-completed-times": "node src/scripts/cleanup-invalid-completed-queue-times.js",
     "queue:manual-fix-legacy": "node src/scripts/manual-fix-legacy-queues.js",
     "appointments:cleanup-incomplete": "node src/scripts/cleanup-incomplete-appointments.js",
     "queue:dispatch-notifications": "node src/scripts/dispatch-queue-notifications.js",

@@ -15,16 +15,19 @@ BASELINE_MODEL_NAME = "rule_based_engine"
 PRIMARY_MODEL_NAME = "catboost_regressor"
 LINEAR_REGRESSION_MODEL_NAME = "linear_regression"
 RANDOM_FOREST_MODEL_NAME = "random_forest_regressor"
+NEURAL_NETWORK_MODEL_NAME = "neural_network_regressor"
 
 CATBOOST_MODEL_FILENAME = "catboost-regressor.cbm"
 LINEAR_REGRESSION_MODEL_FILENAME = "linear-regression.joblib"
 RANDOM_FOREST_MODEL_FILENAME = "random-forest-regressor.joblib"
+NEURAL_NETWORK_MODEL_FILENAME = "neural-network-regressor.joblib"
 
 FEATURE_COLUMNS = [
     "doctor_id",
     "specialty_id",
     "room_id",
     "queue_number",
+    "priority_level",
     "doctor_daily_queue_count",
     "queues_ahead_total_count",
     "queues_ahead_checked_in_count",
@@ -50,6 +53,7 @@ CATEGORICAL_COLUMNS = [
     "doctor_id",
     "specialty_id",
     "room_id",
+    "priority_level",
 ]
 
 BASELINE_FEATURE = "baseline_predicted_wait_minutes"

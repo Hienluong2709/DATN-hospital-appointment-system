@@ -87,7 +87,17 @@ const main = async () => {
     include: [
       {
         model: Appointment,
-        attributes: ["id", "patient_id", "doctor_id", "date", "status", "time_slot", "preferred_period", "reason"],
+        attributes: [
+          "id",
+          "patient_id",
+          "doctor_id",
+          "date",
+          "status",
+          "time_slot",
+          "preferred_period",
+          "priority_level",
+          "reason",
+        ],
         include: [
           {
             model: Doctor,
@@ -133,6 +143,7 @@ const main = async () => {
       room_floor: appointment?.Doctor?.Room?.floor ?? null,
       appointment_date: queue.date,
       appointment_status: appointment?.status ?? null,
+      priority_level: appointment?.priority_level ?? "Normal",
       queue_number: queue.queue_number,
       checked_in_at: toIsoString(queue.checked_in_at),
       original_estimated_start: toIsoString(queue.original_estimated_start),
