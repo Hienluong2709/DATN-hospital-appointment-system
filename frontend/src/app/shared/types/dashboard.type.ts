@@ -13,6 +13,7 @@ export interface DashboardDoctorItem {
   room: string | null;
   status?: string | null;
   appointment_count?: number;
+  description?: string | null;
 }
 
 export interface DashboardAppointmentStatusItem {

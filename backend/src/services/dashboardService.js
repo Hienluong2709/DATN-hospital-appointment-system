@@ -142,7 +142,11 @@ const getPublicFeaturedDoctors = async () => {
     limit: 3,
   });
 
-  return doctors.map((doctor) => mapDoctorCard(doctor));
+  return doctors.map((doctor) =>
+    mapDoctorCard(doctor, {
+      description: doctor.description,
+    }),
+  );
 };
 
 const getPublicFeaturedSpecialties = async () => {

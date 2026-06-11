@@ -48,4 +48,21 @@ export class DashboardPageComponent {
   }
 
   protected readonly getAppointmentStatusLabel = getAppointmentStatusLabel;
+
+  protected getKpiIcon(key: string): string {
+    const normalizedKey = key.toLowerCase();
+    if (normalizedKey.includes('doctor')) {
+      return 'medical_services';
+    }
+    if (normalizedKey.includes('patient')) {
+      return 'group';
+    }
+    if (normalizedKey.includes('appointment')) {
+      return 'event_note';
+    }
+    if (normalizedKey.includes('room')) {
+      return 'meeting_room';
+    }
+    return 'monitoring';
+  }
 }

@@ -88,5 +88,19 @@ export class DoctorPortalPageComponent {
     }
   }
 
+  protected getKpiIcon(key: string): string {
+    const normalizedKey = key.toLowerCase();
+    if (normalizedKey.includes('queue') || normalizedKey.includes('wait')) {
+      return 'personal_injury';
+    }
+    if (normalizedKey.includes('complete')) {
+      return 'task_alt';
+    }
+    if (normalizedKey.includes('appointment') || normalizedKey.includes('patient')) {
+      return 'clinical_notes';
+    }
+    return 'medical_services';
+  }
+
   protected readonly getAppointmentStatusLabel = getAppointmentStatusLabel;
 }

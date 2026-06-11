@@ -393,33 +393,64 @@
 .doctor-grid {
   margin-top: 0.9rem;
   display: grid;
-  gap: 0.7rem;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
 .doctor-card {
   display: grid;
-  grid-template-columns: 52px minmax(0, 1fr);
-  gap: 0.8rem;
-  align-items: start;
-  border-radius: 14px;
+  grid-template-rows: 190px auto;
+  overflow: hidden;
+  border-radius: 16px;
   border: 1px solid var(--patient-page-border-strong);
-  padding: 0.9rem;
   background: #ffffff;
   box-shadow: 0 12px 24px rgba(25, 65, 104, 0.06);
 }
 
-.doctor-avatar {
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #155286 0%, #1d6cae 100%);
-  color: #ffffff;
-  font-weight: 800;
+.doctor-card__visual {
+  position: relative;
+  min-height: 190px;
+  overflow: hidden;
+}
+
+.doctor-card__visual::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(15, 56, 95, 0.02) 0%, rgba(15, 56, 95, 0.28) 100%);
+  pointer-events: none;
+}
+
+.doctor-card__visual img,
+.department-card__visual img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.doctor-card__visual img {
+  object-position: center 28%;
+}
+
+.doctor-card__initials {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  min-width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.86);
+  color: #155286;
+  font-weight: 900;
   letter-spacing: 0.04em;
+  z-index: 2;
+}
+
+.doctor-card__content {
+  padding: 0.95rem;
 }
 
 .doctor-card h3 {
@@ -434,7 +465,7 @@
   font-size: 0.82rem;
 }
 
-.doctor-card p:last-child {
+.doctor-description {
   margin: 0.45rem 0 0;
   color: var(--patient-page-muted);
   line-height: 1.45;
@@ -467,15 +498,53 @@
 .department-grid {
   margin-top: 0.9rem;
   display: grid;
-  gap: 0.7rem;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
 .department-card {
+  overflow: hidden;
   border: 1px solid var(--patient-page-border-strong);
-  border-radius: 14px;
-  padding: 0.85rem;
+  border-radius: 16px;
   background: #ffffff;
+  box-shadow: 0 12px 24px rgba(25, 65, 104, 0.05);
+}
+
+.department-card__visual {
+  min-height: 118px;
+  position: relative;
+  overflow: hidden;
+}
+
+.department-card__visual::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(15, 56, 95, 0.08) 0%, rgba(15, 56, 95, 0.3) 100%),
+    radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.32) 0 18%, transparent 19%);
+  pointer-events: none;
+}
+
+.department-card__visual span {
+  position: absolute;
+  left: 16px;
+  bottom: 14px;
+  z-index: 1;
+  min-width: 64px;
+  height: 64px;
+  border-radius: 22px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.86);
+  color: #155286;
+  font-size: 1.15rem;
+  font-weight: 900;
+  box-shadow: 0 14px 28px rgba(20, 50, 74, 0.14);
+}
+
+.department-card__content {
+  padding: 0.9rem;
 }
 
 .callout {
@@ -541,6 +610,130 @@
   border-color: rgba(223, 244, 255, 0.28);
   color: #e6f7ff;
   background: transparent;
+}
+
+.patient-dashboard-block header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.patient-dashboard-eyebrow {
+  margin: 0 0 0.25rem;
+  color: #1d6cae;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.patient-refresh-button {
+  min-height: 38px;
+  border: 1px solid var(--patient-page-border-strong);
+  border-radius: 999px;
+  padding: 0 0.9rem;
+  color: #155286;
+  background: #f8fcff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.patient-refresh-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.patient-kpi-grid {
+  margin-top: 1rem;
+}
+
+.patient-dashboard-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-top: 0.9rem;
+}
+
+.patient-dashboard-panel {
+  border: 1px solid var(--patient-page-border-strong);
+  border-radius: 16px;
+  padding: 1rem;
+  background: #ffffff;
+}
+
+.patient-dashboard-panel header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.patient-dashboard-panel header > .material-symbols-outlined {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: #155286;
+  background: #eaf4ff;
+}
+
+.patient-dashboard-panel h3 {
+  margin: 0;
+  color: var(--patient-page-heading);
+}
+
+.patient-dashboard-panel p {
+  margin: 0.35rem 0 0;
+  color: var(--patient-page-muted);
+  line-height: 1.45;
+}
+
+.patient-appointment-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.patient-appointment-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  border: 1px solid #deebf5;
+  border-radius: 14px;
+  padding: 0.78rem 0.85rem;
+  background: #fbfdff;
+}
+
+.patient-appointment-item div {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.patient-appointment-item strong {
+  color: var(--patient-page-heading);
+}
+
+.patient-appointment-item span:not(.status-badge) {
+  color: var(--patient-page-muted);
+}
+
+.patient-dashboard-empty {
+  border: 1px dashed var(--patient-page-border-strong);
+  border-radius: 14px;
+  padding: 1rem;
+  color: var(--patient-page-muted);
+  background: #f8fcff;
+  text-align: center;
+}
+
+.patient-dashboard-empty--error {
+  border-color: #f0c7c7;
+  color: #9c2d2d;
+  background: #fff8f8;
 }
 
 .patient-footer {
@@ -650,6 +843,16 @@
   .welcome-card {
     gap: 0.8rem;
     padding: 1rem;
+  }
+
+  .patient-dashboard-block header,
+  .patient-appointment-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .patient-dashboard-panel-grid {
+    grid-template-columns: 1fr;
   }
 
   .patient-footer {

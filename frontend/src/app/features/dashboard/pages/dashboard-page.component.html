@@ -1,4 +1,4 @@
-<section class="feature-page">
+<section class="feature-page role-dashboard">
   <header class="feature-header">
     <h1 class="feature-title">Trang chủ quản trị</h1>
     <p class="feature-subtitle">
@@ -19,17 +19,37 @@
     </section>
   } @else {
     @if (summary; as currentSummary) {
+      <section class="feature-card role-dashboard-hero">
+        <div>
+          <p class="role-dashboard-hero__eyebrow">Tổng quan vận hành</p>
+          <h2>Giám sát hoạt động toàn hệ thống bệnh viện</h2>
+          <p>
+            Theo dõi dữ liệu lịch khám, nguồn lực bác sĩ và trạng thái phục vụ trong ngày để hỗ trợ báo cáo và điều phối.
+          </p>
+          <div class="role-dashboard-hero__meta">
+            <span><span class="material-symbols-outlined">monitoring</span> Báo cáo tổng quan</span>
+            <span><span class="material-symbols-outlined">calendar_month</span> Dữ liệu hôm nay</span>
+          </div>
+        </div>
+        <div class="role-dashboard-hero__icon" aria-hidden="true">
+          <span class="material-symbols-outlined">admin_panel_settings</span>
+        </div>
+      </section>
+
       <section class="feature-card dashboard-kpi-grid">
         @for (card of currentSummary.kpis; track card.key) {
           <article
             class="dashboard-kpi-card"
             [class.dashboard-kpi-card--success]="card.tone === 'success'"
             [class.dashboard-kpi-card--warning]="card.tone === 'warning'">
-            <span class="dashboard-kpi-label">{{ card.label }}</span>
-            <strong class="dashboard-kpi-value">{{ card.value }}</strong>
-            @if (card.note) {
-              <p class="dashboard-kpi-note">{{ card.note }}</p>
-            }
+            <span class="dashboard-kpi-card__icon material-symbols-outlined" aria-hidden="true">{{ getKpiIcon(card.key) }}</span>
+            <div>
+              <span class="dashboard-kpi-label">{{ card.label }}</span>
+              <strong class="dashboard-kpi-value">{{ card.value }}</strong>
+              @if (card.note) {
+                <p class="dashboard-kpi-note">{{ card.note }}</p>
+              }
+            </div>
           </article>
         }
       </section>
@@ -38,9 +58,11 @@
         <article class="feature-card dashboard-panel">
           <header class="dashboard-panel__header">
             <div>
+              <p class="dashboard-section-label">Thống kê lịch khám</p>
               <h3>Phân bố trạng thái lịch hôm nay</h3>
               <p>Tổng hợp theo trạng thái nghiệp vụ để quản trị luồng vận hành.</p>
             </div>
+            <span class="dashboard-panel__icon material-symbols-outlined" aria-hidden="true">donut_large</span>
           </header>
 
           <div class="dashboard-chip-grid">
@@ -56,9 +78,11 @@
         <article class="feature-card dashboard-panel">
           <header class="dashboard-panel__header">
             <div>
+              <p class="dashboard-section-label">Tải khám</p>
               <h3>Bác sĩ có nhiều lịch trong ngày</h3>
               <p>Dùng để theo dõi tải khám và điều phối nguồn lực.</p>
             </div>
+            <span class="dashboard-panel__icon material-symbols-outlined" aria-hidden="true">medical_services</span>
           </header>
 
           @if (currentSummary.top_doctors_today.length > 0) {
@@ -79,20 +103,22 @@
         </article>
       </section>
 
-      <section class="feature-card dashboard-panel">
+      <section class="feature-card dashboard-panel dashboard-panel--wide">
         <header class="dashboard-panel__header">
           <div>
+            <p class="dashboard-section-label">Điều hướng quản trị</p>
             <h3>Truy cập nhanh</h3>
             <p>Điều hướng nhanh đến các khu vực quản trị thường dùng.</p>
           </div>
+          <span class="dashboard-panel__icon material-symbols-outlined" aria-hidden="true">apps</span>
         </header>
 
         <nav class="dashboard-link-grid">
-          <a routerLink="/staff/users">Quản lý người dùng</a>
-          <a routerLink="/staff/specialties">Quản lý chuyên khoa</a>
-          <a routerLink="/staff/rooms">Quản lý phòng khám</a>
-          <a routerLink="/staff/doctors">Quản lý bác sĩ</a>
-          <a routerLink="/staff/appointments">Quản lý lịch hẹn và hàng đợi</a>
+          <a routerLink="/staff/users"><span class="material-symbols-outlined">manage_accounts</span> Quản lý người dùng</a>
+          <a routerLink="/staff/specialties"><span class="material-symbols-outlined">local_hospital</span> Quản lý chuyên khoa</a>
+          <a routerLink="/staff/rooms"><span class="material-symbols-outlined">meeting_room</span> Quản lý phòng khám</a>
+          <a routerLink="/staff/doctors"><span class="material-symbols-outlined">medical_services</span> Quản lý bác sĩ</a>
+          <a routerLink="/staff/appointments"><span class="material-symbols-outlined">event_note</span> Quản lý lịch hẹn</a>
         </nav>
       </section>
     }

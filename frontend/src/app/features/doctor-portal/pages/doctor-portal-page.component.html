@@ -1,4 +1,4 @@
-<section class="feature-page">
+<section class="feature-page role-dashboard">
   <header class="feature-header">
     <h1 class="feature-title">Trang chủ bác sĩ</h1>
     <p class="feature-subtitle">
@@ -19,18 +19,22 @@
     </section>
   } @else {
     @if (summary; as currentSummary) {
-      @if (currentSummary.doctor) {
-        <section class="feature-card dashboard-hero">
-          <div>
-            <p class="dashboard-hero__eyebrow">Hồ sơ đang trực</p>
-            <h2>{{ currentSummary.doctor.name }}</h2>
-            <p>
-              {{ currentSummary.doctor.specialty || 'Chưa gán chuyên khoa' }}
-              · {{ currentSummary.doctor.room || 'Chưa gán phòng khám' }}
-            </p>
+      <section class="feature-card role-dashboard-hero">
+        <div>
+          <p class="role-dashboard-hero__eyebrow">Bàn khám cá nhân</p>
+          <h2>{{ currentSummary.doctor?.name || 'Bác sĩ' }}</h2>
+          <p>
+            Theo dõi nhanh ca làm việc, bệnh nhân đã check-in và lượt khám cần xử lý trong ngày.
+          </p>
+          <div class="role-dashboard-hero__meta">
+            <span><span class="material-symbols-outlined">medical_services</span> {{ currentSummary.doctor?.specialty || 'Chưa gán chuyên khoa' }}</span>
+            <span><span class="material-symbols-outlined">meeting_room</span> {{ currentSummary.doctor?.room || 'Chưa gán phòng khám' }}</span>
           </div>
-        </section>
-      }
+        </div>
+        <div class="role-dashboard-hero__icon" aria-hidden="true">
+          <span class="material-symbols-outlined">clinical_notes</span>
+        </div>
+      </section>
 
       <section class="feature-card dashboard-kpi-grid">
         @for (card of currentSummary.kpis; track card.key) {
@@ -38,11 +42,14 @@
             class="dashboard-kpi-card"
             [class.dashboard-kpi-card--success]="card.tone === 'success'"
             [class.dashboard-kpi-card--warning]="card.tone === 'warning'">
-            <span class="dashboard-kpi-label">{{ card.label }}</span>
-            <strong class="dashboard-kpi-value">{{ card.value }}</strong>
-            @if (card.note) {
-              <p class="dashboard-kpi-note">{{ card.note }}</p>
-            }
+            <span class="dashboard-kpi-card__icon material-symbols-outlined" aria-hidden="true">{{ getKpiIcon(card.key) }}</span>
+            <div>
+              <span class="dashboard-kpi-label">{{ card.label }}</span>
+              <strong class="dashboard-kpi-value">{{ card.value }}</strong>
+              @if (card.note) {
+                <p class="dashboard-kpi-note">{{ card.note }}</p>
+              }
+            </div>
           </article>
         }
       </section>
@@ -51,9 +58,11 @@
         <article class="feature-card dashboard-panel">
           <header class="dashboard-panel__header">
             <div>
+              <p class="dashboard-section-label">Lịch khám</p>
               <h3>Bệnh nhân sắp tới</h3>
               <p>Danh sách lịch hôm nay còn hiệu lực trong ca khám.</p>
             </div>
+            <span class="dashboard-panel__icon material-symbols-outlined" aria-hidden="true">person_search</span>
           </header>
 
           @if (currentSummary.next_patients.length > 0) {
@@ -78,9 +87,11 @@
         <article class="feature-card dashboard-panel">
           <header class="dashboard-panel__header">
             <div>
+              <p class="dashboard-section-label">Hàng đợi khám</p>
               <h3>Hàng đợi trong phòng khám</h3>
               <p>Theo dõi thứ tự đang chờ, thời gian chờ dự kiến và tiến độ khám.</p>
             </div>
+            <span class="dashboard-panel__icon material-symbols-outlined" aria-hidden="true">personal_injury</span>
           </header>
 
           @if (currentSummary.active_queues.length > 0) {
@@ -115,9 +126,11 @@
         <article class="feature-card dashboard-panel">
           <header class="dashboard-panel__header">
             <div>
+              <p class="dashboard-section-label">Ca trực</p>
               <h3>Khung giờ làm việc hôm nay</h3>
               <p>Lịch làm việc đang áp dụng theo ngày trong tuần.</p>
             </div>
+            <span class="dashboard-panel__icon material-symbols-outlined" aria-hidden="true">schedule</span>
           </header>
 
           @if (currentSummary.schedules_today.length > 0) {
@@ -137,9 +150,11 @@
         <article class="feature-card dashboard-panel">
           <header class="dashboard-panel__header">
             <div>
+              <p class="dashboard-section-label">Điều chỉnh lịch</p>
               <h3>Điều chỉnh / block trong ngày</h3>
               <p>Các thay đổi lịch trực tiếp ảnh hưởng tới ca khám hôm nay.</p>
             </div>
+            <span class="dashboard-panel__icon material-symbols-outlined" aria-hidden="true">event_busy</span>
           </header>
 
           @if (currentSummary.blocks_today.length > 0) {

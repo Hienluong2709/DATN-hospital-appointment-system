@@ -88,5 +88,19 @@ export class ReceptionistPageComponent {
     }
   }
 
+  protected getKpiIcon(key: string): string {
+    const normalizedKey = key.toLowerCase();
+    if (normalizedKey.includes('queue') || normalizedKey.includes('waiting')) {
+      return 'queue';
+    }
+    if (normalizedKey.includes('check')) {
+      return 'how_to_reg';
+    }
+    if (normalizedKey.includes('appointment')) {
+      return 'event_available';
+    }
+    return 'support_agent';
+  }
+
   protected readonly getAppointmentStatusLabel = getAppointmentStatusLabel;
 }

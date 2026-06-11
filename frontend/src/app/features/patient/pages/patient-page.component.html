@@ -22,6 +22,106 @@
         </div>
       </div>
 
+      <section class="section-block patient-dashboard-block">
+        <header>
+          <div>
+            <p class="patient-dashboard-eyebrow">Dashboard bệnh nhân</p>
+            <h2>Tổng quan lịch khám của tôi</h2>
+            <p>Theo dõi nhanh lịch sắp tới, trạng thái tiếp nhận và lịch sử khám gần đây.</p>
+          </div>
+          <button type="button" class="patient-refresh-button" (click)="loadPatientSummary()" [disabled]="isLoadingPatientSummary">
+            {{ isLoadingPatientSummary ? 'Đang tải...' : 'Tải lại' }}
+          </button>
+        </header>
+
+        @if (isLoadingPatientSummary) {
+          <div class="patient-dashboard-empty">Đang tải dữ liệu lịch khám cá nhân...</div>
+        } @else if (patientSummaryErrorMessage) {
+          <div class="patient-dashboard-empty patient-dashboard-empty--error">{{ patientSummaryErrorMessage }}</div>
+        } @else {
+          @if (patientSummary; as currentSummary) {
+            <div class="dashboard-kpi-grid patient-kpi-grid">
+              @for (card of currentSummary.kpis; track card.key) {
+                <article class="dashboard-kpi-card">
+                  <span class="dashboard-kpi-card__icon material-symbols-outlined" aria-hidden="true">event_note</span>
+                  <div>
+                    <span class="dashboard-kpi-label">{{ card.label }}</span>
+                    <strong class="dashboard-kpi-value">{{ card.value }}</strong>
+                    @if (card.note) {
+                      <p class="dashboard-kpi-note">{{ card.note }}</p>
+                    }
+                  </div>
+                </article>
+              }
+            </div>
+
+            <div class="patient-dashboard-panel-grid">
+              <article class="patient-dashboard-panel">
+                <header>
+                  <span class="material-symbols-outlined" aria-hidden="true">upcoming</span>
+                  <div>
+                    <h3>Lịch khám sắp tới</h3>
+                    <p>Các lịch còn hiệu lực để bạn chuẩn bị trước khi đến viện.</p>
+                  </div>
+                </header>
+
+                @if (currentSummary.next_appointments.length) {
+                  <div class="patient-appointment-list">
+                    @for (appointment of currentSummary.next_appointments; track appointment.id) {
+                      <article class="patient-appointment-item">
+                        <div>
+                          <strong>{{ appointment.doctor_name || 'Bác sĩ' }}</strong>
+                          <span>{{ appointment.date }} · {{ formatTime(appointment.time_slot) }}</span>
+                          @if (appointment.specialty_name) {
+                            <span>{{ appointment.specialty_name }}</span>
+                          }
+                        </div>
+                        <span class="status-badge" [ngClass]="getPatientAppointmentStatusClass(appointment.status)">
+                          {{ getAppointmentStatusLabel(appointment.status) }}
+                        </span>
+                      </article>
+                    }
+                  </div>
+                } @else {
+                  <div class="patient-dashboard-empty">Bạn chưa có lịch khám sắp tới.</div>
+                }
+              </article>
+
+              <article class="patient-dashboard-panel">
+                <header>
+                  <span class="material-symbols-outlined" aria-hidden="true">history</span>
+                  <div>
+                    <h3>Lịch sử gần đây</h3>
+                    <p>Các lượt khám đã hoàn tất, đã hủy hoặc vắng mặt gần nhất.</p>
+                  </div>
+                </header>
+
+                @if (currentSummary.recent_visits.length) {
+                  <div class="patient-appointment-list">
+                    @for (appointment of currentSummary.recent_visits; track appointment.id) {
+                      <article class="patient-appointment-item">
+                        <div>
+                          <strong>{{ appointment.doctor_name || 'Bác sĩ' }}</strong>
+                          <span>{{ appointment.date }} · {{ formatTime(appointment.time_slot) }}</span>
+                          @if (appointment.specialty_name) {
+                            <span>{{ appointment.specialty_name }}</span>
+                          }
+                        </div>
+                        <span class="status-badge" [ngClass]="getPatientAppointmentStatusClass(appointment.status)">
+                          {{ getAppointmentStatusLabel(appointment.status) }}
+                        </span>
+                      </article>
+                    }
+                  </div>
+                } @else {
+                  <div class="patient-dashboard-empty">Chưa có lịch sử khám gần đây.</div>
+                }
+              </article>
+            </div>
+          }
+        }
+      </section>
+
       @if (publicErrorMessage) {
         <section class="section-block callout">
           <h2>Không thể tải dữ liệu giới thiệu bệnh viện</h2>
@@ -52,16 +152,21 @@
         </header>
 
         <div class="doctor-grid">
-          @for (doctor of doctors; track doctor.name) {
+          @for (doctor of doctors; track doctor.name; let index = $index) {
             <article class="doctor-card">
-              <div class="doctor-avatar">{{ getInitials(doctor.name) }}</div>
-              <div>
+              <div class="doctor-card__visual" [style]="getDoctorVisualStyle(doctor, index)" aria-hidden="true">
+                <img
+                  [src]="getDoctorImageUrl(doctor, index)"
+                  [alt]="doctor.name"
+                  [style.object-position]="getDoctorImagePosition(index)"
+                  loading="lazy"
+                />
+                <span class="doctor-card__initials">{{ getInitials(doctor.name) }}</span>
+              </div>
+              <div class="doctor-card__content">
                 <h3>{{ doctor.name }}</h3>
                 <p class="doctor-specialty">{{ doctor.specialty }}</p>
-                <p>
-                  @if (doctor.room) { {{ doctor.room }} · }
-                  {{ doctor.status === 'Active' ? 'Đang hoạt động' : 'Tạm ngưng' }}
-                </p>
+                <p class="doctor-description">{{ getDoctorDescription(doctor) }}</p>
               </div>
             </article>
           }
@@ -75,10 +180,16 @@
         </header>
 
         <div class="department-grid">
-          @for (item of departments; track item.name) {
+          @for (item of departments; track item.name; let index = $index) {
             <article class="department-card">
-              <h3>{{ item.name }}</h3>
-              <p>{{ item.description || 'Thông tin chuyên khoa đang được cập nhật.' }}</p>
+              <div class="department-card__visual" [style]="getSpecialtyVisualStyle(item, index)" aria-hidden="true">
+                <img [src]="getSpecialtyImageUrl(item, index)" [alt]="item.name" loading="lazy" />
+                <span>{{ getSpecialtyShortName(item.name) }}</span>
+              </div>
+              <div class="department-card__content">
+                <h3>{{ item.name }}</h3>
+                <p>{{ item.description || 'Thông tin chuyên khoa đang được cập nhật.' }}</p>
+              </div>
             </article>
           }
         </div>
@@ -173,16 +284,21 @@
         </header>
 
         <div class="doctor-grid">
-          @for (doctor of doctors; track doctor.name) {
+          @for (doctor of doctors; track doctor.name; let index = $index) {
             <article class="doctor-card">
-              <div class="doctor-avatar">{{ getInitials(doctor.name) }}</div>
-              <div>
+              <div class="doctor-card__visual" [style]="getDoctorVisualStyle(doctor, index)" aria-hidden="true">
+                <img
+                  [src]="getDoctorImageUrl(doctor, index)"
+                  [alt]="doctor.name"
+                  [style.object-position]="getDoctorImagePosition(index)"
+                  loading="lazy"
+                />
+                <span class="doctor-card__initials">{{ getInitials(doctor.name) }}</span>
+              </div>
+              <div class="doctor-card__content">
                 <h3>{{ doctor.name }}</h3>
                 <p class="doctor-specialty">{{ doctor.specialty }}</p>
-                <p>
-                  @if (doctor.room) { {{ doctor.room }} · }
-                  {{ doctor.status === 'Active' ? 'Đang hoạt động' : 'Tạm ngưng' }}
-                </p>
+                <p class="doctor-description">{{ getDoctorDescription(doctor) }}</p>
               </div>
             </article>
           }
@@ -196,10 +312,16 @@
         </header>
 
         <div class="department-grid">
-          @for (item of departments; track item.name) {
+          @for (item of departments; track item.name; let index = $index) {
             <article class="department-card">
-              <h3>{{ item.name }}</h3>
-              <p>{{ item.description || 'Thông tin chuyên khoa đang được cập nhật.' }}</p>
+              <div class="department-card__visual" [style]="getSpecialtyVisualStyle(item, index)" aria-hidden="true">
+                <img [src]="getSpecialtyImageUrl(item, index)" [alt]="item.name" loading="lazy" />
+                <span>{{ getSpecialtyShortName(item.name) }}</span>
+              </div>
+              <div class="department-card__content">
+                <h3>{{ item.name }}</h3>
+                <p>{{ item.description || 'Thông tin chuyên khoa đang được cập nhật.' }}</p>
+              </div>
             </article>
           }
         </div>
