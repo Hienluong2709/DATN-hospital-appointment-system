@@ -11,3 +11,14 @@
   [version]="notificationService.notification().version"
   (closed)="notificationService.close()"
 />
+
+<app-confirmation-modal
+  [isOpen]="confirmationService.confirmation().isOpen"
+  [title]="confirmationService.confirmation().title"
+  [message]="confirmationService.confirmation().message"
+  [confirmText]="confirmationService.confirmation().confirmText"
+  [cancelText]="confirmationService.confirmation().cancelText"
+  [tone]="confirmationService.confirmation().tone"
+  (confirmed)="confirmationService.accept()"
+  (cancelled)="confirmationService.cancel()"
+/>

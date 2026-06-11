@@ -1,0 +1,41 @@
+@if (isOpen) {
+  <div class="confirmation-backdrop" (click)="cancelled.emit()">
+    <article
+      class="confirmation-dialog"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-labelledby]="'confirmation-title'"
+      (click)="$event.stopPropagation()"
+    >
+      <header class="confirmation-dialog__header">
+        <div
+          class="confirmation-dialog__icon"
+          [class.confirmation-dialog__icon--danger]="tone === 'danger'"
+          aria-hidden="true"
+        >
+          <span class="material-symbols-outlined">
+            {{ tone === 'danger' ? 'warning' : 'help' }}
+          </span>
+        </div>
+        <div>
+          <h2 id="confirmation-title">{{ title }}</h2>
+          <p>{{ message }}</p>
+        </div>
+      </header>
+
+      <footer class="confirmation-dialog__actions">
+        <button type="button" class="confirmation-button confirmation-button--secondary" (click)="cancelled.emit()">
+          {{ cancelText }}
+        </button>
+        <button
+          type="button"
+          class="confirmation-button confirmation-button--primary"
+          [class.confirmation-button--danger]="tone === 'danger'"
+          (click)="confirmed.emit()"
+        >
+          {{ confirmText }}
+        </button>
+      </footer>
+    </article>
+  </div>
+}

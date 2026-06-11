@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { Subscription, firstValueFrom } from 'rxjs';
 
 import { DoctorsApiService } from '../../doctors/services/doctors.api';
+import { ConfirmationService } from '../../../core/services/confirmation.service';
 import { NotificationService } from '../../../core/services/notification.service';
 import { RealtimeEvent, RealtimeService } from '../../../core/services/realtime.service';
 import { Specialty } from '../../specialties/models/specialties.model';
@@ -18,7 +19,7 @@ import {
 } from '../models/appointments.model';
 
 type PatientAppointmentTab = 'upcoming' | 'waiting' | 'completed' | 'cancelled';
-type PatientAppointmentTimeFilter = 'ALL' | 'THIS_MONTH';
+type PatientAppointmentTimeFilter = 'ALL' | 'UPCOMING_30_DAYS' | 'THIS_MONTH' | 'LAST_6_MONTHS';
 
 @Component({
   selector: 'app-patient-appointments-page',
@@ -33,6 +34,7 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
   private readonly appointmentsApiService = inject(AppointmentsApiService);
   private readonly specialtiesApiService = inject(SpecialtiesApiService);
   private readonly doctorsApiService = inject(DoctorsApiService);
+  private readonly confirmationService = inject(ConfirmationService);
   private readonly notificationService = inject(NotificationService);
   private readonly realtimeService = inject(RealtimeService);
   private readonly subscriptions = new Subscription();
@@ -206,12 +208,34 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
   }
 
   updateTimeFilter(value: string): void {
-    this.selectedTimeFilter = value === 'THIS_MONTH' ? 'THIS_MONTH' : 'ALL';
+    if (
+      value === 'UPCOMING_30_DAYS' ||
+      value === 'THIS_MONTH' ||
+      value === 'LAST_6_MONTHS'
+    ) {
+      this.selectedTimeFilter = value;
+      return;
+    }
+
+    this.selectedTimeFilter = 'ALL';
   }
 
   clearAppointmentFilters(): void {
     this.searchTerm = '';
     this.selectedTimeFilter = 'ALL';
+  }
+
+  get hasAppointmentFilters(): boolean {
+    return Boolean(this.searchTerm.trim()) || this.selectedTimeFilter !== 'ALL';
+  }
+
+  get filteredAppointmentsCount(): number {
+    return (
+      this.visibleUpcomingAppointments.length +
+      this.visibleWaitingAppointments.length +
+      this.visibleCompletedAppointments.length +
+      this.visibleCancelledAppointments.length
+    );
   }
 
   openAppointmentDetail(appointment: Appointment): void {
@@ -300,13 +324,25 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
     });
   }
 
-  cancel(appointment: Appointment): void {
+  async cancel(appointment: Appointment): Promise<void> {
     if (!this.canCancelAppointment(appointment)) {
       this.showError(
         appointment.Queue?.id
           ? 'Lịch hẹn đã check-in, vui lòng liên hệ lễ tân để hủy check-in.'
           : 'Chỉ được hủy lịch hẹn trước ít nhất 24 giờ.'
       );
+      return;
+    }
+
+    const confirmed = await this.confirmationService.confirm({
+      title: 'Xác nhận hủy lịch khám',
+      message: `Bạn có chắc chắn muốn hủy lịch khám ngày ${appointment.date}? Thao tác này sẽ chuyển lịch hẹn sang trạng thái đã hủy.`,
+      confirmText: 'Xác nhận hủy',
+      cancelText: 'Giữ lịch hẹn',
+      tone: 'danger',
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -683,13 +719,40 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
       const matchesSearch =
         !searchTerm ||
         this.getDoctorName(appointment).toLowerCase().includes(searchTerm) ||
-        this.getSpecialtyName(appointment).toLowerCase().includes(searchTerm);
+        this.getSpecialtyName(appointment).toLowerCase().includes(searchTerm) ||
+        this.getAppointmentCode(appointment).toLowerCase().includes(searchTerm) ||
+        (appointment.reason ?? '').toLowerCase().includes(searchTerm);
 
-      const matchesTime =
-        this.selectedTimeFilter === 'ALL' || this.isAppointmentInCurrentMonth(appointment);
+      const matchesTime = this.matchesTimeFilter(appointment);
 
       return matchesSearch && matchesTime;
     });
+  }
+
+  private matchesTimeFilter(appointment: Appointment): boolean {
+    if (this.selectedTimeFilter === 'ALL') {
+      return true;
+    }
+
+    if (this.selectedTimeFilter === 'THIS_MONTH') {
+      return this.isAppointmentInCurrentMonth(appointment);
+    }
+
+    const timestamp = this.toAppointmentTimestamp(appointment);
+    if (!timestamp) {
+      return false;
+    }
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    if (this.selectedTimeFilter === 'UPCOMING_30_DAYS') {
+      const thirtyDaysLater = startOfToday + 30 * 24 * 60 * 60 * 1000;
+      return timestamp >= startOfToday && timestamp <= thirtyDaysLater;
+    }
+
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate()).getTime();
+    return timestamp >= sixMonthsAgo && timestamp <= Date.now();
   }
 
   private isAppointmentInCurrentMonth(appointment: Appointment): boolean {

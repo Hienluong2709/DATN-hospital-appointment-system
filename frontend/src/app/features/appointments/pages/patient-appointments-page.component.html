@@ -171,27 +171,63 @@
       </div>
     </header>
 
-    <article class="appointments-toolbar">
-      <label>
-        <span>Tìm theo bác sĩ hoặc chuyên khoa</span>
-        <input
-          type="search"
-          [ngModel]="searchTerm"
-          (ngModelChange)="updateSearchTerm($event)"
-          placeholder="Ví dụ: Tim mạch, Bác sĩ A"
-        />
-      </label>
+    <article class="appointments-toolbar appointments-toolbar--patient">
+      <div class="appointments-toolbar__main">
+        <label class="appointments-search">
+          <span>Tìm kiếm lịch khám</span>
+          <input
+            type="search"
+            [ngModel]="searchTerm"
+            (ngModelChange)="updateSearchTerm($event)"
+            placeholder="Nhập bác sĩ, chuyên khoa, lý do khám hoặc mã lịch hẹn"
+          />
+        </label>
 
-      <label>
-        <span>Thời gian</span>
-        <select [ngModel]="selectedTimeFilter" (ngModelChange)="updateTimeFilter($event)">
-          <option value="ALL">Tất cả thời gian</option>
-          <option value="THIS_MONTH">Trong tháng này</option>
-        </select>
-      </label>
+        <div class="appointments-filter-summary">
+          <span>Đang hiển thị</span>
+          <strong>{{ filteredAppointmentsCount }} lịch phù hợp</strong>
+        </div>
+      </div>
 
-      <div class="appointments-toolbar__actions">
-        <button type="button" class="button-secondary" (click)="clearAppointmentFilters()">Đặt lại bộ lọc</button>
+      <div class="appointments-time-filter" aria-label="Lọc lịch khám theo thời gian">
+        <button
+          type="button"
+          [class.appointments-time-filter__item--active]="selectedTimeFilter === 'ALL'"
+          class="appointments-time-filter__item"
+          (click)="updateTimeFilter('ALL')"
+        >
+          Tất cả
+        </button>
+        <button
+          type="button"
+          [class.appointments-time-filter__item--active]="selectedTimeFilter === 'UPCOMING_30_DAYS'"
+          class="appointments-time-filter__item"
+          (click)="updateTimeFilter('UPCOMING_30_DAYS')"
+        >
+          30 ngày tới
+        </button>
+        <button
+          type="button"
+          [class.appointments-time-filter__item--active]="selectedTimeFilter === 'THIS_MONTH'"
+          class="appointments-time-filter__item"
+          (click)="updateTimeFilter('THIS_MONTH')"
+        >
+          Tháng này
+        </button>
+        <button
+          type="button"
+          [class.appointments-time-filter__item--active]="selectedTimeFilter === 'LAST_6_MONTHS'"
+          class="appointments-time-filter__item"
+          (click)="updateTimeFilter('LAST_6_MONTHS')"
+        >
+          6 tháng gần đây
+        </button>
+
+        @if (hasAppointmentFilters) {
+          <button type="button" class="appointments-time-filter__reset" (click)="clearAppointmentFilters()">
+            Xóa lọc
+          </button>
+        }
       </div>
     </article>
 
