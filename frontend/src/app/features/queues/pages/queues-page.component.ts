@@ -21,6 +21,14 @@ type QueueStatusSummaryItem = {
   label: string;
   total: number;
 };
+type NoShowModalState = {
+  isOpen: boolean;
+  appointmentId: number | null;
+  title: string;
+  patientName: string;
+  description: string;
+  note: string;
+};
 
 @Component({
   selector: 'app-queues-page',
@@ -60,6 +68,7 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   selectedWorkflowStatus: QueueWorkflowFilter = 'ALL';
   activeTab: 'waiting' | 'queue' = 'waiting';
   currentTimestamp = Date.now();
+  noShowModal: NoShowModalState = this.getDefaultNoShowModal();
   @Input() embedded = false;
 
   readonly currentRole: BackendRole | null = this.tokenService.getCurrentRole();
@@ -779,25 +788,12 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   }
 
   markWaitingNoShow(appointment: Appointment): void {
-    const note = prompt('Nhập ghi chú vắng mặt cho lịch hẹn này:', 'Bệnh nhân không có mặt khi gọi tiếp nhận.');
-    if (note === null) {
-      return;
-    }
-
-    this.processingAppointmentId[appointment.id] = true;
-    this.clearMessages();
-
-    this.appointmentsApiService.markNoShow(appointment.id, note).subscribe({
-      next: () => {
-        this.showSuccess('Ghi nhận vắng mặt thành công');
-        this.loadData(true);
-      },
-      error: (error: { error?: { message?: string } }) => {
-        this.showError(error.error?.message ?? 'Không thể ghi nhận vắng mặt');
-      },
-      complete: () => {
-        this.processingAppointmentId[appointment.id] = false;
-      }
+    this.openNoShowModal({
+      appointmentId: appointment.id,
+      title: 'Ghi nhận vắng mặt',
+      patientName: this.getPatientNameForAppointment(appointment),
+      description: 'Ghi chú lý do bệnh nhân không có mặt tại khu vực tiếp nhận.',
+      note: appointment.no_show_note || 'Bệnh nhân không có mặt khi gọi tiếp nhận.'
     });
   }
 
@@ -898,8 +894,32 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const note = prompt('Nhập ghi chú vắng mặt cho lượt khám này:', 'Bệnh nhân không vào phòng khám khi đến lượt.');
-    if (note === null) {
+    this.openNoShowModal({
+      appointmentId,
+      title: 'Ghi nhận vắng mặt',
+      patientName: this.getPatientName(queue),
+      description: 'Ghi chú lý do bệnh nhân không vào phòng khám khi đến lượt.',
+      note: queue.Appointment?.no_show_note || 'Bệnh nhân không vào phòng khám khi đến lượt.'
+    });
+  }
+
+  closeNoShowModal(): void {
+    if (this.isSubmittingNoShow) {
+      return;
+    }
+
+    this.noShowModal = this.getDefaultNoShowModal();
+  }
+
+  submitNoShowModal(): void {
+    const appointmentId = this.noShowModal.appointmentId;
+    if (!appointmentId) {
+      return;
+    }
+
+    const note = this.noShowModal.note.trim();
+    if (!note) {
+      this.showError('Vui lòng nhập ghi chú vắng mặt.');
       return;
     }
 
@@ -909,6 +929,7 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
     this.appointmentsApiService.markNoShow(appointmentId, note).subscribe({
       next: () => {
         this.showSuccess('Ghi nhận vắng mặt thành công');
+        this.noShowModal = this.getDefaultNoShowModal();
         this.loadData(true);
       },
       error: (error: { error?: { message?: string } }) => {
@@ -918,6 +939,29 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
         this.processingAppointmentId[appointmentId] = false;
       }
     });
+  }
+
+  get isSubmittingNoShow(): boolean {
+    const appointmentId = this.noShowModal.appointmentId;
+    return appointmentId ? Boolean(this.processingAppointmentId[appointmentId]) : false;
+  }
+
+  private openNoShowModal(state: Omit<NoShowModalState, 'isOpen'>): void {
+    this.noShowModal = {
+      ...state,
+      isOpen: true
+    };
+  }
+
+  private getDefaultNoShowModal(): NoShowModalState {
+    return {
+      isOpen: false,
+      appointmentId: null,
+      title: '',
+      patientName: '',
+      description: '',
+      note: ''
+    };
   }
 
   private loadData(preserveSuccessMessage = false): void {

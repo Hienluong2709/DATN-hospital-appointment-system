@@ -460,4 +460,41 @@
       </div>
     </article>
   </div>
+
+  <div *ngIf="noShowModal.isOpen" class="patient-detail-overlay" (click)="closeNoShowModal()">
+    <article class="no-show-modal" (click)="$event.stopPropagation()">
+      <header class="no-show-modal__header">
+        <div>
+          <p>{{ noShowModal.title }}</p>
+          <h2>{{ noShowModal.patientName }}</h2>
+        </div>
+        <button type="button" class="button-secondary" (click)="closeNoShowModal()" [disabled]="isSubmittingNoShow">
+          Đóng
+        </button>
+      </header>
+
+      <div class="no-show-modal__body">
+        <p>{{ noShowModal.description }}</p>
+        <label class="no-show-note-field">
+          <span>Ghi chú vắng mặt <strong>*</strong></span>
+          <textarea
+            rows="5"
+            [ngModel]="noShowModal.note"
+            (ngModelChange)="noShowModal.note = $event"
+            [disabled]="isSubmittingNoShow"
+            placeholder="Nhập ghi chú vắng mặt"
+          ></textarea>
+        </label>
+      </div>
+
+      <footer class="no-show-modal__footer">
+        <button type="button" class="button-secondary" (click)="closeNoShowModal()" [disabled]="isSubmittingNoShow">
+          Hủy
+        </button>
+        <button type="button" class="button-primary" (click)="submitNoShowModal()" [disabled]="isSubmittingNoShow">
+          {{ isSubmittingNoShow ? 'Đang ghi nhận...' : 'Xác nhận ghi nhận' }}
+        </button>
+      </footer>
+    </article>
+  </div>
 </section>
