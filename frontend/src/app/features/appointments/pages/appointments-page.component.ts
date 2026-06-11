@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 
 import { BackendRole } from '../../../core/models/auth-role.model';
+import { NotificationService } from '../../../core/services/notification.service';
 import { RealtimeEvent, RealtimeService } from '../../../core/services/realtime.service';
 import { TokenService } from '../../../core/services/token.service';
 import { SharedPaginationComponent } from '../../../shared/components/pagination/pagination.component';
@@ -37,6 +38,7 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
   private static readonly POLL_INTERVAL_MS = 10000;
 
   private readonly appointmentsApiService = inject(AppointmentsApiService);
+  private readonly notificationService = inject(NotificationService);
   private readonly realtimeService = inject(RealtimeService);
   private readonly tokenService = inject(TokenService);
   private readonly router = inject(Router);
@@ -624,11 +626,11 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
 
     action().subscribe({
       next: () => {
-        this.showSuccess(successMessage);
+        this.showSuccess(successMessage, true);
         this.loadAppointments(true);
       },
       error: (error: { error?: { message?: string } }) => {
-        this.showError(error.error?.message ?? 'Không thể cập nhật lịch hẹn');
+        this.showError(error.error?.message ?? 'Không thể cập nhật lịch hẹn', true);
       },
       complete: () => {
         this.processingActionById[appointmentId] = false;
@@ -667,15 +669,21 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
     return dateValue >= range.dateFrom && dateValue <= range.dateTo;
   }
 
-  private showSuccess(message: string): void {
+  private showSuccess(message: string, notify = false): void {
     this.successMessage = message;
     this.errorMessage = '';
+    if (notify) {
+      this.notificationService.success(message);
+    }
     this.scheduleAlertHide();
   }
 
-  private showError(message: string): void {
+  private showError(message: string, notify = false): void {
     this.errorMessage = message;
     this.successMessage = '';
+    if (notify) {
+      this.notificationService.error(message);
+    }
     this.scheduleAlertHide();
   }
 

@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { BackendRole } from '../../../core/models/auth-role.model';
+import { NotificationService } from '../../../core/services/notification.service';
 import { TokenService } from '../../../core/services/token.service';
 import { Doctor } from '../../doctors/models/doctors.model';
 import { DoctorsApiService } from '../../doctors/services/doctors.api';
@@ -37,6 +38,7 @@ export class WorkSchedulesPageComponent implements OnInit, OnDestroy {
   private readonly doctorsApiService = inject(DoctorsApiService);
   private readonly workScheduleBlocksApiService = inject(WorkScheduleBlocksApiService);
   private readonly tokenService = inject(TokenService);
+  private readonly notificationService = inject(NotificationService);
 
   schedules: WorkSchedule[] = [];
   doctors: Doctor[] = [];
@@ -781,8 +783,14 @@ export class WorkSchedulesPageComponent implements OnInit, OnDestroy {
   }
 
   private showFeedback(type: 'success' | 'error', message: string): void {
+    if (type === 'success') {
+      this.notificationService.success(message);
+    } else {
+      this.notificationService.error(message);
+    }
+
     this.feedbackType = type;
-    this.feedbackMessage = message;
+    this.feedbackMessage = '';
   }
 
   private getFilteredSchedules(): WorkSchedule[] {
