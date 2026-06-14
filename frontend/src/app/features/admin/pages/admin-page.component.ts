@@ -9,7 +9,7 @@ import { RouterLink } from '@angular/router';
     <section class="feature-page">
       <header class="feature-header">
         <h1 class="feature-title">Dashboard Admin</h1>
-        <p class="feature-subtitle">Giam sat he thong, quan tri danh muc va xu ly canh bao van hanh.</p>
+        <p class="feature-subtitle">Giám sát hệ thống, quản trị danh mục và xử lý cảnh báo vận hành.</p>
       </header>
 
       <section class="feature-card kpi-grid">
@@ -24,7 +24,7 @@ import { RouterLink } from '@angular/router';
 
       <section class="content-grid">
         <article class="feature-card panel">
-          <h3>Canh bao can xu ly</h3>
+          <h3>Cảnh báo cần xử lý</h3>
           <ul>
             @for (item of alerts; track item) {
               <li>{{ item }}</li>
@@ -33,7 +33,7 @@ import { RouterLink } from '@angular/router';
         </article>
 
         <article class="feature-card panel">
-          <h3>Thao tac nhanh</h3>
+          <h3>Thao tác nhanh</h3>
           <nav class="action-links">
             @for (item of quickActions; track item.link) {
               <a class="role-link" [routerLink]="item.link">{{ item.label }}</a>
@@ -119,23 +119,23 @@ import { RouterLink } from '@angular/router';
 })
 export class AdminPageComponent {
   kpiCards = [
-    { label: 'Nguoi dung he thong', value: '214', note: '+6 trong 24h' },
-    { label: 'Lich hen hom nay', value: '214', note: '88% da tiep nhan' },
-    { label: 'Phong dang hoat dong', value: '18/21', note: '3 phong bao tri' },
-    { label: 'Canh bao he thong', value: '5', note: '2 muc do cao' }
+    { label: 'Người dùng hệ thống', value: '214', note: '+6 trong 24h' },
+    { label: 'Lịch hẹn hôm nay', value: '214', note: '88% đã tiếp nhận' },
+    { label: 'Phòng đang hoạt động', value: '18/21', note: '3 phòng bảo trì' },
+    { label: 'Cảnh báo hệ thống', value: '5', note: '2 mức độ cao' }
   ];
 
   alerts = [
-    '2 phong kham qua tai trong khung 09:00 - 11:00.',
-    '1 bac si nghi dot xuat, can dieu chinh lich truc.',
-    'Muc do tre trung binh cua hang doi tang 12%.'
+    '2 phòng khám quá tải trong khung 09:00 - 11:00.',
+    '1 bác sĩ nghỉ đột xuất, cần điều chỉnh lịch trực.',
+    'Mức độ trễ trung bình của hàng đợi tăng 12%.'
   ];
 
   quickActions = [
-    { label: 'Quan ly nguoi dung', link: '/users' },
-    { label: 'Quan ly chuyen khoa', link: '/specialties' },
-    { label: 'Quan ly phong kham', link: '/rooms' },
-    { label: 'Quan ly bac si', link: '/doctors' },
-    { label: 'Dieu phoi lich hen va hang doi', link: '/appointments' }
+    { label: 'Quản lý người dùng', link: '/users' },
+    { label: 'Quản lý chuyên khoa', link: '/specialties' },
+    { label: 'Quản lý phòng khám', link: '/rooms' },
+    { label: 'Quản lý bác sĩ', link: '/doctors' },
+    { label: 'Điều phối lịch hẹn và hàng đợi', link: '/appointments' }
   ];
 }

@@ -343,7 +343,7 @@ export class WorkSchedulesPageComponent implements OnInit, OnDestroy {
   }
 
   doctorOptionLabel(doctor: Doctor): string {
-    return doctor.User?.fullname || doctor.User?.username || `Bac si #${doctor.id}`;
+    return doctor.User?.fullname || doctor.User?.username || `Bác sĩ #${doctor.id}`;
   }
 
   get activeDayLabel(): string {
@@ -425,7 +425,7 @@ export class WorkSchedulesPageComponent implements OnInit, OnDestroy {
     }
 
     const doctor = this.doctors.find((item) => item.id === this.selectedDoctorId);
-    return doctor ? this.doctorOptionLabel(doctor) : `Bac si #${this.selectedDoctorId}`;
+    return doctor ? this.doctorOptionLabel(doctor) : `Bác sĩ #${this.selectedDoctorId}`;
   }
 
   get selectedWeekRangeLabel(): string {
@@ -829,7 +829,7 @@ export class WorkSchedulesPageComponent implements OnInit, OnDestroy {
         const sampleSchedule = doctorSchedules[0];
         return {
           doctorId,
-          doctorName: sampleSchedule ? this.displayDoctorName(sampleSchedule) : `Bac si #${doctorId}`,
+          doctorName: sampleSchedule ? this.displayDoctorName(sampleSchedule) : `Bác sĩ #${doctorId}`,
           schedules: doctorSchedules
         };
       })

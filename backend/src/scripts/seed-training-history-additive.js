@@ -192,12 +192,12 @@ const patientSeedPayloads = Array.from({ length: 30 }, (_, index) => {
   return {
     username: `patient_train_${ordinal}`,
     password: "123456",
-    fullname: `Benh nhan demo ${ordinal}`,
+    fullname: `Bệnh nhân demo ${ordinal}`,
     email: `patient.train.${ordinal}@gmail.com`,
     phone: `0918${String(index + 1).padStart(6, "0")}`,
     role: "PATIENT",
     gender: index % 2 === 0 ? "MALE" : "FEMALE",
-    address: `Khu vuc demo ${ordinal}, TP.HCM`,
+    address: `Khu vực demo ${ordinal}, TP.HCM`,
   };
 });
 
@@ -368,7 +368,7 @@ const buildCandidateSlotsForDate = (schedules, blockEntries) => {
 };
 
 const chooseReason = (specialtyName, key) => {
-  const pool = specialtyReasonPool[specialtyName] || ["Tai kham dinh ky"];
+  const pool = specialtyReasonPool[specialtyName] || ["Tái khám định kỳ"];
   return pool[hashString(key) % pool.length];
 };
 

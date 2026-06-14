@@ -116,7 +116,7 @@ const releaseNoShowJobLock = async () => {
 
 export const runNoShowJob = async ({ date, dryRun = false, triggerType = "manual" } = {}) => {
   if (isNoShowJobRunning) {
-    const error = new Error("NoShow job đang chạy, vui lòng thử lại sau");
+    const error = new Error("Tiến trình ghi nhận vắng mặt đang chạy, vui lòng thử lại sau");
     error.statusCode = 409;
     throw error;
   }

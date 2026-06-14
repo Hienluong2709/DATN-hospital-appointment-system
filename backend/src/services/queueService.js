@@ -248,7 +248,7 @@ const resolveEstimatedStartForQueue = async (appointment, payload, transaction) 
 
 const ensureTimeOrder = (actualStart, actualEnd) => {
   if (actualStart && actualEnd && actualEnd < actualStart) {
-    const error = new Error("actual_end phải lớn hơn hoặc bằng actual_start");
+    const error = new Error("Thời gian kết thúc thực tế phải lớn hơn hoặc bằng thời gian bắt đầu thực tế");
     error.statusCode = 400;
     throw error;
   }
@@ -281,13 +281,13 @@ const ensureReasonableQueueTimes = ({
   }
 
   if (estimatedStart && actualStart && actualStart < estimatedStart) {
-    const error = new Error("actual_start phải lớn hơn hoặc bằng estimated_start");
+    const error = new Error("Thời gian bắt đầu thực tế phải lớn hơn hoặc bằng thời gian dự kiến vào khám");
     error.statusCode = 400;
     throw error;
   }
 
   if (estimatedStart && actualEnd && actualEnd < estimatedStart) {
-    const error = new Error("actual_end phải lớn hơn hoặc bằng estimated_start");
+    const error = new Error("Thời gian kết thúc thực tế phải lớn hơn hoặc bằng thời gian dự kiến vào khám");
     error.statusCode = 400;
     throw error;
   }
@@ -299,7 +299,7 @@ const ensureReasonableQueueTimes = ({
     !allowPastEstimatedStart &&
     estimatedStart.getTime() <= Date.now()
   ) {
-    const error = new Error("estimated_start phải lớn hơn thời điểm hiện tại");
+    const error = new Error("Thời gian dự kiến vào khám phải lớn hơn thời điểm hiện tại");
     error.statusCode = 400;
     throw error;
   }
@@ -308,7 +308,7 @@ const ensureReasonableQueueTimes = ({
     const driftMinutes = Math.abs(actualStart.getTime() - estimatedStart.getTime()) / (60 * 1000);
     if (driftMinutes > MAX_ACTUAL_START_DRIFT_MINUTES) {
       const error = new Error(
-        `actual_start không được lệch quá ${MAX_ACTUAL_START_DRIFT_MINUTES} phút so với estimated_start`
+        `Thời gian bắt đầu thực tế không được lệch quá ${MAX_ACTUAL_START_DRIFT_MINUTES} phút so với thời gian dự kiến vào khám`
       );
       error.statusCode = 400;
       throw error;
@@ -319,7 +319,7 @@ const ensureReasonableQueueTimes = ({
     const durationMinutes = (actualEnd.getTime() - actualStart.getTime()) / (60 * 1000);
     if (durationMinutes > MAX_ACTUAL_END_DURATION_MINUTES) {
       const error = new Error(
-        `actual_end không được vượt quá ${MAX_ACTUAL_END_DURATION_MINUTES} phút kể từ actual_start`
+        `Thời gian kết thúc thực tế không được vượt quá ${MAX_ACTUAL_END_DURATION_MINUTES} phút kể từ thời gian bắt đầu thực tế`
       );
       error.statusCode = 400;
       throw error;

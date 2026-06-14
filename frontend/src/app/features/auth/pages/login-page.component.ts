@@ -853,7 +853,7 @@ export class LoginPageComponent {
         void this.router.navigateByUrl(this.resolvePostLoginTarget(roleHomePath));
       },
       error: (error: { error?: { message?: string } }) => {
-        this.errorMessage = error.error?.message ?? 'Dang nhap that bai';
+        this.errorMessage = error.error?.message ?? 'Đăng nhập thất bại';
         this.isSubmitting = false;
       },
       complete: () => {

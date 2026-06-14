@@ -121,7 +121,7 @@ const userPayloads = [
   {
     username: "admin",
     password: "123456",
-    fullname: "Nguyen Minh Quan",
+    fullname: "Nguyễn Minh Quân",
     email: "admin@gmail.com",
     phone: "0901000001",
     role: "ADMIN",
@@ -297,7 +297,7 @@ const userPayloads = [
   {
     username: "patient6",
     password: "123456",
-    fullname: "Dang Thu F",
+    fullname: "Đặng Thu F",
     email: "patient6@gmail.com",
     phone: "0904000006",
     role: "PATIENT",

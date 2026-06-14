@@ -166,7 +166,7 @@ async function seed() {
       {
         username: "admin",
         password: "123456",
-        fullname: "Nguyen Minh Quan",
+        fullname: "Nguyễn Minh Quân",
         email: "admin@gmail.com",
         phone: "0901000001",
         role: "ADMIN",
@@ -342,7 +342,7 @@ async function seed() {
       {
         username: "patient6",
         password: "123456",
-        fullname: "Dang Thu F",
+        fullname: "Đặng Thu F",
         email: "patient6@gmail.com",
         phone: "0904000006",
         role: "PATIENT",
@@ -610,31 +610,31 @@ async function seed() {
     const templates = await Template.bulkCreate([
       {
         code: "APPOINTMENT_REMINDER",
-        content: "Ban co lich kham vao ngay mai.",
+        content: "Bạn có lịch khám vào ngày mai.",
         type: "SMS",
         is_active: true,
-        description: "Mau SMS nhac lich hen",
+        description: "Mẫu SMS nhắc lịch hẹn",
       },
       {
         code: "QUEUE_READY",
-        content: "Den luot kham, vui long den phong kham.",
+        content: "Đến lượt khám, vui lòng đến phòng khám.",
         type: "SMS",
         is_active: true,
-        description: "Mau SMS goi vao kham",
+        description: "Mẫu SMS gọi vào khám",
       },
       {
         code: "CHECKIN_ESTIMATE",
-        content: "Ban da check-in. Du kien vao kham luc {{predicted_start_time}} tai {{room_display}}.",
+        content: "Bạn đã check-in. Dự kiến vào khám lúc {{predicted_start_time}} tại {{room_display}}.",
         type: "SMS",
         is_active: true,
-        description: "Mau SMS thong bao du kien vao kham sau check-in",
+        description: "Mẫu SMS thông báo dự kiến vào khám sau check-in",
       },
       {
         code: "QUEUE_SOON",
-        content: "Du kien con {{predicted_wait_minutes}} phut den luot kham. Vui long o gan {{room_display}}.",
+        content: "Dự kiến còn {{predicted_wait_minutes}} phút đến lượt khám. Vui lòng ở gần {{room_display}}.",
         type: "SMS",
         is_active: true,
-        description: "Mau SMS sap den luot kham",
+        description: "Mẫu SMS sắp đến lượt khám",
       },
     ]);
 
@@ -642,13 +642,13 @@ async function seed() {
       {
         phone: userByUsername.get("patient1").phone,
         template_code: templates[0].code,
-        content: "Ban co lich kham vao ngay mai.",
+        content: "Bạn có lịch khám vào ngày mai.",
         status: "Pending",
       },
       {
         phone: userByUsername.get("patient2").phone,
         template_code: templates[1].code,
-        content: "Den luot kham, vui long den phong kham.",
+        content: "Đến lượt khám, vui lòng đến phòng khám.",
         status: "Sent",
       },
     ]);

@@ -24,11 +24,11 @@ const SMS_EVENT_CODES = {
 
 const SMS_TEMPLATE_FALLBACKS = {
   [SMS_EVENT_CODES.CHECKIN_ESTIMATE]:
-    "Ban da check-in. Du kien vao kham luc {{predicted_start_time}} tai {{room_display}}.",
+    "Bạn đã check-in. Dự kiến vào khám lúc {{predicted_start_time}} tại {{room_display}}.",
   [SMS_EVENT_CODES.QUEUE_SOON]:
-    "Du kien con {{predicted_wait_minutes}} phut den luot kham. Vui long o gan {{room_display}}.",
+    "Dự kiến còn {{predicted_wait_minutes}} phút đến lượt khám. Vui lòng ở gần {{room_display}}.",
   [SMS_EVENT_CODES.QUEUE_READY]:
-    "Da den luot kham. Vui long vao {{room_display}}.",
+    "Đã đến lượt khám. Vui lòng vào {{room_display}}.",
 };
 
 const parseUtcOffsetToMinutes = (offsetValue) => {
@@ -74,7 +74,7 @@ const renderTemplate = (templateContent, variables) => {
 
 const buildRoomDisplay = (room) => {
   if (!room?.name) {
-    return "phong kham";
+    return "phòng khám";
   }
 
   return room.floor ? `${room.name} - Tầng ${room.floor}` : room.name;

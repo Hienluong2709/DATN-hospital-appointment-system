@@ -6,12 +6,12 @@ import { Component } from '@angular/core';
   template: `
     <section class="feature-page">
       <header class="feature-header">
-        <h1 class="feature-title">E-Queue Numbers</h1>
-        <p class="feature-subtitle">Cap phat so thu tu dien tu va theo doi luong tiep nhan theo tung quay.</p>
+        <h1 class="feature-title">Số thứ tự điện tử</h1>
+        <p class="feature-subtitle">Cấp phát số thứ tự điện tử và theo dõi luồng tiếp nhận theo từng quầy.</p>
       </header>
 
       <article class="feature-card">
-        Module scaffold is ready for API integration and UI implementation.
+        Module đã sẵn sàng để tích hợp API và hoàn thiện giao diện.
       </article>
     </section>
   `

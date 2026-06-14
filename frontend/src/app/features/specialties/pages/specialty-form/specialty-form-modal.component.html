@@ -22,7 +22,7 @@
 
         <div class="form-actions">
           <button class="button-primary" type="submit" [disabled]="isSubmitting">
-            {{ isSubmitting ? 'Dang xu ly...' : isEditMode ? 'Lưu cập nhật' : 'Thêm chuyên khoa' }}
+            {{ isSubmitting ? 'Đang xử lý...' : isEditMode ? 'Lưu cập nhật' : 'Thêm chuyên khoa' }}
           </button>
           <button class="button-secondary" type="button" (click)="onCloseClick()" [disabled]="isSubmitting">
             Đóng

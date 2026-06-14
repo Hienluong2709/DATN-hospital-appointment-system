@@ -87,13 +87,13 @@ export const registerUser = async (req, res) => {
     const data = await registerUserService(req.body);
 
     res.status(201).json({
-      message: "Tạo user thành công",
+      message: "Tạo tài khoản thành công",
       data,
     });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     const message =
-      statusCode === 500 ? "Tạo user thất bại, vui lòng thử lại" : error.message;
+      statusCode === 500 ? "Tạo tài khoản thất bại, vui lòng thử lại" : error.message;
 
     res.status(statusCode).json({
       message,

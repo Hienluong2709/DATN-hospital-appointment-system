@@ -7,6 +7,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { SharedPaginationComponent } from '../../../shared/components/pagination/pagination.component';
+import { ConfirmationService } from '../../../core/services/confirmation.service';
 import { NotificationService } from '../../../core/services/notification.service';
 import { User, UserGender, UserRole, UserStatus, UserUpsertPayload } from '../models/users.model';
 import { UserDetailModalComponent } from './user-detail/user-detail-modal.component';
@@ -27,6 +28,7 @@ const STRONG_PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9
 export class UsersPageComponent implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly usersApiService = inject(UsersApiService);
+  private readonly confirmationService = inject(ConfirmationService);
   private readonly notificationService = inject(NotificationService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -491,12 +493,21 @@ export class UsersPageComponent implements OnInit, OnDestroy {
     });
   }
 
-  onToggleStatus(user: User): void {
+  async onToggleStatus(user: User): Promise<void> {
     const nextStatus: UserStatus = user.status === 'Active' ? 'Inactive' : 'Active';
     const actionLabel = nextStatus === 'Inactive' ? 'khóa' : 'mở khóa';
-    const shouldUpdate = globalThis.confirm(`Bạn có chắc chắn muốn ${actionLabel} tài khoản ${user.username}?`);
+    const confirmed = await this.confirmationService.confirm({
+      title: nextStatus === 'Inactive' ? 'Xác nhận khóa tài khoản' : 'Xác nhận mở khóa tài khoản',
+      message:
+        nextStatus === 'Inactive'
+          ? `Bạn có chắc chắn muốn khóa tài khoản ${user.username}? Người dùng này sẽ không thể đăng nhập cho đến khi được mở khóa.`
+          : `Bạn có chắc chắn muốn mở khóa tài khoản ${user.username}? Người dùng này sẽ có thể đăng nhập lại hệ thống.`,
+      confirmText: nextStatus === 'Inactive' ? 'Xác nhận khóa' : 'Xác nhận mở khóa',
+      cancelText: 'Hủy',
+      tone: nextStatus === 'Inactive' ? 'danger' : 'primary',
+    });
 
-    if (!shouldUpdate) {
+    if (!confirmed) {
       return;
     }
 
