@@ -18,6 +18,10 @@ const WaitPrediction = sequelize.define("WaitPrediction", {
   predicted_wait_time: {
     type: DataTypes.INTEGER,
   },
+  rule_wait_minutes: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
   predicted_start: {
     type: DataTypes.DATE,
     allowNull: true,
@@ -29,6 +33,22 @@ const WaitPrediction = sequelize.define("WaitPrediction", {
   },
   model_version: {
     type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  feature_snapshot: {
+    type: DataTypes.JSON,
+    allowNull: true,
+  },
+  actual_wait_minutes: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  absolute_error_minutes: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  evaluated_at: {
+    type: DataTypes.DATE,
     allowNull: true,
   },
   created_at: {

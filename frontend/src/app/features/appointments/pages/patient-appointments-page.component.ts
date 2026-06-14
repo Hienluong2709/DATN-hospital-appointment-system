@@ -31,6 +31,7 @@ type PatientAppointmentTimeFilter = 'ALL' | 'UPCOMING_30_DAYS' | 'THIS_MONTH' | 
 export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
   private static readonly HIDDEN_ARCHIVED_APPOINTMENTS_STORAGE_KEY = 'patient-hidden-archived-appointments';
   private static readonly POLL_INTERVAL_MS = 15000;
+  private static readonly REALTIME_RELOAD_DEBOUNCE_MS = 400;
   private readonly appointmentsApiService = inject(AppointmentsApiService);
   private readonly specialtiesApiService = inject(SpecialtiesApiService);
   private readonly doctorsApiService = inject(DoctorsApiService);
@@ -39,6 +40,7 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
   private readonly realtimeService = inject(RealtimeService);
   private readonly subscriptions = new Subscription();
   private pollIntervalId: ReturnType<typeof setInterval> | null = null;
+  private realtimeReloadTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   appointments: Appointment[] = [];
   specialties: Specialty[] = [];
@@ -71,7 +73,7 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
     this.subscriptions.add(
       this.realtimeService.events$.subscribe((event) => {
         if (this.shouldReloadFromRealtimeEvent(event)) {
-          this.loadAppointments();
+          this.scheduleRealtimeReload();
         }
       })
     );
@@ -81,6 +83,7 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
+    this.clearRealtimeReload();
     this.stopPolling();
   }
 
@@ -875,6 +878,14 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
     }, PatientAppointmentsPageComponent.POLL_INTERVAL_MS);
   }
 
+  private scheduleRealtimeReload(): void {
+    this.clearRealtimeReload();
+    this.realtimeReloadTimeoutId = setTimeout(() => {
+      this.realtimeReloadTimeoutId = null;
+      this.loadAppointments();
+    }, PatientAppointmentsPageComponent.REALTIME_RELOAD_DEBOUNCE_MS);
+  }
+
   private shouldReloadFromRealtimeEvent(event: RealtimeEvent): boolean {
     return event.type === 'queue.updated' || event.type === 'queue.forecast.updated';
   }
@@ -883,6 +894,13 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
     if (this.pollIntervalId) {
       clearInterval(this.pollIntervalId);
       this.pollIntervalId = null;
+    }
+  }
+
+  private clearRealtimeReload(): void {
+    if (this.realtimeReloadTimeoutId) {
+      clearTimeout(this.realtimeReloadTimeoutId);
+      this.realtimeReloadTimeoutId = null;
     }
   }
 }

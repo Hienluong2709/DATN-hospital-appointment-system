@@ -110,7 +110,7 @@ const writeManifest = () => {
     model_contract: {
       primary_model: "CatBoostRegressor",
       baseline_model: "Rule-based Engine",
-      benchmark_models: ["Linear Regression", "Random Forest Regressor"],
+      benchmark_models: ["Linear Regression", "Random Forest Regressor", "Neural Network/MLP"],
       target_column: "target_actual_wait_minutes",
       output_column: "predicted_wait_minutes",
       estimated_start_formula:

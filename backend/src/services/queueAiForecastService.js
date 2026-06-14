@@ -17,6 +17,14 @@ const DEFAULT_CATBOOST_MODEL_PATH = path.resolve(
   "artifacts/latest/models/catboost-regressor.cbm",
 );
 const DEFAULT_CATBOOST_PYTHON_BIN = path.resolve(AI_ENGINE_ROOT, ".venv/bin/python");
+const DEFAULT_AI_ARTIFACT_MANIFEST_PATH = path.resolve(
+  AI_ENGINE_ROOT,
+  "artifacts/latest/manifest.json",
+);
+const DEFAULT_AI_ARTIFACT_LEADERBOARD_PATH = path.resolve(
+  AI_ENGINE_ROOT,
+  "artifacts/latest/leaderboard.json",
+);
 
 const QUEUE_AI_FORECAST_ENABLED = process.env.QUEUE_AI_FORECAST_ENABLED !== "false";
 const QUEUE_AI_FORECAST_PROVIDER =
@@ -26,6 +34,10 @@ const QUEUE_AI_COMPARE_WITH_HEURISTIC =
   process.env.QUEUE_AI_COMPARE_WITH_HEURISTIC === "true";
 const QUEUE_AI_MAX_WAIT_MINUTES =
   Number(process.env.QUEUE_AI_MAX_WAIT_MINUTES) || 8 * 60;
+const QUEUE_AI_SERVICE_URL =
+  process.env.QUEUE_AI_SERVICE_URL || "http://127.0.0.1:8001";
+const QUEUE_AI_SERVICE_TIMEOUT_MS =
+  Number(process.env.QUEUE_AI_SERVICE_TIMEOUT_MS) || 2500;
 
 const resolveRepoRelativePath = (rawPath, fallbackPath) =>
   rawPath ? path.resolve(BACKEND_ROOT, rawPath) : fallbackPath;
@@ -38,6 +50,61 @@ const QUEUE_AI_CATBOOST_PYTHON_BIN = resolveRepoRelativePath(
   process.env.QUEUE_AI_CATBOOST_PYTHON_BIN,
   DEFAULT_CATBOOST_PYTHON_BIN,
 );
+const QUEUE_AI_ARTIFACT_MANIFEST_PATH = resolveRepoRelativePath(
+  process.env.QUEUE_AI_ARTIFACT_MANIFEST_PATH,
+  DEFAULT_AI_ARTIFACT_MANIFEST_PATH,
+);
+const QUEUE_AI_ARTIFACT_LEADERBOARD_PATH = resolveRepoRelativePath(
+  process.env.QUEUE_AI_ARTIFACT_LEADERBOARD_PATH,
+  DEFAULT_AI_ARTIFACT_LEADERBOARD_PATH,
+);
+
+const readJsonFileIfExists = (filePath) => {
+  try {
+    if (!filePath || !fs.existsSync(filePath)) {
+      return null;
+    }
+
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    return null;
+  }
+};
+
+const getCatboostArtifactMetadata = () => {
+  const manifest = readJsonFileIfExists(QUEUE_AI_ARTIFACT_MANIFEST_PATH);
+  const leaderboard = readJsonFileIfExists(QUEUE_AI_ARTIFACT_LEADERBOARD_PATH);
+  const catboostMetrics = Array.isArray(leaderboard)
+    ? leaderboard.find((item) => item?.model_name === "catboost_regressor") || null
+    : null;
+  const rowsTotal = Number(manifest?.rows_total);
+  const mae = Number(catboostMetrics?.mae);
+
+  return {
+    manifest_path: QUEUE_AI_ARTIFACT_MANIFEST_PATH,
+    leaderboard_path: QUEUE_AI_ARTIFACT_LEADERBOARD_PATH,
+    rows_total: Number.isFinite(rowsTotal) ? rowsTotal : null,
+    rows_train: Number.isFinite(Number(manifest?.rows_train)) ? Number(manifest.rows_train) : null,
+    rows_test: Number.isFinite(Number(manifest?.rows_test)) ? Number(manifest.rows_test) : null,
+    primary_model: manifest?.primary_model || "catboost_regressor",
+    benchmark_mae: Number.isFinite(mae) ? mae : null,
+    benchmark_rmse: Number.isFinite(Number(catboostMetrics?.rmse)) ? Number(catboostMetrics.rmse) : null,
+    benchmark_r2: Number.isFinite(Number(catboostMetrics?.r2)) ? Number(catboostMetrics.r2) : null,
+    tuned: Boolean(catboostMetrics?.tuned || manifest?.catboost_tuned),
+  };
+};
+
+const buildRuntimeModelVersion = (artifactMetadata) => {
+  if (QUEUE_AI_MODEL_VERSION) {
+    return QUEUE_AI_MODEL_VERSION;
+  }
+
+  if (artifactMetadata?.rows_total && artifactMetadata?.benchmark_mae) {
+    return `catboost_rows${artifactMetadata.rows_total}_mae${artifactMetadata.benchmark_mae.toFixed(2)}`;
+  }
+
+  return path.basename(QUEUE_AI_CATBOOST_MODEL_PATH, ".cbm");
+};
 
 const parseDateTime = (value) => {
   if (!value) {
@@ -272,6 +339,54 @@ const runCatboostInference = ({ featureRow }) =>
     child.stdin.end();
   });
 
+const runCatboostServiceInference = async ({ featureRow }) => {
+  if (typeof fetch !== "function") {
+    throw new Error("fetch API is not available in this Node.js runtime");
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), QUEUE_AI_SERVICE_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${QUEUE_AI_SERVICE_URL.replace(/\/$/, "")}/predict/wait-time`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model_path: QUEUE_AI_CATBOOST_MODEL_PATH,
+        feature_row: featureRow,
+      }),
+      signal: controller.signal,
+    });
+
+    const responseText = await response.text();
+    let parsed = null;
+    try {
+      parsed = responseText ? JSON.parse(responseText) : null;
+    } catch {
+      parsed = null;
+    }
+
+    if (!response.ok) {
+      const errorMessage =
+        parsed?.detail ||
+        parsed?.message ||
+        responseText ||
+        `AI service responded with HTTP ${response.status}`;
+      throw new Error(errorMessage);
+    }
+
+    if (!parsed) {
+      throw new Error("AI service returned empty response");
+    }
+
+    return parsed;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
 export const createQueueAiForecastContextService = async ({
   doctorId,
   transaction,
@@ -312,7 +427,8 @@ export const predictCheckedInQueueWaitMinutesService = async ({
     };
   }
 
-  if (QUEUE_AI_FORECAST_PROVIDER !== "catboost_local") {
+  const supportedProviders = new Set(["catboost_local", "catboost_service"]);
+  if (!supportedProviders.has(QUEUE_AI_FORECAST_PROVIDER)) {
     return {
       available: false,
       provider: QUEUE_AI_FORECAST_PROVIDER,
@@ -328,7 +444,10 @@ export const predictCheckedInQueueWaitMinutesService = async ({
     };
   }
 
-  if (!fs.existsSync(QUEUE_AI_CATBOOST_PYTHON_BIN)) {
+  if (
+    QUEUE_AI_FORECAST_PROVIDER === "catboost_local" &&
+    !fs.existsSync(QUEUE_AI_CATBOOST_PYTHON_BIN)
+  ) {
     return {
       available: false,
       provider: QUEUE_AI_FORECAST_PROVIDER,
@@ -354,8 +473,30 @@ export const predictCheckedInQueueWaitMinutesService = async ({
     ruleBasedWaitMinutes,
   });
 
-  const inferenceResult = await runCatboostInference({ featureRow });
+  let inferenceResult = null;
+  let inferenceRuntime = QUEUE_AI_FORECAST_PROVIDER;
+  let serviceFallbackReason = null;
+
+  if (QUEUE_AI_FORECAST_PROVIDER === "catboost_service") {
+    try {
+      inferenceResult = await runCatboostServiceInference({ featureRow });
+      inferenceRuntime = "catboost_service";
+    } catch (error) {
+      serviceFallbackReason = error.message;
+      if (!fs.existsSync(QUEUE_AI_CATBOOST_PYTHON_BIN)) {
+        throw error;
+      }
+
+      inferenceResult = await runCatboostInference({ featureRow });
+      inferenceRuntime = "catboost_local_fallback";
+    }
+  } else {
+    inferenceResult = await runCatboostInference({ featureRow });
+    inferenceRuntime = "catboost_local";
+  }
+
   const predictedWaitMinutes = clampWaitMinutes(inferenceResult?.predicted_wait_minutes);
+  const artifactMetadata = getCatboostArtifactMetadata();
   const comparison = QUEUE_AI_COMPARE_WITH_HEURISTIC
     ? {
         heuristic_predicted_wait_minutes: ruleBasedWaitMinutes ?? null,
@@ -369,11 +510,20 @@ export const predictCheckedInQueueWaitMinutesService = async ({
   return {
     available: true,
     predicted_wait_minutes: predictedWaitMinutes,
-    prediction_source: "ai_catboost_local",
+    prediction_source:
+      QUEUE_AI_FORECAST_PROVIDER === "catboost_service"
+        ? "ai_catboost_service"
+        : "ai_catboost_local",
     provider: QUEUE_AI_FORECAST_PROVIDER,
-    model_version:
-      QUEUE_AI_MODEL_VERSION || path.basename(QUEUE_AI_CATBOOST_MODEL_PATH, ".cbm"),
+    model_version: inferenceResult?.model_version || buildRuntimeModelVersion(artifactMetadata),
     feature_row: featureRow,
+    model_metadata: {
+      ...artifactMetadata,
+      service_url: QUEUE_AI_FORECAST_PROVIDER === "catboost_service" ? QUEUE_AI_SERVICE_URL : null,
+      runtime: inferenceResult?.runtime || inferenceRuntime,
+      service_fallback_reason: serviceFallbackReason,
+      model_path: inferenceResult?.model_path || QUEUE_AI_CATBOOST_MODEL_PATH,
+    },
     comparison,
   };
 };

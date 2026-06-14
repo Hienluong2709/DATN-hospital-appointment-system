@@ -36,6 +36,7 @@ type AppointmentStatusSummary = {
 export class AppointmentsPageComponent implements OnInit, OnDestroy {
   private static readonly ALERT_AUTO_HIDE_MS = 5000;
   private static readonly POLL_INTERVAL_MS = 10000;
+  private static readonly REALTIME_RELOAD_DEBOUNCE_MS = 400;
 
   private readonly appointmentsApiService = inject(AppointmentsApiService);
   private readonly notificationService = inject(NotificationService);
@@ -46,6 +47,7 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
   private readonly subscriptions = new Subscription();
   private alertTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private pollIntervalId: ReturnType<typeof setInterval> | null = null;
+  private realtimeReloadTimeoutId: ReturnType<typeof setTimeout> | null = null;
   @ViewChild('adminAppointmentDetail') private adminAppointmentDetail?: ElementRef<HTMLElement>;
 
   appointments: Appointment[] = [];
@@ -84,7 +86,7 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
     this.subscriptions.add(
       this.realtimeService.events$.subscribe((event) => {
         if (this.shouldReloadFromRealtimeEvent(event)) {
-          this.loadAppointments(true);
+          this.scheduleRealtimeReload();
         }
       })
     );
@@ -95,6 +97,7 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
     this.clearAlertTimeout();
+    this.clearRealtimeReload();
     this.stopPolling();
   }
 
@@ -716,10 +719,25 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
     }, AppointmentsPageComponent.POLL_INTERVAL_MS);
   }
 
+  private scheduleRealtimeReload(): void {
+    this.clearRealtimeReload();
+    this.realtimeReloadTimeoutId = setTimeout(() => {
+      this.realtimeReloadTimeoutId = null;
+      this.loadAppointments(true);
+    }, AppointmentsPageComponent.REALTIME_RELOAD_DEBOUNCE_MS);
+  }
+
   private stopPolling(): void {
     if (this.pollIntervalId) {
       clearInterval(this.pollIntervalId);
       this.pollIntervalId = null;
+    }
+  }
+
+  private clearRealtimeReload(): void {
+    if (this.realtimeReloadTimeoutId) {
+      clearTimeout(this.realtimeReloadTimeoutId);
+      this.realtimeReloadTimeoutId = null;
     }
   }
 

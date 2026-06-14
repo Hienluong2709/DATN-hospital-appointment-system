@@ -2,6 +2,7 @@ import { Op, Transaction, UniqueConstraintError } from "sequelize";
 import db from "../models/index.js";
 import {
   compareQueuesByServiceOrder,
+  evaluateWaitPredictionsForQueueService,
   recalculateQueueForecastForDoctorDateService,
   simulateEstimatedStartForAppointmentService,
 } from "./queueForecastService.js";
@@ -2219,7 +2220,7 @@ export const startAppointmentService = async (id, payload, currentUser) => {
     const resolvedActualStart = actualStart || new Date();
 
     if (queue.actual_end && queue.actual_end < resolvedActualStart) {
-      const error = new Error("actual_start phải nhỏ hơn hoặc bằng actual_end");
+      const error = new Error("Thời gian bắt đầu thực tế phải nhỏ hơn hoặc bằng thời gian kết thúc thực tế");
       error.statusCode = 400;
       throw error;
     }
@@ -2229,6 +2230,12 @@ export const startAppointmentService = async (id, payload, currentUser) => {
         actual_start: actualStart || db.sequelize.literal("CURRENT_TIMESTAMP"),
       },
       { transaction }
+    );
+
+    const predictionEvaluation = await evaluateWaitPredictionsForQueueService(
+      queue.id,
+      resolvedActualStart,
+      transaction,
     );
 
     await createQueueActionLog({
@@ -2241,6 +2248,7 @@ export const startAppointmentService = async (id, payload, currentUser) => {
       metadata: {
         actual_start: resolvedActualStart.toISOString(),
         queue_number: queue.queue_number,
+        wait_prediction_evaluation: predictionEvaluation,
       },
     }, transaction);
 
@@ -2321,7 +2329,7 @@ export const completeAppointmentService = async (id, payload, currentUser) => {
     const resolvedActualEnd = actualEnd || new Date();
 
     if (resolvedActualEnd < queue.actual_start) {
-      const error = new Error("actual_end phải lớn hơn hoặc bằng actual_start");
+      const error = new Error("Thời gian kết thúc thực tế phải lớn hơn hoặc bằng thời gian bắt đầu thực tế");
       error.statusCode = 400;
       throw error;
     }

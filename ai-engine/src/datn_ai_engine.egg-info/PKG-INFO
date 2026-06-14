@@ -5,10 +5,12 @@ Summary: Queue wait prediction engine for DATN
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 Requires-Dist: catboost>=1.2.5
+Requires-Dist: fastapi>=0.115.0
 Requires-Dist: joblib>=1.4.2
 Requires-Dist: numpy>=1.26.4
 Requires-Dist: pandas>=2.2.2
 Requires-Dist: scikit-learn>=1.5.1
+Requires-Dist: uvicorn[standard]>=0.30.0
 
 # AI Engine
 
@@ -33,7 +35,14 @@ Project nay dung de train lai model du doan thoi gian cho kham cho DATN.
 ## Cau truc
 
 - `src/ai_engine/feature_schema.py`: schema feature, target, baseline
-- `src/ai_engine/train.py`: train va evaluate toan bo models
+- `src/ai_engine/train.py`: entrypoint dieu phoi train va evaluate
+- `src/ai_engine/data/loader.py`: doc du lieu, validate schema, split train/test
+- `src/ai_engine/baseline/rule_based_baseline.py`: baseline Rule-based Engine
+- `src/ai_engine/evaluation/metrics.py`: MAE, RMSE, R²
+- `src/ai_engine/models/catboost_model.py`: train/save CatBoost
+- `src/ai_engine/models/linear_regression_model.py`: train/save Linear Regression
+- `src/ai_engine/models/random_forest_model.py`: train/save Random Forest
+- `src/ai_engine/models/common.py`: preprocessing va helper dung chung cho sklearn
 - `src/ai_engine/predict.py`: suy luan CatBoost cho runtime
 
 ## Buoc 1: Tao lai du lieu train tu backend
@@ -79,6 +88,27 @@ ai-engine-train --dry-run
 ```bash
 ai-engine-train
 ```
+
+Train rieng tung model:
+
+```bash
+ai-engine-train --model catboost
+ai-engine-train --model linear
+ai-engine-train --model rf
+```
+
+Gia tri hop le cho `--model`:
+
+- `all`: train toan bo model
+- `catboost`: chi train `CatBoostRegressor`
+- `linear`: chi train `Linear Regression`
+- `rf`: chi train `Random Forest Regressor`
+
+Luu y:
+
+- Dung `--model` nao thi `leaderboard.json` van giu baseline `rule_based_engine`
+- `test-predictions.csv` chi chua cot prediction cua model da chon
+- `manifest.json` ghi ro `selected_model` va `trained_models`
 
 Ket qua se duoc ghi vao:
 
@@ -136,3 +166,4 @@ Output:
 - `leaderboard.json` luon chua baseline `rule_based_engine`
 - CatBoost la model chinh de deploy
 - Hai model con lai chi dung de benchmark
+- Khi can benchmark day du, dung `ai-engine-train --model all`

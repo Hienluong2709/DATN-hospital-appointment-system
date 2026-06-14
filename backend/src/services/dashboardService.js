@@ -9,6 +9,7 @@ const {
   Room,
   Appointment,
   Queue,
+  WaitPrediction,
   WorkSchedule,
   WorkScheduleBlock,
 } = db;
@@ -234,6 +235,7 @@ const getAdminSummary = async () => {
     waitingQueueCount,
     inProgressQueueCount,
     completedTodayCount,
+    predictionQualityRows,
     appointmentStatuses,
     topDoctorRows,
   ] = await Promise.all([
@@ -269,6 +271,24 @@ const getAdminSummary = async () => {
         status: "Completed",
       },
     }),
+    WaitPrediction.findAll({
+      attributes: [
+        [fn("AVG", col("absolute_error_minutes")), "avg_absolute_error_minutes"],
+        [fn("COUNT", col("WaitPrediction.id")), "evaluated_count"],
+      ],
+      where: {
+        evaluated_at: { [Op.ne]: null },
+        absolute_error_minutes: { [Op.ne]: null },
+      },
+      include: [
+        {
+          model: Queue,
+          attributes: [],
+          where: { date: today },
+        },
+      ],
+      raw: true,
+    }),
     buildAppointmentStatusBreakdown({ date: today }),
     Appointment.findAll({
       where: {
@@ -298,6 +318,9 @@ const getAdminSummary = async () => {
     : [];
 
   const doctorsById = new Map(doctors.map((doctor) => [doctor.id, doctor]));
+  const predictionQuality = predictionQualityRows?.[0] || {};
+  const evaluatedPredictionCount = toPositiveNumber(predictionQuality.evaluated_count);
+  const averagePredictionError = Number(predictionQuality.avg_absolute_error_minutes);
 
   return {
     role: "ADMIN",
@@ -340,6 +363,17 @@ const getAdminSummary = async () => {
         value: waitingQueueCount,
         note: `${inProgressQueueCount} ca đang khám, ${completedTodayCount} ca đã hoàn tất`,
         tone: "warning",
+      }),
+      buildStatCard({
+        key: "wait-prediction-quality",
+        label: "Sai số dự đoán TB",
+        value: evaluatedPredictionCount > 0 && Number.isFinite(averagePredictionError)
+          ? `${averagePredictionError.toFixed(1)} phút`
+          : "Chưa có",
+        note: evaluatedPredictionCount > 0
+          ? `${evaluatedPredictionCount} dự đoán đã được đối chiếu hôm nay`
+          : "Sẽ có dữ liệu sau khi bác sĩ bắt đầu khám",
+        tone: evaluatedPredictionCount > 0 ? "primary" : "neutral",
       }),
     ],
     appointment_statuses: appointmentStatuses,

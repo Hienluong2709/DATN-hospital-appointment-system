@@ -390,6 +390,11 @@ const getQueuePriorityRank = (queueLike) => {
   return QUEUE_PRIORITY_RANK[priorityLevel] ?? QUEUE_PRIORITY_RANK.Normal;
 };
 
+const canBypassOriginalScheduleAfterCheckIn = (queueLike, checkedInAt) =>
+  checkedInAt instanceof Date &&
+  !Number.isNaN(checkedInAt.getTime()) &&
+  getQueuePriorityRank(queueLike) < QUEUE_PRIORITY_RANK.Normal;
+
 export const compareQueuesByServiceOrder = (left, right) => {
   const categoryDelta = getQueueCategoryRank(left) - getQueueCategoryRank(right);
   if (categoryDelta !== 0) {
@@ -499,11 +504,16 @@ const syncWaitPrediction = async (
     {
       queue_id: queue.id,
       predicted_wait_time: predictedWaitMinutes,
+      rule_wait_minutes:
+        typeof predictionMetadata.rule_wait_minutes === "number"
+          ? predictionMetadata.rule_wait_minutes
+          : null,
       predicted_start: predictedStart,
       prediction_source:
         predictionMetadata.prediction_source || RULE_ENGINE_FORECAST_SOURCE,
       model_version:
         predictionMetadata.model_version || RULE_ENGINE_MODEL_VERSION,
+      feature_snapshot: predictionMetadata.feature_snapshot || null,
       created_at: new Date(),
     },
     { transaction },
@@ -524,10 +534,11 @@ const buildRuleBasedWaitingForecast = ({
   earliestWorkingDateTime,
   workingPeriods,
   now,
+  allowPriorityEarlyStart = false,
 }) => {
   const earliestEligibleStartTime = getEarliestEligibleStartTime({
     checkedInAt,
-    originalScheduledTime,
+    originalScheduledTime: allowPriorityEarlyStart ? null : originalScheduledTime,
     earliestWorkingDateTime,
   });
   const timingFloor = checkedInAt
@@ -560,9 +571,11 @@ const buildRuleBasedWaitingForecast = ({
   return {
     estimated_start: estimatedStart,
     predicted_wait_minutes: predictedWaitMinutes,
+    rule_wait_minutes: predictedWaitMinutes,
     prediction_source: RULE_ENGINE_FORECAST_SOURCE,
     model_version: RULE_ENGINE_MODEL_VERSION,
     base_time: baseTime,
+    feature_snapshot: null,
   };
 };
 
@@ -579,6 +592,7 @@ const buildAdaptiveWaitingForecast = async ({
   averageVisitDurationMinutes,
   turnaroundBufferMinutes,
 }) => {
+  const allowPriorityEarlyStart = canBypassOriginalScheduleAfterCheckIn(queueLike, checkedInAt);
   const ruleBasedForecast = buildRuleBasedWaitingForecast({
     checkedInAt,
     forecastCursor,
@@ -586,6 +600,7 @@ const buildAdaptiveWaitingForecast = async ({
     earliestWorkingDateTime,
     workingPeriods,
     now,
+    allowPriorityEarlyStart,
   });
 
   if (!(checkedInAt instanceof Date) || Number.isNaN(checkedInAt.getTime())) {
@@ -641,10 +656,17 @@ const buildAdaptiveWaitingForecast = async ({
         estimatedStart,
         checkedInAt,
       ) ?? aiPrediction.predicted_wait_minutes,
+      rule_wait_minutes: ruleBasedForecast.predicted_wait_minutes,
       prediction_source:
         aiPrediction.prediction_source || RULE_ENGINE_FORECAST_SOURCE,
       model_version: aiPrediction.model_version || RULE_ENGINE_MODEL_VERSION,
       base_time: ruleBasedForecast.base_time,
+      feature_snapshot: {
+        provider: aiPrediction.provider || aiContext?.provider || null,
+        model_metadata: aiPrediction.model_metadata || null,
+        feature_row: aiPrediction.feature_row || null,
+        comparison: aiPrediction.comparison || null,
+      },
     };
   } catch (error) {
     console.error(
@@ -969,6 +991,7 @@ export const simulateEstimatedStartForAppointmentService = async (appointmentLik
       status: appointmentLike.status ?? "Confirmed",
       time_slot: appointmentLike.time_slot ?? null,
       preferred_period: appointmentLike.preferred_period ?? null,
+      priority_level: appointmentLike.priority_level ?? "Normal",
     },
   };
 
@@ -1013,8 +1036,10 @@ export const simulateEstimatedStartForAppointmentService = async (appointmentLik
       ? queueOriginalScheduledTime
       : persistedEstimatedStart || queueOriginalScheduledTime || earliestWorkingDateTime;
     let predictedWaitMinutes = persistedPredictedWaitMinutes;
+    let ruleWaitMinutes = null;
     let predictionSource = RULE_ENGINE_FORECAST_SOURCE;
     let modelVersion = RULE_ENGINE_MODEL_VERSION;
+    let featureSnapshot = null;
     const predictedWaitFromEstimatedStart = computePredictedWaitMinutesFromAnchor(
       estimatedStart,
       checkedInAt,
@@ -1065,9 +1090,11 @@ export const simulateEstimatedStartForAppointmentService = async (appointmentLik
       });
 
       predictedWaitMinutes = adaptiveForecast.predicted_wait_minutes;
+      ruleWaitMinutes = adaptiveForecast.rule_wait_minutes;
       estimatedStart = adaptiveForecast.estimated_start;
       predictionSource = adaptiveForecast.prediction_source;
       modelVersion = adaptiveForecast.model_version;
+      featureSnapshot = adaptiveForecast.feature_snapshot;
       forecastCursor = new Date(estimatedStart.getTime() + averageVisitDurationMs + turnaroundBufferMs);
     }
 
@@ -1079,8 +1106,10 @@ export const simulateEstimatedStartForAppointmentService = async (appointmentLik
         original_estimated_start: originalEstimatedStart,
         estimated_start: estimatedStart,
         predicted_wait_minutes: predictedWaitMinutes,
+        rule_wait_minutes: ruleWaitMinutes,
         prediction_source: predictionSource,
         model_version: modelVersion,
+        feature_snapshot: featureSnapshot,
       };
     }
   }
@@ -1164,8 +1193,10 @@ export const recalculateQueueForecastForDoctorDateService = async (doctorId, dat
       ? originalScheduledTime
       : persistedEstimatedStart || originalScheduledTime || earliestWorkingDateTime;
     let predictedWaitMinutes = persistedPredictedWaitMinutes;
+    let ruleWaitMinutes = null;
     let predictionSource = RULE_ENGINE_FORECAST_SOURCE;
     let modelVersion = RULE_ENGINE_MODEL_VERSION;
+    let featureSnapshot = null;
     const predictedWaitFromEstimatedStart = computePredictedWaitMinutesFromAnchor(
       estimatedStart,
       checkedInAt,
@@ -1216,9 +1247,11 @@ export const recalculateQueueForecastForDoctorDateService = async (doctorId, dat
       });
 
       predictedWaitMinutes = adaptiveForecast.predicted_wait_minutes;
+      ruleWaitMinutes = adaptiveForecast.rule_wait_minutes;
       estimatedStart = adaptiveForecast.estimated_start;
       predictionSource = adaptiveForecast.prediction_source;
       modelVersion = adaptiveForecast.model_version;
+      featureSnapshot = adaptiveForecast.feature_snapshot;
       forecastCursor = new Date(estimatedStart.getTime() + averageVisitDurationMs + turnaroundBufferMs);
     }
 
@@ -1244,8 +1277,75 @@ export const recalculateQueueForecastForDoctorDateService = async (doctorId, dat
     }
 
     await syncWaitPrediction(queue, predictedWaitMinutes, estimatedStart, transaction, {
+      rule_wait_minutes: ruleWaitMinutes ?? predictedWaitMinutes,
       prediction_source: predictionSource,
       model_version: modelVersion,
+      feature_snapshot: featureSnapshot,
     });
   }
+};
+
+export const evaluateWaitPredictionsForQueueService = async (
+  queueId,
+  actualStartValue,
+  transaction,
+) => {
+  if (!queueId || !actualStartValue) {
+    return {
+      evaluated_count: 0,
+    };
+  }
+
+  const queue = await Queue.findByPk(queueId, {
+    attributes: ["id", "checked_in_at"],
+    transaction,
+  });
+
+  const checkedInAt = queue?.checked_in_at ? new Date(queue.checked_in_at) : null;
+  const actualStart = new Date(actualStartValue);
+
+  if (
+    !queue ||
+    !(checkedInAt instanceof Date) ||
+    Number.isNaN(checkedInAt.getTime()) ||
+    Number.isNaN(actualStart.getTime()) ||
+    actualStart < checkedInAt
+  ) {
+    return {
+      evaluated_count: 0,
+    };
+  }
+
+  const actualWaitMinutes = Math.max(
+    0,
+    Math.round((actualStart.getTime() - checkedInAt.getTime()) / (60 * 1000)),
+  );
+  const predictions = await WaitPrediction.findAll({
+    where: {
+      queue_id: queue.id,
+      evaluated_at: null,
+    },
+    transaction,
+  });
+
+  for (const prediction of predictions) {
+    const predictedWait = Number(prediction.predicted_wait_time);
+    const absoluteErrorMinutes = Number.isFinite(predictedWait)
+      ? Math.abs(actualWaitMinutes - predictedWait)
+      : null;
+
+    await prediction.update(
+      {
+        actual_wait_minutes: actualWaitMinutes,
+        absolute_error_minutes: absoluteErrorMinutes,
+        evaluated_at: new Date(),
+      },
+      { transaction },
+    );
+  }
+
+  return {
+    evaluated_count: predictions.length,
+    actual_wait_minutes: actualWaitMinutes,
+  };
 };
