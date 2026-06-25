@@ -42,6 +42,7 @@ venv/
 *.onnx
 tmp/
 temp/
+.tmp-mpl/
 uploads/
 outputs/
 backend/exports/

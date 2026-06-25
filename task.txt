@@ -1,0 +1,73 @@
+*** task to:
+DONE - xem lại luồng đăng ký tài khoản cho bệnh nhân
+DONE - gửi message qua mail thay vì sms
+
+
+* task 20/05
+- quên mật khẩu
+- reset mật khẩu
+- sửa lại báo cáo: ko cho lễ tân huỷ lịch đã check-in
+- chỉnh lại mail quên mật khẩu
+
+* cần chỉnh sửa
+- xử lý 2 bệnh nhân cùng đặt lịch 1 thời gian, hold time sẽ như nào?..
+- quản lý hàng đợi: ko để cố định, có thể thay đổi linh hoạt. tìm hiểu thêm về quy tắc quản lý hàng đợi. quản lý theo chuyên khoa, bác sĩ, phòng...???
+- sử dụng thêm model học sâu: MLP
+- chỉnh sửa giao diện xem lịch làm việc cho dễ nhìn: theo calender, phân biệt theo màu...
+
+** các usecase nên thêm
+- Xem trang chủ/ dashboard theo vai trò
+- Cập nhật thông tin cá nhân
+- tách quản lý người dùng: quản lý bệnh nhân và nhân sự
+- Xem và xử lý lịch khám: thêm xem thông tin bệnh nhân
+- Quản lý hàng đợi khám: 
++ check in và cấp số tiếp nhận
++ ghi nhận vắng mặt 
+- Dự đoán thời gian chờ khám
+- Quản lý mức ưu tiên hàng đợi??
+- Xem lịch nghỉ
+- Tra cứu bác sĩ, chuyên khoa, phòng khám
+
+
+** UC-13 Xem và xử lý lịch khám
+Bổ sung thêm:
+-Bác sĩ xem thông tin bệnh nhân.
+-Bác sĩ nhập ghi chú vắng mặt.
+-Bác sĩ không được hủy lịch, chỉ ghi nhận vắng mặt.
+
+phần
+**UC-14 Đặt lịch khám
+- sửa lý do khám thành bắt buộc.
+Nên bổ sung quy tắc mới: 
+- hệ thống tự động giữ/xếp slot, không cho bệnh nhân có nhiều lịch active với cùng bác sĩ trong cùng ngày.
+
+
+** UC-16 Quản lý hàng đợi khám
+- Có dòng bộ lọc bị lặp 2 lần.
+- Cần sửa nghiệp vụ:
++ Thêm priority_level: Bình thường, Ưu tiên, Khẩn cấp.
++ Khi check-in, lễ tân có thể chọn mức ưu tiên.
++ Rule sắp xếp hàng đợi: trạng thái phục vụ → mức ưu tiên → giờ hẹn/dự kiến → thời điểm check-in → số tiếp nhận.
++ Ghi nhận vắng mặt của bác sĩ không xóa queue.
++ Audit log thao tác hàng đợi: check-in, bắt đầu khám, hoàn tất, vắng mặt, hủy check-in nếu có.
+
+*****Nên bổ sung use case
+- Quản lý bệnh nhân: admin
+
+- Dashboard / Xem thống kê tổng quan
++Admin, bác sĩ, lễ tân, bệnh nhân đều có dữ liệu dashboard/tổng quan khác nhau.
++Nên có use case riêng, nhất là admin cần dữ liệu báo cáo thống kê.
+
+-Dự đoán thời gian chờ khám
++Đây là điểm chính của đề tài có AI. Nên có use case riêng hoặc mục đặc tả riêng:
++Hệ thống dự đoán thời gian chờ.
++Cập nhật khi check-in, bắt đầu khám, hoàn tất, vắng mặt.
++Rule engine và AI phối hợp như thế nào.
+
+-Quản lý ưu tiên hàng đợi
++ Vì bạn vừa thêm priority_level, nên hoặc bổ sung vào UC Quản lý hàng đợi
+hoặc tách riêng nếu muốn nhấn mạnh nghiệp vụ.
+
+-Ghi nhận nhật ký thao tác hàng đợi
++Có thể không cần là use case người dùng độc lập,
+nhưng nên có trong yêu cầu phi chức năng hoặc luồng phụ vì hệ thống đã có queue_action_logs.
