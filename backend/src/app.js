@@ -34,6 +34,7 @@ const PENDING_APPOINTMENT_CLEANUP_INTERVAL_MS =
 const DEFAULT_CORS_ORIGINS = [
   "http://45.126.126.226",
   "http://45.126.126.226:80",
+  "http://45.126.126.226:8080",
   "http://45.126.126.226:4200",
   "http://45.126.126.226:4201",
   "http://localhost:4200",
