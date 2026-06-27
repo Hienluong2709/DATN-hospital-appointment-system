@@ -1,3 +1,61 @@
 :host {
   display: block;
 }
+
+.dashboard-panel--wide {
+  grid-column: 1 / -1;
+}
+
+.doctor-upcoming-list {
+  gap: 12px;
+}
+
+.doctor-upcoming-item {
+  align-items: center;
+  gap: 16px;
+}
+
+.doctor-upcoming-item__side {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  min-width: 250px;
+  justify-content: flex-end;
+}
+
+.doctor-upcoming-time {
+  display: grid;
+  min-width: 116px;
+  justify-items: end;
+  gap: 2px;
+  color: #123a62;
+}
+
+.doctor-upcoming-time small {
+  color: #6f849d;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.doctor-upcoming-time strong {
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+@media (max-width: 720px) {
+  .doctor-upcoming-item {
+    align-items: flex-start;
+  }
+
+  .doctor-upcoming-item__side {
+    width: 100%;
+    min-width: 0;
+    justify-content: space-between;
+    margin-left: 0;
+  }
+
+  .doctor-upcoming-time {
+    min-width: 0;
+  }
+}

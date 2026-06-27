@@ -90,10 +90,26 @@ const mapPatientAppointmentItem = (appointment) => ({
   room_name: appointment.Doctor?.Room?.name ?? null,
 });
 
+const computeRemainingWaitMinutes = (estimatedStartValue, now = new Date()) => {
+  if (!estimatedStartValue) {
+    return null;
+  }
+
+  const estimatedStart =
+    estimatedStartValue instanceof Date ? estimatedStartValue : new Date(estimatedStartValue);
+  if (Number.isNaN(estimatedStart.getTime())) {
+    return null;
+  }
+
+  return Math.max(0, Math.ceil((estimatedStart.getTime() - now.getTime()) / (60 * 1000)));
+};
+
 const mapReceptionQueueItem = (queue) => ({
   id: queue.id,
+  appointment_id: queue.appointment_id,
   queue_number: queue.queue_number,
   predicted_wait_minutes: queue.predicted_wait_minutes,
+  remaining_wait_minutes: computeRemainingWaitMinutes(queue.estimated_start),
   estimated_start: queue.estimated_start,
   checked_in_at: queue.checked_in_at,
   patient_name:
@@ -109,8 +125,10 @@ const mapReceptionQueueItem = (queue) => ({
 
 const mapDoctorQueueItem = (queue) => ({
   id: queue.id,
+  appointment_id: queue.appointment_id,
   queue_number: queue.queue_number,
   predicted_wait_minutes: queue.predicted_wait_minutes,
+  remaining_wait_minutes: computeRemainingWaitMinutes(queue.estimated_start),
   estimated_start: queue.estimated_start,
   checked_in_at: queue.checked_in_at,
   actual_start: queue.actual_start,
@@ -671,6 +689,8 @@ const getDoctorSummary = async (user) => {
       where: {
         doctor_id: doctor.id,
         date: today,
+        checked_in_at: { [Op.ne]: null },
+        actual_end: null,
       },
       include: [
         {

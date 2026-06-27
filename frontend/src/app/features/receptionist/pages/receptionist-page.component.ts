@@ -1,10 +1,12 @@
-import { Component, inject } from '@angular/core';
+import { Component, OnDestroy, inject } from '@angular/core';
 import { NgClass } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { Subscription } from 'rxjs';
 
+import { RealtimeService } from '../../../core/services/realtime.service';
 import { DashboardApiService } from '../../../shared/services/dashboard.api';
 import { getAppointmentStatusLabel } from '../../../shared/enum-label.util';
-import { ReceptionistDashboardSummary } from '../../../shared/types/dashboard.type';
+import { DashboardQueueItem, ReceptionistDashboardSummary } from '../../../shared/types/dashboard.type';
 
 @Component({
   selector: 'app-receptionist-page',
@@ -13,8 +15,10 @@ import { ReceptionistDashboardSummary } from '../../../shared/types/dashboard.ty
   templateUrl: './receptionist-page.component.html',
   styleUrl: './receptionist-page.component.scss',
 })
-export class ReceptionistPageComponent {
+export class ReceptionistPageComponent implements OnDestroy {
   private readonly dashboardApiService = inject(DashboardApiService);
+  private readonly realtimeService = inject(RealtimeService);
+  private readonly realtimeSubscription: Subscription;
 
   protected summary: ReceptionistDashboardSummary | null = null;
   protected loading = true;
@@ -22,10 +26,22 @@ export class ReceptionistPageComponent {
 
   constructor() {
     this.loadSummary();
+    this.realtimeService.connect();
+    this.realtimeSubscription = this.realtimeService.events$.subscribe((event) => {
+      if (event.type === 'queue.updated' || event.type === 'queue.forecast.updated') {
+        this.loadSummary(false);
+      }
+    });
   }
 
-  protected loadSummary(): void {
-    this.loading = true;
+  ngOnDestroy(): void {
+    this.realtimeSubscription.unsubscribe();
+  }
+
+  protected loadSummary(showLoading = true): void {
+    if (showLoading) {
+      this.loading = true;
+    }
     this.errorMessage = '';
 
     this.dashboardApiService.getSummary().subscribe({
@@ -67,6 +83,20 @@ export class ReceptionistPageComponent {
       day: '2-digit',
       month: '2-digit',
     }).format(new Date(value));
+  }
+
+  protected getQueueEstimatedStartLabel(queue: DashboardQueueItem): string {
+    return queue.estimated_start ? this.formatDateTime(queue.estimated_start) : '--';
+  }
+
+  protected getQueueWaitLabel(queue: DashboardQueueItem): string {
+    const remainingWaitMinutes = queue.remaining_wait_minutes ?? queue.predicted_wait_minutes;
+
+    if (remainingWaitMinutes === null || remainingWaitMinutes === undefined) {
+      return 'Chưa có dự báo';
+    }
+
+    return `Còn khoảng ${remainingWaitMinutes} phút`;
   }
 
   protected getAppointmentStatusBadgeClass(status: string): string {

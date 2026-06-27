@@ -308,7 +308,7 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
     }
 
     if (this.isReceptionistView) {
-      return 'Theo dõi lịch chờ tiếp nhận, check-in bệnh nhân, cấp số tiếp nhận và quản lý danh sách hàng đợi trong ngày.';
+      return 'Theo dõi lịch chờ tiếp nhận, check-in bệnh nhân và quản lý danh sách hàng đợi trong ngày.';
     }
 
     return 'Admin chỉ xem dữ liệu lịch hẹn và hàng đợi để phục vụ báo cáo, thống kê và giám sát vận hành.';
@@ -374,7 +374,7 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
   }
 
   checkIn(appointment: Appointment): void {
-    this.executeAction(appointment.id, () => this.appointmentsApiService.checkIn(appointment.id), 'Check-in và cấp số thứ tự thành công');
+    this.executeAction(appointment.id, () => this.appointmentsApiService.checkIn(appointment.id), 'Check-in thành công');
   }
 
   start(appointment: Appointment): void {
@@ -432,7 +432,7 @@ export class AppointmentsPageComponent implements OnInit, OnDestroy {
   }
 
   getQueueNumberLabel(appointment: Appointment): string {
-    return appointment.Queue?.queue_number ? `Số tiếp nhận #${appointment.Queue.queue_number}` : 'Chưa cấp số tiếp nhận';
+    return appointment.Queue?.queue_number ? 'Đã tiếp nhận' : 'Chưa tiếp nhận';
   }
 
   getStatusLabel(status: AppointmentStatus): string {

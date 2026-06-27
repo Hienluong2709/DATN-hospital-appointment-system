@@ -18,6 +18,7 @@ import dashboardRoutes from "./routes/dashboardRoutes.js";
 import { cleanupExpiredPendingAppointmentsService } from "./services/appointmentService.js";
 import { startInProgressQueueReforecastJob } from "./services/inProgressQueueReforecastJobService.js";
 import { startNoShowEndOfDayJob } from "./services/noShowJobService.js";
+import { startAppointmentReminderJob } from "./services/appointmentReminderJobService.js";
 import { startQueueNotificationDispatchJob } from "./services/queueNotificationJobService.js";
 import { initRealtimeServer } from "./services/realtimeService.js";
 
@@ -70,6 +71,7 @@ const startServer = async () => {
     startPendingAppointmentCleanupJob();
     startInProgressQueueReforecastJob();
     startNoShowEndOfDayJob();
+    startAppointmentReminderJob();
     startQueueNotificationDispatchJob();
   } catch (error) {
     console.error("Failed to start server:", error);

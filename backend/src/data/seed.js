@@ -609,11 +609,12 @@ async function seed() {
 
     const templates = await Template.bulkCreate([
       {
-        code: "APPOINTMENT_REMINDER",
-        content: "Bạn có lịch khám vào ngày mai.",
+        code: "APPOINTMENT_REMINDER_1H",
+        content:
+          "Bạn có lịch khám lúc {{appointment_time}} với bác sĩ {{doctor_name}} tại {{room_display}}. Vui lòng đến đúng giờ để check-in.",
         type: "SMS",
         is_active: true,
-        description: "Mẫu SMS nhắc lịch hẹn",
+        description: "Mẫu SMS nhắc lịch hẹn trước 1 tiếng",
       },
       {
         code: "QUEUE_READY",
@@ -631,10 +632,17 @@ async function seed() {
       },
       {
         code: "QUEUE_SOON",
-        content: "Dự kiến còn {{predicted_wait_minutes}} phút đến lượt khám. Vui lòng ở gần {{room_display}}.",
+        content: "Dự kiến còn {{predicted_wait_minutes}} phút đến giờ khám. Vui lòng ở gần {{room_display}}.",
         type: "SMS",
         is_active: true,
         description: "Mẫu SMS sắp đến lượt khám",
+      },
+      {
+        code: "QUEUE_ESTIMATE_UPDATED",
+        content: "Giờ khám dự kiến của bạn được cập nhật thành {{predicted_start_time}} tại {{room_display}}.",
+        type: "SMS",
+        is_active: true,
+        description: "Mẫu SMS cập nhật giờ khám dự kiến",
       },
     ]);
 
@@ -642,12 +650,14 @@ async function seed() {
       {
         phone: userByUsername.get("patient1").phone,
         template_code: templates[0].code,
-        content: "Bạn có lịch khám vào ngày mai.",
+        event_code: templates[0].code,
+        content: "Bạn có lịch khám lúc 08:30 với bác sĩ Dr. A tại A101 - Tầng 1. Vui lòng đến đúng giờ để check-in.",
         status: "Pending",
       },
       {
         phone: userByUsername.get("patient2").phone,
         template_code: templates[1].code,
+        event_code: templates[1].code,
         content: "Đến lượt khám, vui lòng đến phòng khám.",
         status: "Sent",
       },

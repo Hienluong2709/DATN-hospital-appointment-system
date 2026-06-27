@@ -55,69 +55,44 @@
       </section>
 
       <section class="dashboard-panel-grid">
-        <article class="feature-card dashboard-panel">
+        <article class="feature-card dashboard-panel dashboard-panel--wide">
           <header class="dashboard-panel__header">
             <div>
-              <p class="dashboard-section-label">Lịch khám</p>
-              <h3>Bệnh nhân sắp tới</h3>
-              <p>Danh sách lịch hôm nay còn hiệu lực trong ca khám.</p>
+              <p class="dashboard-section-label">Hàng đợi khám</p>
+              <h3>Bệnh nhân chờ và đang khám</h3>
+              <p>Hiển thị bệnh nhân đã check-in đang chờ khám và bệnh nhân đang khám.</p>
             </div>
             <span class="dashboard-panel__icon material-symbols-outlined" aria-hidden="true">person_search</span>
           </header>
 
-          @if (currentSummary.next_patients.length > 0) {
-            <div class="dashboard-list">
-              @for (item of currentSummary.next_patients; track item.id) {
-                <article class="dashboard-list-item">
-                  <div class="dashboard-list-item__main">
-                    <strong>{{ item.patient_name }}</strong>
-                    <span>{{ item.date }} · {{ item.time_slot ? formatTime(item.time_slot) : 'Chưa có giờ cụ thể' }}</span>
-                  </div>
-                  <span class="status-badge" [ngClass]="getAppointmentStatusBadgeClass(item.status)">
-                    {{ getAppointmentStatusLabel(item.status) }}
-                  </span>
-                </article>
-              }
-            </div>
+          @if (getUpcomingPatients(currentSummary); as upcomingPatients) {
+            @if (upcomingPatients.length > 0) {
+              <div class="dashboard-list doctor-upcoming-list">
+                @for (item of upcomingPatients; track item.key) {
+                  <article class="dashboard-list-item doctor-upcoming-item">
+                    <div class="dashboard-list-item__main">
+                      <strong>
+                        {{ item.patient_name }}
+                      </strong>
+                      <span>{{ item.secondary_line }}</span>
+                    </div>
+                    <div class="doctor-upcoming-item__side">
+                      <span class="status-badge" [ngClass]="getAppointmentStatusBadgeClass(item.badge_status)">
+                        {{ getUpcomingStatusLabel(item) }}
+                      </span>
+                      <span class="doctor-upcoming-time">
+                        <small>{{ item.primary_time_label }}</small>
+                        <strong>{{ item.primary_time_value }}</strong>
+                      </span>
+                    </div>
+                  </article>
+                }
+              </div>
+            } @else {
+              <div class="dashboard-empty-inline">Không có bệnh nhân nào đang chờ khám hoặc đang khám.</div>
+            }
           } @else {
-            <div class="dashboard-empty-inline">Không có bệnh nhân nào đang chờ theo lịch hôm nay.</div>
-          }
-        </article>
-
-        <article class="feature-card dashboard-panel">
-          <header class="dashboard-panel__header">
-            <div>
-              <p class="dashboard-section-label">Hàng đợi khám</p>
-              <h3>Hàng đợi trong phòng khám</h3>
-              <p>Theo dõi thứ tự đang chờ, thời gian chờ dự kiến và tiến độ khám.</p>
-            </div>
-            <span class="dashboard-panel__icon material-symbols-outlined" aria-hidden="true">personal_injury</span>
-          </header>
-
-          @if (currentSummary.active_queues.length > 0) {
-            <div class="dashboard-list">
-              @for (queue of currentSummary.active_queues; track queue.id) {
-                <article class="dashboard-list-item">
-                  <div class="dashboard-list-item__main">
-                    <strong>Số {{ queue.queue_number ?? '--' }} · {{ queue.patient_name }}</strong>
-                    <span>
-                      @if (queue.actual_end) {
-                        Đã hoàn tất · {{ formatDateTime(queue.actual_end) }}
-                      } @else if (queue.actual_start) {
-                        Đang khám · {{ formatDateTime(queue.actual_start) }}
-                      } @else if (queue.checked_in_at) {
-                        Chờ khám · Check-in {{ formatDateTime(queue.checked_in_at) }}
-                      } @else {
-                        Chưa check-in
-                      }
-                    </span>
-                  </div>
-                  <span class="dashboard-amount">{{ queue.predicted_wait_minutes ?? 0 }} phút</span>
-                </article>
-              }
-            </div>
-          } @else {
-            <div class="dashboard-empty-inline">Chưa có dữ liệu hàng đợi cho ca khám hôm nay.</div>
+            <div class="dashboard-empty-inline">Không có bệnh nhân nào đang chờ khám hoặc đang khám.</div>
           }
         </article>
       </section>

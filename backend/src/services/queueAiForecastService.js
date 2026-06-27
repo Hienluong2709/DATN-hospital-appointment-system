@@ -197,19 +197,78 @@ const getPriorityRank = (priorityLevel) => {
   return 2;
 };
 
-const buildQueueNumberOrderItems = (queueLikeItems = []) =>
+const parseDateTimeAtBusinessOffset = (dateValue, timeValue) => {
+  if (!dateValue || !timeValue) {
+    return null;
+  }
+
+  const [year, month, day] = String(dateValue).slice(0, 10).split("-").map(Number);
+  const [hour, minute, second] = String(timeValue).slice(0, 8).split(":").map(Number);
+  const timestamp =
+    Date.UTC(year, month - 1, day, hour, minute, second || 0) -
+    BUSINESS_TIMEZONE_OFFSET_MINUTES * 60 * 1000;
+  const parsed = new Date(timestamp);
+
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const getServicePriorityDate = (queueLike) => {
+  const originalEstimatedStart = parseDateTime(queueLike?.original_estimated_start);
+  if (originalEstimatedStart) {
+    return originalEstimatedStart;
+  }
+
+  const appointmentDate = queueLike?.date || queueLike?.Appointment?.date;
+  const timeSlot = queueLike?.Appointment?.time_slot;
+  const appointmentTimeSlot = parseDateTimeAtBusinessOffset(appointmentDate, timeSlot);
+  if (appointmentTimeSlot) {
+    return appointmentTimeSlot;
+  }
+
+  const estimatedStart = parseDateTime(queueLike?.estimated_start);
+  if (estimatedStart) {
+    return estimatedStart;
+  }
+
+  return parseDateTime(queueLike?.checked_in_at);
+};
+
+const getQueueNumberValue = (queueLike) =>
+  Number.isInteger(queueLike?.queue_number)
+    ? queueLike.queue_number
+    : Number.MAX_SAFE_INTEGER;
+
+const buildServiceOrderItems = (queueLikeItems = []) =>
   [...queueLikeItems].sort((left, right) => {
     const priorityDiff = getPriorityRank(getPriorityLevel(left)) - getPriorityRank(getPriorityLevel(right));
     if (priorityDiff !== 0) {
       return priorityDiff;
     }
 
-    const leftQueueNumber = Number.isInteger(left?.queue_number)
-      ? left.queue_number
-      : Number.MAX_SAFE_INTEGER;
-    const rightQueueNumber = Number.isInteger(right?.queue_number)
-      ? right.queue_number
-      : Number.MAX_SAFE_INTEGER;
+    const leftServiceDate = getServicePriorityDate(left);
+    const rightServiceDate = getServicePriorityDate(right);
+    if (leftServiceDate && rightServiceDate) {
+      const serviceDateDiff = leftServiceDate.getTime() - rightServiceDate.getTime();
+      if (serviceDateDiff !== 0) {
+        return serviceDateDiff;
+      }
+    } else if (leftServiceDate || rightServiceDate) {
+      return leftServiceDate ? -1 : 1;
+    }
+
+    const leftCheckedInAt = parseDateTime(left?.checked_in_at);
+    const rightCheckedInAt = parseDateTime(right?.checked_in_at);
+    if (leftCheckedInAt && rightCheckedInAt) {
+      const checkedInDiff = leftCheckedInAt.getTime() - rightCheckedInAt.getTime();
+      if (checkedInDiff !== 0) {
+        return checkedInDiff;
+      }
+    } else if (leftCheckedInAt || rightCheckedInAt) {
+      return leftCheckedInAt ? -1 : 1;
+    }
+
+    const leftQueueNumber = getQueueNumberValue(left);
+    const rightQueueNumber = getQueueNumberValue(right);
 
     if (leftQueueNumber !== rightQueueNumber) {
       return leftQueueNumber - rightQueueNumber;
@@ -227,7 +286,7 @@ const buildCatboostFeatureRow = ({
   latestPredictedStart,
   ruleBasedWaitMinutes,
 } = {}) => {
-  const queuesInTrainingOrder = buildQueueNumberOrderItems(queueLikeItems);
+  const queuesInTrainingOrder = buildServiceOrderItems(queueLikeItems);
   const currentIndex = queuesInTrainingOrder.findIndex((item) => item?.id === queueLike?.id);
   const priorRows = currentIndex <= 0 ? [] : queuesInTrainingOrder.slice(0, currentIndex);
 

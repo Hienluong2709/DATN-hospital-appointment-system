@@ -54,6 +54,10 @@ const SmsLog = sequelize.define("SmsLog", {
     type: DataTypes.TEXT,
     allowNull: true,
   },
+  metadata: {
+    type: DataTypes.JSON,
+    allowNull: true,
+  },
 }, {
   tableName: "sms_logs",
   timestamps: false,

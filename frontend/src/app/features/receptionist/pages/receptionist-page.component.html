@@ -93,7 +93,7 @@
             <div>
               <p class="dashboard-section-label">Hàng đợi</p>
               <h3>Hàng đợi đang chờ khám</h3>
-              <p>Ưu tiên theo thứ tự check-in và ước lượng chờ hiện tại.</p>
+              <p>Theo dõi giờ khám dự kiến được cập nhật theo hàng đợi và AI dự báo.</p>
             </div>
             <span class="dashboard-panel__icon material-symbols-outlined" aria-hidden="true">queue</span>
           </header>
@@ -103,14 +103,18 @@
               @for (queue of currentSummary.waiting_queues; track queue.id) {
                 <article class="dashboard-list-item">
                   <div class="dashboard-list-item__main">
-                    <strong>Số {{ queue.queue_number ?? '--' }} · {{ queue.patient_name }}</strong>
+                    <strong>{{ queue.patient_name }}</strong>
                     <span>
                       {{ queue.doctor_name }}
                       @if (queue.specialty_name) { · {{ queue.specialty_name }} }
                       @if (queue.checked_in_at) { · Check-in {{ formatDateTime(queue.checked_in_at) }} }
                     </span>
                   </div>
-                  <span class="dashboard-amount">{{ queue.predicted_wait_minutes ?? 0 }} phút</span>
+                  <div class="receptionist-queue-time">
+                    <span>Dự kiến khám</span>
+                    <strong>{{ getQueueEstimatedStartLabel(queue) }}</strong>
+                    <small>{{ getQueueWaitLabel(queue) }}</small>
+                  </div>
                 </article>
               }
             </div>

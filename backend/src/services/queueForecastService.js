@@ -27,6 +27,8 @@ const MIN_DYNAMIC_DURATION_SAMPLES =
 const BUSINESS_TIMEZONE_OFFSET = process.env.BUSINESS_TIMEZONE_OFFSET || "+07:00";
 const QUEUE_AI_COMPARE_WITH_HEURISTIC =
   process.env.QUEUE_AI_COMPARE_WITH_HEURISTIC === "true";
+const QUEUE_AI_MAX_RULE_DELTA_MINUTES =
+  Number(process.env.QUEUE_AI_MAX_RULE_DELTA_MINUTES) || 20;
 const APPOINTMENT_PREFERRED_PERIOD = Object.freeze({
   MORNING: "MORNING",
   AFTERNOON: "AFTERNOON",
@@ -211,6 +213,15 @@ const maxDate = (...values) => {
   }
 
   return new Date(Math.max(...validDates.map((value) => value.getTime())));
+};
+
+const minDate = (...values) => {
+  const validDates = values.filter((value) => value instanceof Date && !Number.isNaN(value.getTime()));
+  if (validDates.length === 0) {
+    return null;
+  }
+
+  return new Date(Math.min(...validDates.map((value) => value.getTime())));
 };
 
 const addMinutes = (dateValue, minutes) => {
@@ -640,6 +651,40 @@ const buildAdaptiveWaitingForecast = async ({
       );
     }
 
+    const aiRuleDeltaMinutes =
+      typeof aiPrediction.predicted_wait_minutes === "number" &&
+      typeof ruleBasedForecast.predicted_wait_minutes === "number"
+        ? aiPrediction.predicted_wait_minutes - ruleBasedForecast.predicted_wait_minutes
+        : null;
+    const shouldFallbackToRuleBecauseOfDelta =
+      QUEUE_AI_MAX_RULE_DELTA_MINUTES > 0 &&
+      typeof aiRuleDeltaMinutes === "number" &&
+      Math.abs(aiRuleDeltaMinutes) > QUEUE_AI_MAX_RULE_DELTA_MINUTES;
+
+    if (shouldFallbackToRuleBecauseOfDelta) {
+      return {
+        ...ruleBasedForecast,
+        feature_snapshot: {
+          provider: aiPrediction.provider || aiContext?.provider || null,
+          model_metadata: aiPrediction.model_metadata || null,
+          feature_row: aiPrediction.feature_row || null,
+          comparison: aiPrediction.comparison || {
+            heuristic_predicted_wait_minutes: ruleBasedForecast.predicted_wait_minutes,
+            delta_minutes: aiRuleDeltaMinutes,
+          },
+          business_guard: {
+            code: "FALLBACK_AI_RULE_DELTA_EXCEEDED",
+            reason:
+              "AI wait prediction drifted too far from the rule engine baseline.",
+            max_allowed_delta_minutes: QUEUE_AI_MAX_RULE_DELTA_MINUTES,
+            ai_predicted_wait_minutes: aiPrediction.predicted_wait_minutes,
+            rule_wait_minutes: ruleBasedForecast.predicted_wait_minutes,
+            delta_minutes: aiRuleDeltaMinutes,
+          },
+        },
+      };
+    }
+
     const estimatedStart = derivePredictedStartFromQueueState({
       checkedInAt,
       predictedWaitMinutes: aiPrediction.predicted_wait_minutes,
@@ -649,11 +694,28 @@ const buildAdaptiveWaitingForecast = async ({
       originalScheduledTime,
       fallbackDateTime: ruleBasedForecast.base_time,
     });
+    const featureRow = aiPrediction.feature_row || {};
+    const totalAheadCount = Number(featureRow.queues_ahead_total_count ?? 0);
+    const completedAheadCount = Number(featureRow.queues_ahead_completed_by_checkin_count ?? 0);
+    const pendingAheadCount = totalAheadCount - completedAheadCount;
+    const activeBacklogAheadCount = Number(featureRow.queues_ahead_active_backlog_count ?? 0);
+    const inProgressAheadCount = Number(featureRow.queues_ahead_in_progress_count ?? 0);
+    const shouldCapEarlyCheckInToAppointmentTime =
+      originalScheduledTime instanceof Date &&
+      !Number.isNaN(originalScheduledTime.getTime()) &&
+      checkedInAt.getTime() <= originalScheduledTime.getTime() &&
+      pendingAheadCount <= 0 &&
+      activeBacklogAheadCount <= 0 &&
+      inProgressAheadCount <= 0 &&
+      estimatedStart.getTime() > originalScheduledTime.getTime();
+    const guardedEstimatedStart = shouldCapEarlyCheckInToAppointmentTime
+      ? minDate(estimatedStart, originalScheduledTime)
+      : estimatedStart;
 
     return {
-      estimated_start: estimatedStart,
+      estimated_start: guardedEstimatedStart,
       predicted_wait_minutes: computePredictedWaitMinutesFromAnchor(
-        estimatedStart,
+        guardedEstimatedStart,
         checkedInAt,
       ) ?? aiPrediction.predicted_wait_minutes,
       rule_wait_minutes: ruleBasedForecast.predicted_wait_minutes,
@@ -666,6 +728,15 @@ const buildAdaptiveWaitingForecast = async ({
         model_metadata: aiPrediction.model_metadata || null,
         feature_row: aiPrediction.feature_row || null,
         comparison: aiPrediction.comparison || null,
+        business_guard: shouldCapEarlyCheckInToAppointmentTime
+          ? {
+              code: "CAP_EARLY_CHECKIN_TO_APPOINTMENT_TIME",
+              reason:
+                "Patient checked in before appointment time and no active backlog was detected ahead.",
+              original_ai_estimated_start: estimatedStart,
+              capped_estimated_start: guardedEstimatedStart,
+            }
+          : null,
       },
     };
   } catch (error) {

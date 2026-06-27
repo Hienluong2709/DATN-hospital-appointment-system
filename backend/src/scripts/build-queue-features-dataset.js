@@ -145,13 +145,81 @@ const getPriorityRank = (priorityLevel) => {
   return 2;
 };
 
-const compareRowsInQueueOrder = (left, right) => {
+const getQueueNumberValue = (row) =>
+  Number.isInteger(row?.queue_number)
+    ? row.queue_number
+    : Number.MAX_SAFE_INTEGER;
+
+const parseDateTimeAtBusinessOffset = (dateValue, timeValue) => {
+  if (!dateValue || !timeValue) {
+    return null;
+  }
+
+  const [year, month, day] = String(dateValue).slice(0, 10).split("-").map(Number);
+  const [hour, minute, second] = String(timeValue).slice(0, 8).split(":").map(Number);
+  const timestamp =
+    Date.UTC(year, month - 1, day, hour, minute, second || 0) -
+    BUSINESS_TIMEZONE_OFFSET_MINUTES * 60 * 1000;
+  const parsed = new Date(timestamp);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const getServicePriorityDate = (row) => {
+  const originalEstimatedStart = parseDateTime(row?.original_estimated_start);
+  if (originalEstimatedStart) {
+    return originalEstimatedStart;
+  }
+
+  const appointmentSlot = parseDateTimeAtBusinessOffset(
+    row?.appointment_date,
+    row?.appointment_time_slot || row?.time_slot,
+  );
+  if (appointmentSlot) {
+    return appointmentSlot;
+  }
+
+  const estimatedStart = parseDateTime(row?.estimated_start);
+  if (estimatedStart) {
+    return estimatedStart;
+  }
+
+  const latestPredictedStart = parseDateTime(row?.latest_predicted_start);
+  if (latestPredictedStart) {
+    return latestPredictedStart;
+  }
+
+  return parseDateTime(row?.checked_in_at);
+};
+
+const compareRowsInServiceOrder = (left, right) => {
   const priorityDiff = getPriorityRank(left?.priority_level) - getPriorityRank(right?.priority_level);
   if (priorityDiff !== 0) {
     return priorityDiff;
   }
 
-  const queueNumberDiff = Number(left?.queue_number ?? 0) - Number(right?.queue_number ?? 0);
+  const leftServiceDate = getServicePriorityDate(left);
+  const rightServiceDate = getServicePriorityDate(right);
+  if (leftServiceDate && rightServiceDate) {
+    const serviceDateDiff = leftServiceDate.getTime() - rightServiceDate.getTime();
+    if (serviceDateDiff !== 0) {
+      return serviceDateDiff;
+    }
+  } else if (leftServiceDate || rightServiceDate) {
+    return leftServiceDate ? -1 : 1;
+  }
+
+  const leftCheckedInAt = parseDateTime(left?.checked_in_at);
+  const rightCheckedInAt = parseDateTime(right?.checked_in_at);
+  if (leftCheckedInAt && rightCheckedInAt) {
+    const checkedInDiff = leftCheckedInAt.getTime() - rightCheckedInAt.getTime();
+    if (checkedInDiff !== 0) {
+      return checkedInDiff;
+    }
+  } else if (leftCheckedInAt || rightCheckedInAt) {
+    return leftCheckedInAt ? -1 : 1;
+  }
+
+  const queueNumberDiff = getQueueNumberValue(left) - getQueueNumberValue(right);
   if (queueNumberDiff !== 0) {
     return queueNumberDiff;
   }
@@ -178,7 +246,7 @@ const buildQueueStateByQueueId = (rows) => {
   const queueStateByQueueId = new Map();
 
   groupedRows.forEach((groupRows) => {
-    const sortedRows = [...groupRows].sort(compareRowsInQueueOrder);
+    const sortedRows = [...groupRows].sort(compareRowsInServiceOrder);
 
     sortedRows.forEach((row, index) => {
       const currentCheckIn = parseDateTime(row.checked_in_at);

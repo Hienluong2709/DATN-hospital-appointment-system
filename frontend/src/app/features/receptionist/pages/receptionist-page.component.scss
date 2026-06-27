@@ -1,3 +1,40 @@
 :host {
   display: block;
 }
+
+.receptionist-queue-time {
+  display: grid;
+  min-width: 128px;
+  justify-items: end;
+  gap: 2px;
+  margin-left: auto;
+  color: #123a62;
+}
+
+.receptionist-queue-time span,
+.receptionist-queue-time small {
+  color: #6f849d;
+  font-weight: 700;
+}
+
+.receptionist-queue-time span {
+  font-size: 0.75rem;
+}
+
+.receptionist-queue-time strong {
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.receptionist-queue-time small {
+  font-size: 0.72rem;
+}
+
+@media (max-width: 720px) {
+  .receptionist-queue-time {
+    width: 100%;
+    min-width: 0;
+    justify-items: start;
+    margin-left: 0;
+  }
+}

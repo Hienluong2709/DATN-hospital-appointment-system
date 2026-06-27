@@ -1,10 +1,24 @@
-import { Component, inject } from '@angular/core';
+import { Component, OnDestroy, inject } from '@angular/core';
 import { NgClass } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { Subscription } from 'rxjs';
 
+import { RealtimeService } from '../../../core/services/realtime.service';
 import { DashboardApiService } from '../../../shared/services/dashboard.api';
 import { getAppointmentStatusLabel } from '../../../shared/enum-label.util';
-import { DoctorDashboardSummary } from '../../../shared/types/dashboard.type';
+import { DashboardQueueItem, DoctorDashboardSummary } from '../../../shared/types/dashboard.type';
+
+interface DoctorUpcomingPatientItem {
+  key: string;
+  patient_name: string;
+  status: string;
+  queue_number: number | null;
+  primary_time_label: string;
+  primary_time_value: string;
+  secondary_line: string;
+  badge_status: string;
+  sort_timestamp: number;
+}
 
 @Component({
   selector: 'app-doctor-portal-page',
@@ -13,8 +27,10 @@ import { DoctorDashboardSummary } from '../../../shared/types/dashboard.type';
   templateUrl: './doctor-portal-page.component.html',
   styleUrl: './doctor-portal-page.component.scss',
 })
-export class DoctorPortalPageComponent {
+export class DoctorPortalPageComponent implements OnDestroy {
   private readonly dashboardApiService = inject(DashboardApiService);
+  private readonly realtimeService = inject(RealtimeService);
+  private readonly realtimeSubscription: Subscription;
 
   protected summary: DoctorDashboardSummary | null = null;
   protected loading = true;
@@ -22,10 +38,22 @@ export class DoctorPortalPageComponent {
 
   constructor() {
     this.loadSummary();
+    this.realtimeService.connect();
+    this.realtimeSubscription = this.realtimeService.events$.subscribe((event) => {
+      if (event.type === 'queue.updated' || event.type === 'queue.forecast.updated') {
+        this.loadSummary(false);
+      }
+    });
   }
 
-  protected loadSummary(): void {
-    this.loading = true;
+  ngOnDestroy(): void {
+    this.realtimeSubscription.unsubscribe();
+  }
+
+  protected loadSummary(showLoading = true): void {
+    if (showLoading) {
+      this.loading = true;
+    }
     this.errorMessage = '';
 
     this.dashboardApiService.getSummary().subscribe({
@@ -69,6 +97,63 @@ export class DoctorPortalPageComponent {
     }).format(new Date(value));
   }
 
+  protected getUpcomingPatients(summary: DoctorDashboardSummary): DoctorUpcomingPatientItem[] {
+    return summary.active_queues.map((queue) => this.mapQueueToUpcomingPatient(queue)).sort(
+      (left, right) => left.sort_timestamp - right.sort_timestamp || left.patient_name.localeCompare(right.patient_name),
+    );
+  }
+
+  private mapQueueToUpcomingPatient(queue: DashboardQueueItem): DoctorUpcomingPatientItem {
+    const timeValue = queue.actual_start
+        ? this.formatDateTime(queue.actual_start)
+        : queue.estimated_start
+          ? this.formatDateTime(queue.estimated_start)
+          : '--';
+    const timeLabel = queue.actual_start
+        ? 'Bắt đầu khám'
+        : 'Dự kiến khám';
+
+    return {
+      key: `queue-${queue.id}`,
+      patient_name: queue.patient_name,
+      status: this.getQueueStatusLabel(queue),
+      queue_number: queue.queue_number,
+      primary_time_label: timeLabel,
+      primary_time_value: timeValue,
+      secondary_line: this.getQueueSecondaryLine(queue),
+      badge_status: 'CheckedIn',
+      sort_timestamp: this.getQueueSortTimestamp(queue),
+    };
+  }
+
+  private getQueueSortTimestamp(queue: DashboardQueueItem): number {
+    const timestamp = new Date(
+      queue.actual_start || queue.estimated_start || queue.checked_in_at || '',
+    ).getTime();
+    return Number.isNaN(timestamp) ? Number.MAX_SAFE_INTEGER : timestamp;
+  }
+
+  private getQueueStatusLabel(queue: DashboardQueueItem): string {
+    if (queue.actual_start) {
+      return 'Đang khám';
+    }
+
+    return 'CheckedIn';
+  }
+
+  private getQueueSecondaryLine(queue: DashboardQueueItem): string {
+    if (queue.actual_start) {
+      return `Đang khám · ${this.formatDateTime(queue.actual_start)}`;
+    }
+
+    const remainingWaitMinutes = queue.remaining_wait_minutes ?? queue.predicted_wait_minutes;
+    const waitLabel =
+      remainingWaitMinutes !== null && remainingWaitMinutes !== undefined
+        ? ` · còn khoảng ${remainingWaitMinutes} phút`
+        : '';
+    return `Đã check-in ${this.formatDateTime(queue.checked_in_at)}${waitLabel}`;
+  }
+
   protected getAppointmentStatusBadgeClass(status: string): string {
     switch (status) {
       case 'Pending':
@@ -86,6 +171,14 @@ export class DoctorPortalPageComponent {
       default:
         return '';
     }
+  }
+
+  protected getUpcomingStatusLabel(item: DoctorUpcomingPatientItem): string {
+    if (item.status === 'Đang khám') {
+      return item.status;
+    }
+
+    return getAppointmentStatusLabel(item.badge_status);
   }
 
   protected getKpiIcon(key: string): string {

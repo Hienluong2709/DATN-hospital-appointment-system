@@ -1,18 +1,18 @@
 import db from "../models/index.js";
-import { dispatchQueueNotificationEventsForDateService } from "./notificationService.js";
+import { dispatchAppointmentReminderEventsForDateService } from "./notificationService.js";
 
 const { JobExecutionLog, sequelize } = db;
 
 const BUSINESS_TIMEZONE_OFFSET = process.env.BUSINESS_TIMEZONE_OFFSET || "+07:00";
-const QUEUE_NOTIFICATION_JOB_INTERVAL_MS =
-  Number(process.env.QUEUE_NOTIFICATION_JOB_INTERVAL_MS) || 60 * 1000;
-const QUEUE_NOTIFICATION_JOB_ENABLED =
-  process.env.QUEUE_NOTIFICATION_JOB_ENABLED !== "false";
-const QUEUE_NOTIFICATION_JOB_NAME = "queue-notification-dispatch";
-const QUEUE_NOTIFICATION_JOB_LOCK_NAME = `${QUEUE_NOTIFICATION_JOB_NAME}-lock`;
+const APPOINTMENT_REMINDER_JOB_INTERVAL_MS =
+  Number(process.env.APPOINTMENT_REMINDER_JOB_INTERVAL_MS) || 60 * 1000;
+const APPOINTMENT_REMINDER_JOB_ENABLED =
+  process.env.APPOINTMENT_REMINDER_JOB_ENABLED !== "false";
+const APPOINTMENT_REMINDER_JOB_NAME = "appointment-reminder-dispatch";
+const APPOINTMENT_REMINDER_JOB_LOCK_NAME = `${APPOINTMENT_REMINDER_JOB_NAME}-lock`;
 
-let queueNotificationJobTimer = null;
-let isQueueNotificationJobRunning = false;
+let appointmentReminderJobTimer = null;
+let isAppointmentReminderJobRunning = false;
 
 const parseUtcOffsetToMinutes = (offsetValue) => {
   const matched = /^([+-])(\d{2}):(\d{2})$/.exec(offsetValue);
@@ -39,56 +39,56 @@ const getBusinessDateString = (dateValue = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
-const scheduleNextQueueNotificationJobRun = () => {
-  if (!QUEUE_NOTIFICATION_JOB_ENABLED) {
-    console.info("[queue notification scheduler] disabled");
+const scheduleNextAppointmentReminderJobRun = () => {
+  if (!APPOINTMENT_REMINDER_JOB_ENABLED) {
+    console.info("[appointment reminder scheduler] disabled");
     return;
   }
 
-  if (queueNotificationJobTimer) {
-    clearTimeout(queueNotificationJobTimer);
+  if (appointmentReminderJobTimer) {
+    clearTimeout(appointmentReminderJobTimer);
   }
 
-  queueNotificationJobTimer = setTimeout(async () => {
+  appointmentReminderJobTimer = setTimeout(async () => {
     try {
-      await runQueueNotificationJob({
+      await runAppointmentReminderJob({
         triggerType: "scheduler",
       });
     } catch (error) {
-      console.error("[queue notification scheduler] failed:", error.message);
+      console.error("[appointment reminder scheduler] failed:", error.message);
     } finally {
-      scheduleNextQueueNotificationJobRun();
+      scheduleNextAppointmentReminderJobRun();
     }
-  }, QUEUE_NOTIFICATION_JOB_INTERVAL_MS);
+  }, APPOINTMENT_REMINDER_JOB_INTERVAL_MS);
 
   console.info(
-    `[queue notification scheduler] next run in ${QUEUE_NOTIFICATION_JOB_INTERVAL_MS}ms`
+    `[appointment reminder scheduler] next run in ${APPOINTMENT_REMINDER_JOB_INTERVAL_MS}ms`,
   );
 };
 
-const acquireQueueNotificationJobLock = async () => {
+const acquireAppointmentReminderJobLock = async () => {
   const [rows] = await sequelize.query(
     "SELECT GET_LOCK(:lockName, 0) AS acquired",
     {
-      replacements: { lockName: QUEUE_NOTIFICATION_JOB_LOCK_NAME },
-    }
+      replacements: { lockName: APPOINTMENT_REMINDER_JOB_LOCK_NAME },
+    },
   );
 
   return rows?.[0]?.acquired === 1;
 };
 
-const releaseQueueNotificationJobLock = async () => {
+const releaseAppointmentReminderJobLock = async () => {
   await sequelize.query("SELECT RELEASE_LOCK(:lockName)", {
-    replacements: { lockName: QUEUE_NOTIFICATION_JOB_LOCK_NAME },
+    replacements: { lockName: APPOINTMENT_REMINDER_JOB_LOCK_NAME },
   });
 };
 
-export const runQueueNotificationJob = async ({
+export const runAppointmentReminderJob = async ({
   date,
   dryRun = false,
   triggerType = "scheduler",
 } = {}) => {
-  if (!QUEUE_NOTIFICATION_JOB_ENABLED && triggerType === "scheduler") {
+  if (!APPOINTMENT_REMINDER_JOB_ENABLED && triggerType === "scheduler") {
     return {
       date: date || getBusinessDateString(),
       dry_run: Boolean(dryRun),
@@ -96,7 +96,7 @@ export const runQueueNotificationJob = async ({
     };
   }
 
-  if (isQueueNotificationJobRunning) {
+  if (isAppointmentReminderJobRunning) {
     return {
       date: date || getBusinessDateString(),
       dry_run: Boolean(dryRun),
@@ -104,12 +104,12 @@ export const runQueueNotificationJob = async ({
     };
   }
 
-  isQueueNotificationJobRunning = true;
+  isAppointmentReminderJobRunning = true;
   const targetDate = date || getBusinessDateString();
 
-  const lockAcquired = await acquireQueueNotificationJobLock();
+  const lockAcquired = await acquireAppointmentReminderJobLock();
   if (!lockAcquired) {
-    isQueueNotificationJobRunning = false;
+    isAppointmentReminderJobRunning = false;
     return {
       date: targetDate,
       dry_run: Boolean(dryRun),
@@ -118,7 +118,7 @@ export const runQueueNotificationJob = async ({
   }
 
   const jobLog = await JobExecutionLog.create({
-    job_name: QUEUE_NOTIFICATION_JOB_NAME,
+    job_name: APPOINTMENT_REMINDER_JOB_NAME,
     target_date: targetDate,
     trigger_type: triggerType,
     dry_run: Boolean(dryRun),
@@ -127,7 +127,7 @@ export const runQueueNotificationJob = async ({
   });
 
   try {
-    const summary = await dispatchQueueNotificationEventsForDateService(targetDate, {
+    const summary = await dispatchAppointmentReminderEventsForDateService(targetDate, {
       dryRun,
     });
 
@@ -139,7 +139,7 @@ export const runQueueNotificationJob = async ({
     });
 
     console.info(
-      `[queue notification scheduler] completed date=${summary.date} estimate_updated=${summary.estimate_update_created} ready=${summary.queue_ready_created} soon=${summary.queue_soon_created}`
+      `[appointment reminder scheduler] completed date=${summary.date} reminders=${summary.reminder_created}`,
     );
 
     return summary;
@@ -150,21 +150,21 @@ export const runQueueNotificationJob = async ({
       error_message: error.message,
     });
 
-    console.error("[queue notification scheduler] failed:", error.message);
+    console.error("[appointment reminder scheduler] failed:", error.message);
     throw error;
   } finally {
-    await releaseQueueNotificationJobLock();
-    isQueueNotificationJobRunning = false;
+    await releaseAppointmentReminderJobLock();
+    isAppointmentReminderJobRunning = false;
   }
 };
 
-export const startQueueNotificationDispatchJob = () => {
-  scheduleNextQueueNotificationJobRun();
+export const startAppointmentReminderJob = () => {
+  scheduleNextAppointmentReminderJobRun();
 };
 
-export const stopQueueNotificationDispatchJob = () => {
-  if (queueNotificationJobTimer) {
-    clearTimeout(queueNotificationJobTimer);
-    queueNotificationJobTimer = null;
+export const stopAppointmentReminderJob = () => {
+  if (appointmentReminderJobTimer) {
+    clearTimeout(appointmentReminderJobTimer);
+    appointmentReminderJobTimer = null;
   }
 };

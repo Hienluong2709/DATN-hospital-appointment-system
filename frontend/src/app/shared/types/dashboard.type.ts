@@ -34,8 +34,10 @@ export interface DashboardAppointmentItem {
 
 export interface DashboardQueueItem {
   id: number;
+  appointment_id?: number | null;
   queue_number: number | null;
   predicted_wait_minutes: number | null;
+  remaining_wait_minutes?: number | null;
   estimated_start: string | null;
   checked_in_at: string | null;
   actual_start?: string | null;

@@ -468,7 +468,7 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   }
 
   getSelectedQueueNumberLabel(): string {
-    return this.selectedPatientQueue?.queue_number ? `#${this.selectedPatientQueue.queue_number}` : 'Chưa cấp số tiếp nhận';
+    return this.selectedPatientQueue?.queue_number ? 'Đã tiếp nhận' : 'Chưa tiếp nhận';
   }
 
   getSelectedAppointmentStatusLabel(): string {
@@ -657,12 +657,12 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
 
     const inProgressQueue = this.currentInProgressQueue;
     if (inProgressQueue && inProgressQueue.id !== queue.id) {
-      return `Chưa thể bắt đầu vì số tiếp nhận #${inProgressQueue.queue_number} đang được khám.`;
+      return `Chưa thể bắt đầu vì đang có bệnh nhân khác trong phòng khám.`;
     }
 
     const nextQueue = this.nextStartableQueue;
     if (nextQueue && nextQueue.id !== queue.id) {
-      return `Chưa tới lượt. Lượt tiếp theo là số tiếp nhận #${nextQueue.queue_number} theo mức ưu tiên và thời điểm check-in.`;
+      return `Chưa tới lượt. Bệnh nhân được ưu tiên tiếp theo được xác định theo mức ưu tiên và giờ hẹn/check-in.`;
     }
 
     return '';
@@ -778,7 +778,7 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
 
     this.appointmentsApiService.checkIn(appointment.id, this.getCheckInPriority(appointment)).subscribe({
       next: () => {
-        this.showSuccess('Check-in và cấp số thứ tự thành công');
+        this.showSuccess('Check-in thành công');
         this.loadData(true);
       },
       error: (error: { error?: { message?: string } }) => {

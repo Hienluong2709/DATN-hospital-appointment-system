@@ -26,7 +26,7 @@ const main = async () => {
   }
 
   console.info(
-    `[queue notification job] ${isDryRun ? "dry-run" : "done"} date=${summary.date} candidates=${summary.total_candidates} ready=${summary.queue_ready_created} soon=${summary.queue_soon_created} duplicates=${summary.duplicates}`
+    `[queue notification job] ${isDryRun ? "dry-run" : "done"} date=${summary.date} candidates=${summary.total_candidates} estimate_updated=${summary.estimate_update_created} ready=${summary.queue_ready_created} soon=${summary.queue_soon_created} duplicates=${summary.duplicates}`
   );
 };
 

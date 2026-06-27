@@ -97,8 +97,15 @@ const serializeQueueDateTimes = (queueRow) => {
     return data;
   }
 
+  const estimatedStart = data.estimated_start ? new Date(data.estimated_start) : null;
+  const remainingWaitMinutes =
+    estimatedStart && !Number.isNaN(estimatedStart.getTime())
+      ? Math.max(0, Math.ceil((estimatedStart.getTime() - Date.now()) / (60 * 1000)))
+      : null;
+
   return {
     ...data,
+    remaining_wait_minutes: remainingWaitMinutes,
     checked_in_at: formatDateTimeWithBusinessOffset(data.checked_in_at),
     original_estimated_start: formatDateTimeWithBusinessOffset(data.original_estimated_start),
     actual_start: formatDateTimeWithBusinessOffset(data.actual_start),

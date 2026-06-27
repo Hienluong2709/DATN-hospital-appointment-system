@@ -144,6 +144,7 @@ const main = async () => {
       appointment_date: queue.date,
       appointment_status: appointment?.status ?? null,
       priority_level: appointment?.priority_level ?? "Normal",
+      appointment_time_slot: appointment?.time_slot ?? null,
       queue_number: queue.queue_number,
       checked_in_at: toIsoString(queue.checked_in_at),
       original_estimated_start: toIsoString(queue.original_estimated_start),

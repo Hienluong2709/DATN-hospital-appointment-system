@@ -484,7 +484,7 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
   }
 
   getQueueNumberLabel(appointment: Appointment): string {
-    return appointment.Queue?.queue_number ? `Số tiếp nhận #${appointment.Queue.queue_number}` : 'Chưa cấp số tiếp nhận';
+    return appointment.Queue?.queue_number ? 'Đã tiếp nhận' : 'Chưa tiếp nhận';
   }
 
   getExpectedArrivalLabel(appointment: Appointment): string {

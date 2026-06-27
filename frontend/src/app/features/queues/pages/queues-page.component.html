@@ -97,7 +97,7 @@
       <article class="queue-card" *ngFor="let appointment of pendingCheckInAppointments">
         <header class="queue-card__header">
           <div>
-            <p class="queue-card__number">Chưa cấp số thứ tự</p>
+            <p class="queue-card__number">Chưa check-in</p>
             <h3>{{ getPatientNameForAppointment(appointment) }}</h3>
           </div>
           <span class="status status--confirmed">{{ getAppointmentStatusLabel(appointment.status) }}</span>
@@ -194,7 +194,7 @@
       <p>
         {{
           isDoctorView
-            ? 'Chưa có bệnh nhân đã check-in và có số tiếp nhận cho ngày hoặc trạng thái đang chọn.'
+            ? 'Chưa có bệnh nhân đã check-in cho ngày hoặc trạng thái đang chọn.'
             : 'Không có dữ liệu hàng đợi phù hợp với bộ lọc hiện tại.'
         }}
       </p>
@@ -212,7 +212,6 @@
               <span class="service-order" [class.service-order--next]="isNextStartableQueue(queue)">
                 {{ getServiceOrderLabel(queue) }}
               </span>
-              <span class="queue-card__number">Số tiếp nhận #{{ queue.queue_number }}</span>
             </div>
             <h3>{{ getPatientName(queue) }}</h3>
           </div>
@@ -401,10 +400,6 @@
             <div>
               <dt>Giờ hẹn</dt>
               <dd>{{ getSelectedAppointmentTime() }}</dd>
-            </div>
-            <div>
-              <dt>Số tiếp nhận</dt>
-              <dd>{{ getSelectedQueueNumberLabel() }}</dd>
             </div>
             <div>
               <dt>Trạng thái</dt>
