@@ -10,6 +10,6 @@ export class EQueueNumbersApiService {
   constructor(private readonly http: HttpClient) {}
 
   getAll() {
-    return this.http.get<ApiResponse<EQueueNumber[]>>('${API_BASE_URL}/equeue-numbers');
+    return this.http.get<ApiResponse<EQueueNumber[]>>(`${API_BASE_URL}/equeue-numbers`);
   }
 }
