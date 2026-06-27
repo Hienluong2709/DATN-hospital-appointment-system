@@ -28,8 +28,6 @@ dotenv.config();
 const app = express();
 const server = createServer(app);
 
-app.use(express.json());
-
 const PORT = process.env.PORT || 5000;
 const PENDING_APPOINTMENT_CLEANUP_INTERVAL_MS =
   Number(process.env.PENDING_APPOINTMENT_CLEANUP_INTERVAL_MS) || 60 * 1000;
@@ -41,13 +39,19 @@ const DEFAULT_CORS_ORIGINS = [
   "http://localhost:4200",
   "http://localhost:4201",
 ];
+const normalizeOrigin = (origin) => String(origin || "").trim().replace(/\/$/, "");
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || DEFAULT_CORS_ORIGINS.join(","))
   .split(",")
-  .map((origin) => origin.trim())
+  .map(normalizeOrigin)
   .filter(Boolean);
 const corsOptions = {
   origin(origin, callback) {
-    if (!origin || CORS_ORIGINS.includes(origin)) {
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (
+      !origin ||
+      CORS_ORIGINS.includes("*") ||
+      CORS_ORIGINS.includes(normalizedOrigin)
+    ) {
       callback(null, true);
       return;
     }
@@ -61,6 +65,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
+app.use(express.json());
 
 // Ensure all model relationships are registered before sync/query operations.
 initAssociations(db);
