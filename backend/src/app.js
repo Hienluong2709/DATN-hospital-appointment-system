@@ -41,18 +41,26 @@ const DEFAULT_CORS_ORIGINS = [
   "http://localhost:4201",
 ];
 const normalizeOrigin = (origin) => String(origin || "").trim().replace(/\/$/, "");
-const CORS_ORIGINS = (process.env.CORS_ORIGINS || DEFAULT_CORS_ORIGINS.join(","))
+const CORS_ORIGINS = `${DEFAULT_CORS_ORIGINS.join(",")},${process.env.CORS_ORIGINS || ""}`
   .split(",")
   .map(normalizeOrigin)
   .filter(Boolean);
+const isAllowedCorsOrigin = (origin) => {
+  const normalizedOrigin = normalizeOrigin(origin);
+  if (!origin || CORS_ORIGINS.includes("*") || CORS_ORIGINS.includes(normalizedOrigin)) {
+    return true;
+  }
+
+  try {
+    const parsedOrigin = new URL(normalizedOrigin);
+    return parsedOrigin.protocol === "http:" && parsedOrigin.hostname === "45.126.126.226";
+  } catch {
+    return false;
+  }
+};
 const corsOptions = {
   origin(origin, callback) {
-    const normalizedOrigin = normalizeOrigin(origin);
-    if (
-      !origin ||
-      CORS_ORIGINS.includes("*") ||
-      CORS_ORIGINS.includes(normalizedOrigin)
-    ) {
+    if (isAllowedCorsOrigin(origin)) {
       callback(null, true);
       return;
     }
