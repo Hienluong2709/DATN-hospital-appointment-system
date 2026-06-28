@@ -1,0 +1,160 @@
+<section class="feature-page profile-page">
+  <header class="feature-header profile-header">
+    <div>
+      <p class="profile-header__eyebrow">Hồ sơ cá nhân</p>
+      <h1 class="feature-title">Thông tin người dùng</h1>
+      <p class="feature-subtitle">
+        Quản lý hồ sơ cá nhân, thông tin liên hệ và thông tin tài khoản của bạn trong hệ thống.
+      </p>
+    </div>
+  </header>
+
+  @if (isLoading) {
+    <article class="feature-card profile-card">
+      <p class="profile-state">Đang tải thông tin hồ sơ...</p>
+    </article>
+  } @else if (profile) {
+    <section class="profile-layout">
+      <article class="feature-card profile-summary-card">
+        <div class="profile-summary-card__header">
+          <div class="profile-avatar" aria-hidden="true">
+            {{ (profile.fullname || profile.username).slice(0, 1).toUpperCase() }}
+          </div>
+
+          <div class="profile-summary-card__identity">
+            <p class="profile-summary-card__eyebrow">{{ displayRole }}</p>
+            <h2>{{ profile.fullname }}</h2>
+            <p>{{ displayEmail }}</p>
+          </div>
+        </div>
+
+        <div class="profile-summary-list">
+          <div class="profile-summary-list__item">
+            <span>Trạng thái</span>
+            <strong><span class="profile-status-chip">{{ displayStatus }}</span></strong>
+          </div>
+          <div class="profile-summary-list__item">
+            <span>Số điện thoại</span>
+            <strong>{{ displayPhone }}</strong>
+          </div>
+          <div class="profile-summary-list__item">
+            <span>{{ identityCodeLabel }}</span>
+            <strong>{{ identityCodeValue }}</strong>
+          </div>
+        </div>
+      </article>
+
+      <article class="feature-card profile-form-card">
+        <div class="profile-form-card__header">
+          <div>
+            <p class="profile-header__eyebrow">Thông tin chi tiết</p>
+            <h2>{{ isSelfEditable ? 'Cập nhật hồ sơ của tôi' : 'Chi tiết hồ sơ' }}</h2>
+          </div>
+
+          @if (isSelfEditable && !isEditing) {
+            <button type="button" class="button-secondary" (click)="startEdit()">Chỉnh sửa</button>
+          }
+        </div>
+
+        <section class="profile-section">
+          <header class="profile-section__header">
+            <h3>Thông tin cá nhân</h3>
+            <p>Nhóm thông tin nhận diện cơ bản của người dùng.</p>
+          </header>
+
+          <div class="profile-form-grid">
+            <label>
+              <span>Họ tên</span>
+              <input type="text" [(ngModel)]="form.fullname" [disabled]="!isEditing || isSaving" />
+            </label>
+
+            <label>
+              <span>Ngày sinh</span>
+              <input type="date" [(ngModel)]="form.date_of_birth" [disabled]="!isEditing || isSaving" />
+            </label>
+
+            <label>
+              <span>Giới tính</span>
+              <select [(ngModel)]="form.gender" [disabled]="!isEditing || isSaving">
+                <option value="">Chưa cập nhật</option>
+                @for (option of genderOptions; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="profile-section">
+          <header class="profile-section__header">
+            <h3>Thông tin liên hệ</h3>
+            <p>Các kênh liên hệ để bệnh viện kết nối với bạn khi cần.</p>
+          </header>
+
+          <div class="profile-form-grid">
+            <label>
+              <span>Số điện thoại</span>
+              <input type="tel" [(ngModel)]="form.phone" [disabled]="!isEditing || isSaving" />
+            </label>
+
+            <label>
+              <span>Email</span>
+              <input type="email" [(ngModel)]="form.email" [disabled]="!isEditing || isSaving" />
+            </label>
+
+            <label class="profile-form-grid__full">
+              <span>Địa chỉ</span>
+              <input type="text" [(ngModel)]="form.address" [disabled]="!isEditing || isSaving" />
+            </label>
+          </div>
+        </section>
+
+        <section class="profile-section">
+          <header class="profile-section__header">
+            <h3>Thông tin tài khoản</h3>
+            <p>Thông tin đăng nhập và quyền truy cập được quản lý tập trung bởi hệ thống.</p>
+          </header>
+
+          <div class="profile-form-grid">
+            <label>
+              <span>Username</span>
+              <input type="text" [ngModel]="displayUsername" disabled />
+            </label>
+
+            <label>
+              <span>Vai trò</span>
+              <input type="text" [ngModel]="displayRole" disabled />
+            </label>
+
+            <label>
+              <span>Trạng thái</span>
+              <input type="text" [ngModel]="displayStatus" disabled />
+            </label>
+          </div>
+        </section>
+
+        @if (inlineErrorMessage) {
+          <p class="profile-inline-error" role="alert">{{ inlineErrorMessage }}</p>
+        }
+
+        @if (isSelfEditable && isEditing) {
+          <div class="profile-form-actions">
+            <button type="button" class="button-primary" (click)="saveProfile()" [disabled]="isSaving">
+              {{ isSaving ? 'Đang lưu...' : 'Lưu thay đổi' }}
+            </button>
+            <button type="button" class="button-secondary" (click)="cancelEdit()" [disabled]="isSaving">Hủy</button>
+          </div>
+        }
+
+        <div class="profile-guidance">
+          <p>Hiện tại bạn có thể tự cập nhật họ tên, ngày sinh, giới tính, email, số điện thoại và địa chỉ.</p>
+          <p>Username, vai trò và trạng thái được quản lý tập trung để đảm bảo an toàn vận hành.</p>
+        </div>
+      </article>
+    </section>
+  } @else {
+    <article class="feature-card profile-card">
+      <p class="profile-state">Không tìm thấy thông tin hồ sơ.</p>
+    </article>
+  }
+</section>

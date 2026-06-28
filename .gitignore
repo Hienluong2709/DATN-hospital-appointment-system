@@ -1,3 +1,4 @@
+
 # Angular specific
 /dist/
 /out-tsc/
@@ -26,3 +27,55 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# dependencies
+node_modules/
+
+# build
+dist/
+build/
+coverage/
+
+# environment
+.env
+.env.*
+!.env.example
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+task.txt
+
+# Angular
+.angular/
+.sass-cache/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
+
+# model / temp files
+*.h5
+*.pt
+*.pth
+*.onnx
+tmp/
+temp/
+.tmp-mpl/
+uploads/
+outputs/
+backend/exports/
+ai-engine/artifacts/
+ai-engine/catboost_info/

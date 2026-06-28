@@ -1,0 +1,62 @@
+@if (isOpen) {
+  <div class="modal-overlay" (click)="onOverlayClick()">
+    <article class="modal-card" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <h2>{{ isEditMode ? 'Cập nhật phòng khám' : 'Tạo phòng khám mới' }}</h2>
+        <button class="icon-close" type="button" (click)="onCloseClick()" [disabled]="isSubmitting">x</button>
+      </header>
+
+      <form class="room-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+        <label>
+          <span>Tên phòng</span>
+          <input type="text" formControlName="name" placeholder="Ví dụ: A101" />
+          @if (nameInvalid) {
+            <small>Tên phòng là bắt buộc.</small>
+          }
+        </label>
+
+        <div class="grid-2">
+          <label>
+            <span>Tầng</span>
+            <input type="number" formControlName="floor" min="0" placeholder="Ví dụ: 2" />
+          </label>
+
+          <label>
+            <span>Trạng thái</span>
+            <select formControlName="status">
+              <option value="Available">{{ getRoomStatusLabel('Available') }}</option>
+              <option value="Maintenance">{{ getRoomStatusLabel('Maintenance') }}</option>
+            </select>
+          </label>
+        </div>
+
+        <label>
+          <span>Chuyên khoa</span>
+          <select formControlName="specialty_id">
+            <option [ngValue]="0" disabled>Chọn chuyên khoa</option>
+            @for (specialty of specialties; track specialty.id) {
+              <option [ngValue]="specialty.id">{{ specialty.name }}</option>
+            }
+          </select>
+          @if (specialtyInvalid) {
+            <small>Vui lòng chọn chuyên khoa.</small>
+          }
+        </label>
+
+        <label>
+          <span>Mô tả</span>
+          <textarea rows="3" formControlName="description" placeholder="Mô tả phòng khám"></textarea>
+        </label>
+
+        <div class="form-actions">
+          <button class="button-primary" type="submit" [disabled]="isSubmitting || !specialties.length">
+            {{ isSubmitting ? 'Đang xử lý...' : isEditMode ? 'Lưu cập nhật' : 'Thêm phòng' }}
+          </button>
+          <button class="button-secondary" type="button" (click)="onCloseClick()" [disabled]="isSubmitting">
+            Đóng
+          </button>
+        </div>
+      </form>
+    </article>
+  </div>
+}

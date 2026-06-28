@@ -1,0 +1,258 @@
+** 2 bệnh nhân đặt lịch cùng lúc
+-Khi bệnh nhân đặt lịch, bệnh nhân vẫn không cần chọn giờ cụ thể. Bệnh nhân chỉ chọn:
+bác sĩ + ngày khám + buổi sáng/buổi chiều
+Backend sẽ tự động cấp một time_slot trống sớm nhất cho lịch hẹn đó.
+
+Ví dụ bác sĩ còn các slot:
+
+09:00
+09:30
+10:00
+-Nếu 2 bệnh nhân cùng bấm đặt lịch gần như cùng lúc:
+
+Bệnh nhân A
+
+Được cấp slot 09:00
+Bệnh nhân B
+
+Nếu request vào sau, hệ thống thấy 09:00 đã bị chiếm
+Tự động cấp slot tiếp theo: 09:30
+Nếu 2 request thật sự đụng nhau và cùng cố tạo 09:00, database unique index sẽ chặn trùng. Backend sau đó retry lại để lấy slot trống tiếp theo cho request sau.
+
+Hệ thống đang bảo vệ bằng 2 lớp:
+
+-Rule service: tự tìm slot trống sớm nhất
+-Database unique index: chặn trùng doctor_id + date + time_slot
+Kết quả:
+
+Không có 2 bệnh nhân cùng bác sĩ, cùng ngày, cùng giờ khám.
+Nếu hết slot trong buổi/ngày đã chọn, hệ thống trả lỗi:
+
+Bác sĩ đã kín lịch trong buổi/ngày đã chọn
+Tóm lại:
+Hai bệnh nhân có thể đặt cùng lúc, nhưng hệ thống sẽ tự xếp họ vào hai khung giờ khác nhau theo thứ tự 
+slot còn trống
+
+** Thời gian dự kiến cần giải thích rõ trong báo cáo
+
+Hệ thống có rule engine/AI tính lại thời gian chờ. Đây là điểm tốt, 
+nhưng trong DATN cần nói rõ: thời gian dự kiến không phải giờ hẹn cố định, 
+mà là thời gian ước lượng vào khám sau khi đã check-in, thay đổi theo tiến độ các ca trước.
+
+*** Hiện tại thời gian chờ dự kiến của hệ thống đang chạy theo mô hình kết hợp Rule Engine + AI Engine, nhưng Rule Engine luôn là nền tảng, AI chỉ được dùng khi đủ điều kiện.
+
+Tóm tắt nhanh
+
+Khi bệnh nhân mới đặt lịch: hệ thống dùng giờ hẹn/slot tự động làm giờ dự kiến ban đầu.
+Khi bệnh nhân check-in: hệ thống đưa bệnh nhân vào hàng đợi, sau đó tính lại thời gian chờ.
+Khi đang có queue thực tế: hệ thống dùng Rule Engine trước, sau đó nếu AI CatBoost khả dụng thì dùng AI để điều chỉnh thời gian chờ.
+Khi bác sĩ bắt đầu/kết thúc khám hoặc ghi nhận vắng mặt: hệ thống tính lại toàn bộ hàng đợi của bác sĩ trong ngày.
+Luồng từ đặt lịch đến kết thúc khám
+
+Bệnh nhân đặt lịch
+
+Hệ thống tự chọn time_slot phù hợp theo lịch làm việc bác sĩ.
+Lịch được tạo ở trạng thái Confirmed.
+estimated_start lúc này chủ yếu là giờ hẹn gốc, chưa dùng AI vì bệnh nhân chưa check-in, chưa có dữ liệu hàng đợi thực tế.
+Với lịch chưa check-in, hệ thống không nên tự lùi giờ dự kiến theo thời gian hiện tại nữa.
+Lễ tân check-in
+
+Lịch chuyển từ Confirmed sang CheckedIn.
+Tạo bản ghi trong queues.
+Gán:
+checked_in_at
+queue_number
+original_estimated_start
+estimated_start
+predicted_wait_minutes
+Sau đó gọi recalculateQueueForecastForDoctorDateService() để tính lại hàng đợi của bác sĩ trong ngày.
+Rule Engine tính hàng đợi
+Rule Engine sắp xếp các lượt khám theo:
+
+Mức ưu tiên: Emergency -> Priority -> Normal.
+Trạng thái thực tế: đang khám, đã hoàn tất, đang chờ.
+Số tiếp nhận/thứ tự hàng đợi.
+Giờ hẹn gốc.
+Thời gian check-in.
+Công thức tư duy chính:
+
+estimated_start = max(
+  thời điểm kết thúc dự kiến của ca trước + thời gian đệm,
+  giờ hẹn gốc,
+  thời điểm check-in,
+  thời gian bắt đầu ca làm việc,
+  thời điểm hiện tại
+)
+Sau đó:
+
+predicted_wait_minutes = estimated_start - checked_in_at
+AI Engine được áp dụng khi nào
+AI chỉ chạy khi:
+
+Lượt khám đã có checked_in_at.
+QUEUE_AI_FORECAST_ENABLED không bị tắt.
+QUEUE_AI_FORECAST_PROVIDER=catboost_local.
+File model CatBoost tồn tại.
+Python runtime của AI Engine tồn tại.
+Nếu đủ điều kiện, hệ thống tạo feature từ trạng thái hàng đợi, ví dụ:
+
+Bác sĩ, chuyên khoa, phòng khám.
+Ngày trong tuần, giờ check-in.
+Số bệnh nhân phía trước.
+Số ca đang khám.
+Số ca đã hoàn tất.
+Thời lượng khám trung bình gần đây.
+Giờ dự kiến theo Rule Engine.
+Độ lệch giữa check-in và giờ dự kiến rule-based.
+AI trả về:
+
+predicted_wait_minutes
+Sau đó hệ thống tính lại:
+
+estimated_start = checked_in_at + predicted_wait_minutes
+Nhưng vẫn bị ràng buộc bởi Rule Engine để không tạo giờ vô lý, ví dụ không sớm hơn mốc tối thiểu hợp lệ.
+
+Nếu AI lỗi hoặc không khả dụng
+Hệ thống tự fallback về Rule Engine.
+
+Các trường hợp fallback:
+
+Chưa check-in.
+Không có file model.
+Python AI Engine không chạy được.
+Provider không phải catboost_local.
+AI trả kết quả lỗi hoặc không hợp lệ.
+Bác sĩ bắt đầu khám
+
+Ghi actual_start.
+Lượt khám vẫn ở trạng thái CheckedIn, nhưng queue có actual_start.
+Hệ thống tính lại hàng đợi phía sau.
+Với ca đang khám, hệ thống dự báo thời điểm kết thúc dựa trên:
+actual_start
+thời lượng khám trung bình
+thời gian đệm giữa hai ca.
+Bác sĩ kết thúc khám
+
+Ghi actual_end.
+Appointment chuyển sang Completed.
+Hệ thống tính lại hàng đợi phía sau.
+Các bệnh nhân sau đó có thể được kéo sớm hơn hoặc đẩy muộn hơn tùy ca vừa kết thúc nhanh/chậm.
+Bác sĩ ghi nhận vắng mặt
+
+Appointment chuyển sang NoShow.
+Queue không bị xóa để còn thống kê.
+Lượt này bị loại khỏi forecast active.
+Hệ thống tính lại hàng đợi phía sau.
+Realtime cập nhật giao diện
+Sau khi check-in, bắt đầu khám, kết thúc khám, vắng mặt hoặc tính lại dự báo:
+
+Backend phát WebSocket event.
+Trang lễ tân, bác sĩ, bệnh nhân reload dữ liệu liên quan.
+Vì vậy thời gian chờ dự kiến được cập nhật gần như ngay lập tức.
+
+*** 
+1. Lễ tân chọn mức ưu tiên
+Ở tab lịch chờ check-in, mỗi lịch có trường Mức ưu tiên:
+
+Bình thường -> Normal
+Ưu tiên -> Priority
+Khẩn cấp -> Emergency
+Nếu lễ tân không chọn gì khác, mặc định là Normal.
+
+2. Thứ tự ưu tiên được áp dụng sau nhóm trạng thái
+Hệ thống không đơn giản là cứ Emergency lên đầu toàn bộ. Nó sắp xếp theo logic:
+
+Ca đã hoàn tất.
+Ca đang khám.
+Ca đang chờ khám.
+Trong nhóm đang chờ khám mới xét priority_level.
+Sau đó mới xét giờ ưu tiên/giờ hẹn/check-in/số tiếp nhận.
+Nghĩa là bệnh nhân Emergency có thể được đưa lên trước các bệnh nhân đang chờ khác, nhưng không chen vào ca đang khám hoặc ca đã xử lý.
+
+3. Priority ảnh hưởng đến thời gian chờ dự kiến
+Sau khi sắp xếp lại queue theo priority:
+
+Các ca ưu tiên cao được tính estimated_start sớm hơn.
+Các ca phía sau có thể bị đẩy estimated_start muộn hơn.
+predicted_wait_minutes cũng thay đổi theo thứ tự mới.
+Backend phát WebSocket event để trang lễ tân, bác sĩ, bệnh nhân cập nhật lại.
+
+=> Kết luận
+Hiện tại priority hoạt động như sau:
+
+Lễ tân chọn mức ưu tiên khi check-in
+-> Backend lưu vào appointment.priority_level
+-> Hệ thống sắp xếp lại hàng đợi
+-> Tính lại thời gian chờ dự kiến
+-> Cập nhật realtime lên giao diện
+
+****Hệ thống hiện tại đang lưu lại thời gian khám thực tế của từng ca và đã dùng dữ liệu đó để train/đánh giá AI.
+
+1. Lưu thời gian khám thực tế ở đâu?
+
+Trong bảng queues có các trường:
+
+actual_start: thời điểm bác sĩ bắt đầu khám.
+actual_end: thời điểm bác sĩ kết thúc khám.
+Khi bác sĩ bấm Bắt đầu khám, hệ thống ghi:
+
+actual_start = thời điểm hiện tại
+Khi bác sĩ bấm Hoàn tất khám, hệ thống ghi:
+
+actual_end = thời điểm hiện tại
+Từ đó tính được thời lượng khám:
+
+visit_duration_minutes = actual_end - actual_start
+2. Có dùng để train không?
+
+Có. Script export dữ liệu training lấy các trường này:
+
+actual_start
+actual_end
+visit_duration_minutes
+checkin_to_start_minutes
+start_delay_from_original_minutes
+start_delay_from_latest_minutes
+Trong file export training, hệ thống tạo:
+
+visit_duration_minutes = actual_end - actual_start
+target_actual_wait_minutes = actual_start - checked_in_at
+Tức là:
+
+visit_duration_minutes: thời gian khám thực tế của ca đó.
+target_actual_wait_minutes: thời gian chờ thực tế, dùng làm target chính để train model dự đoán thời gian chờ.
+3. Có lọc dữ liệu hợp lệ trước khi train không?
+
+Có. Pipeline chỉ giữ các dòng:
+
+completed_flag = 1
+no_show_flag != 1
+actual_start có dữ liệu
+checked_in_at có dữ liệu
+Tức là chỉ dùng các ca đã hoàn tất và có đủ dữ liệu thực tế. Ca vắng mặt không được dùng làm mẫu train chính.
+
+4. Có dùng thời lượng khám các ca trước để dự đoán không?
+
+Có. Rule engine và AI feature đều dùng dữ liệu thời lượng khám trước đó.
+
+Rule engine dùng các ca đã hoàn tất gần đây để tính thời lượng khám trung bình động:
+
+average_visit_duration = thống kê từ actual_start -> actual_end của các ca hoàn tất
+AI feature cũng có các đặc trưng như:
+
+completed_ahead_avg_visit_minutes
+completed_ahead_total_visit_minutes
+minutes_since_last_completed_ahead
+visit_duration_minutes
+Kết luận
+
+Hệ thống đang lưu và sử dụng dữ liệu như sau:
+
+Bác sĩ bắt đầu khám -> lưu actual_start
+Bác sĩ hoàn tất khám -> lưu actual_end
+Tính visit_duration_minutes
+Tính target_actual_wait_minutes
+Export thành dataset
+Train/evaluate model AI
+Dùng lại model để dự đoán thời gian chờ
+Như vậy hệ thống đã có dữ liệu để train lại, đánh giá lại và cải thiện mô hình dự đoán thời gian chờ dựa trên lịch sử khám thực tế.

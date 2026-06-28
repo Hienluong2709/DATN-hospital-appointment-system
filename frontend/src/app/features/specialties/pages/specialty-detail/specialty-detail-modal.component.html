@@ -1,0 +1,48 @@
+@if (isOpen) {
+  <div class="modal-overlay" (click)="onOverlayClick()">
+    <article class="modal-card" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <h2>Chi tiết chuyên khoa</h2>
+        <button class="icon-close" type="button" (click)="onCloseClick()">x</button>
+      </header>
+
+      @if (isLoading) {
+        <p class="state-text">Đang tải chi tiết...</p>
+      } @else if (specialty) {
+        <dl>
+          <div>
+            <dt>Tên</dt>
+            <dd>{{ specialty.name }}</dd>
+          </div>
+          <div>
+            <dt>Mô tả</dt>
+            <dd>{{ specialty.description || 'Không có mô tả' }}</dd>
+          </div>
+        </dl>
+
+        <section class="rooms-section">
+          <header>
+            <h3>Phòng khám thuộc khoa</h3>
+            <span>{{ rooms.length }} phòng</span>
+          </header>
+
+          @if (rooms.length) {
+            <div class="room-list">
+              @for (room of rooms; track room.id) {
+                <article class="room-item" [class.room-item--maintenance]="room.status === 'Maintenance'">
+                  <strong>{{ room.name }}</strong>
+                  <span>{{ room.floor !== null ? ('Tầng ' + room.floor) : 'Chưa có tầng' }}</span>
+                  <em>{{ room.status === 'Available' ? 'Sẵn sàng' : 'Bảo trì' }}</em>
+                </article>
+              }
+            </div>
+          } @else {
+            <p class="state-text">Khoa này chưa được gán phòng khám.</p>
+          }
+        </section>
+      } @else {
+        <p class="state-text">Không có dữ liệu chi tiết.</p>
+      }
+    </article>
+  </div>
+}

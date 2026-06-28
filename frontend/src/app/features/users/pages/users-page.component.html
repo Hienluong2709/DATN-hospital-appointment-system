@@ -1,0 +1,277 @@
+<section class="feature-page">
+  <header class="feature-header">
+    <h1 class="feature-title">{{ pageTitle }}</h1>
+    <p class="feature-subtitle">{{ pageSubtitle }}</p>
+  </header>
+
+  <article class="feature-card filters-card">
+    <div class="filters-grid">
+      <label class="filter-field">
+        <span>Tìm kiếm</span>
+        <input
+          type="text"
+          [ngModel]="searchTerm"
+          (ngModelChange)="onSearchTermChange($event)"
+          placeholder="Username, họ tên, email, số điện thoại"
+        />
+      </label>
+
+      @if (isStaffManagement) {
+        <label class="filter-field">
+          <span>Vai trò</span>
+          <select [(ngModel)]="selectedRole">
+            <option value="ALL">Tất cả vai trò</option>
+            @for (role of availableRoleOptions; track role) {
+              <option [value]="role">{{ getRoleLabel(role) }}</option>
+            }
+          </select>
+        </label>
+      }
+
+      <label class="filter-field">
+        <span>Giới tính</span>
+        <select [(ngModel)]="selectedGender">
+          <option value="ALL">Tất cả giới tính</option>
+          @for (gender of genderOptions; track gender.value) {
+            <option [value]="gender.value">{{ gender.label }}</option>
+          }
+        </select>
+      </label>
+
+      <label class="filter-field">
+        <span>Trạng thái tài khoản</span>
+        <select [(ngModel)]="selectedStatus">
+          <option value="ALL">Tất cả trạng thái</option>
+          @for (status of statusOptions; track status.value) {
+            <option [value]="status.value">{{ status.label }}</option>
+          }
+        </select>
+      </label>
+
+      <div class="filter-actions">
+        <button
+          class="button-primary filter-icon-button"
+          type="button"
+          (click)="applyFilters()"
+          [disabled]="isLoadingList || isSubmitting"
+          title="Áp dụng bộ lọc"
+          aria-label="Áp dụng bộ lọc"
+        >
+          <svg class="filter-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="6" />
+            <path d="M20 20l-4.2-4.2" />
+          </svg>
+          <span class="sr-only">Áp dụng</span>
+        </button>
+        <button
+          class="button-secondary filter-icon-button"
+          type="button"
+          (click)="resetFilters()"
+          [disabled]="isLoadingList || isSubmitting"
+          title="Đặt lại bộ lọc"
+          aria-label="Đặt lại bộ lọc"
+        >
+          <svg class="filter-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 11a8 8 0 1 0 2 5.5" />
+            <path d="M20 4v7h-7" />
+          </svg>
+          <span class="sr-only">Đặt lại</span>
+        </button>
+      </div>
+    </div>
+  </article>
+
+  <article class="feature-card table-card">
+    <div class="table-header">
+      <h2>{{ tableTitle }}</h2>
+      <div class="table-header-actions">
+        @if (isStaffManagement) {
+          <button class="button-primary" type="button" (click)="openCreateModal()" [disabled]="isSubmitting">
+            Thêm tài khoản nhân sự
+          </button>
+        }
+      </div>
+    </div>
+
+    @if (isLoadingList) {
+      <p class="state-text">Đang tải danh sách người dùng...</p>
+    } @else if (!users.length) {
+      <p class="state-text">{{ emptyListMessage }}</p>
+    } @else {
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>STT</th>
+              <th>Username</th>
+              <th>Họ tên</th>
+              <th>Email</th>
+              <th>Số điện thoại</th>
+              @if (isStaffManagement) {
+                <th>Vai trò</th>
+              }
+              <th>Trạng thái</th>
+              <th>Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (user of users; track user.id; let index = $index) {
+              <tr>
+                <td>{{ rowOffset + index + 1 }}</td>
+                <td>{{ user.username }}</td>
+                <td>{{ user.fullname }}</td>
+                <td>{{ user.email || '--' }}</td>
+                <td>{{ user.phone || '--' }}</td>
+                @if (isStaffManagement) {
+                  <td><span class="role-badge">{{ getRoleLabel(user.role) }}</span></td>
+                }
+                <td>
+                  <span class="status-badge" [class.status-badge--inactive]="user.status === 'Inactive'">
+                    {{ getUserStatusLabel(user.status) }}
+                  </span>
+                </td>
+                <td>
+                  <div class="actions">
+                    <button class="button-secondary action-icon-button" type="button" (click)="onViewMore(user.id)" aria-label="Xem chi tiết" title="Xem chi tiết">
+                      <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                      <span class="sr-only">Xem chi tiết</span>
+                    </button>
+                    @if (canManageStaffAccount(user)) {
+                      <button class="button-warning action-icon-button" type="button" (click)="startEdit(user)" aria-label="Sửa" title="Sửa">
+                        <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M3 21l3.8-1 10-10a2 2 0 0 0 0-2.8l-1-1a2 2 0 0 0-2.8 0l-10 10L3 21z" />
+                          <path d="M13 6l5 5" />
+                        </svg>
+                        <span class="sr-only">Sửa</span>
+                      </button>
+                      <button
+                        class="button-secondary action-icon-button"
+                        type="button"
+                        (click)="openResetPasswordModal(user)"
+                        [disabled]="isSubmitting"
+                        aria-label="Reset mật khẩu"
+                        title="Reset mật khẩu"
+                      >
+                        <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                          <circle cx="7.5" cy="12.5" r="3.5" />
+                          <path d="M11 12.5h10" />
+                          <path d="M17 12.5v3" />
+                          <path d="M20 12.5v2" />
+                        </svg>
+                        <span class="sr-only">Reset mật khẩu</span>
+                      </button>
+                      <button class="button-danger action-icon-button" type="button" (click)="onDelete(user)" [disabled]="isSubmitting" aria-label="Xóa" title="Xóa">
+                        <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M4 7h16" />
+                          <path d="M10 11v6" />
+                          <path d="M14 11v6" />
+                          <path d="M6 7l1 13h10l1-13" />
+                          <path d="M9 7V4h6v3" />
+                        </svg>
+                        <span class="sr-only">Xóa</span>
+                      </button>
+                    }
+                    @if (canToggleStatus(user)) {
+                      <button
+                        [class]="user.status === 'Active' ? 'button-danger action-icon-button' : 'button-secondary action-icon-button'"
+                        type="button"
+                        (click)="onToggleStatus(user)"
+                        [disabled]="isSubmitting"
+                        [attr.aria-label]="user.status === 'Active' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'"
+                        [attr.title]="user.status === 'Active' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'"
+                      >
+                        <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                          @if (user.status === 'Active') {
+                            <path d="M7 11V8a5 5 0 0 1 10 0v3" />
+                            <rect x="5" y="11" width="14" height="10" rx="2" />
+                          } @else {
+                            <path d="M7 11V8a5 5 0 0 1 10 0" />
+                            <path d="M19 11v10H5V11h10" />
+                            <path d="M15 15l4-4" />
+                            <path d="M15 11h4v4" />
+                          }
+                        </svg>
+                        <span class="sr-only">{{ user.status === 'Active' ? 'Khóa tài khoản' : 'Mở khóa tài khoản' }}</span>
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <app-shared-pagination
+        [totalItems]="totalItems"
+        [page]="currentPage"
+        [pageSize]="pageSize"
+        [pageSizeOptions]="pageSizeOptions"
+        (pageChange)="onPageChange($event)"
+        (pageSizeChange)="onPageSizeChange($event)"
+      />
+    }
+  </article>
+
+  <app-user-form-modal
+    [isOpen]="isFormModalOpen"
+    [isSubmitting]="isSubmitting"
+    [isEditMode]="editingUserId !== null"
+    [form]="form"
+    [roleOptions]="staffRoleOptions"
+    [genderOptions]="genderOptions"
+    [usernameInvalid]="usernameControl.invalid && (usernameControl.touched || usernameControl.dirty)"
+    [fullnameInvalid]="fullnameControl.invalid && (fullnameControl.touched || fullnameControl.dirty)"
+    [roleInvalid]="roleControl.invalid && (roleControl.touched || roleControl.dirty)"
+    [passwordInvalid]="passwordInvalid"
+    (submitForm)="onSubmit()"
+    (closeModal)="closeFormModal()"
+  />
+
+  <app-user-detail-modal
+    [isOpen]="isDetailModalOpen"
+    [isLoading]="isLoadingDetail"
+    [user]="selectedUser"
+    (closeModal)="closeDetailModal()"
+  />
+
+  @if (isResetPasswordModalOpen) {
+    <div class="modal-overlay reset-password-overlay" (click)="closeResetPasswordModal()">
+      <article class="reset-password-modal" (click)="$event.stopPropagation()">
+        <header class="reset-password-modal__header">
+          <div>
+            <h2>Reset mật khẩu</h2>
+            <p>{{ passwordResetUser?.fullname }} - {{ getRoleLabel(passwordResetUser?.role) }}</p>
+          </div>
+          <button class="icon-close" type="button" (click)="closeResetPasswordModal()" [disabled]="isSubmitting">x</button>
+        </header>
+
+        <form class="reset-password-form" [formGroup]="resetPasswordForm" (ngSubmit)="onResetPasswordSubmit()">
+          <div class="reset-password-note">
+            <span class="material-symbols-outlined">vpn_key</span>
+            <div>
+              <strong>Gửi mật khẩu tạm thời qua email</strong>
+              <p>
+                Hệ thống sẽ tạo mật khẩu tạm thời và gửi tới
+                <b>{{ passwordResetUser?.email || 'email của nhân sự' }}</b>.
+                Sau khi đăng nhập, bác sĩ hoặc lễ tân bắt buộc đổi mật khẩu mới trước khi vào trang chủ.
+              </p>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="button-primary" type="submit" [disabled]="isSubmitting || !passwordResetUser?.email">
+              {{ isSubmitting ? 'Đang gửi...' : 'Gửi mật khẩu tạm thời' }}
+            </button>
+            <button class="button-secondary" type="button" (click)="closeResetPasswordModal()" [disabled]="isSubmitting">
+              Đóng
+            </button>
+          </div>
+        </form>
+      </article>
+    </div>
+  }
+</section>

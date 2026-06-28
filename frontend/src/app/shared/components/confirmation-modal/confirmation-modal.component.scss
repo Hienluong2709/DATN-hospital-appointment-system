@@ -1,0 +1,111 @@
+.confirmation-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(15, 35, 56, 0.46);
+  backdrop-filter: blur(3px);
+}
+
+.confirmation-dialog {
+  width: min(480px, 100%);
+  overflow: hidden;
+  border: 1px solid #c7d8ea;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 35, 56, 0.24);
+}
+
+.confirmation-dialog__header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1.25rem 1.25rem 1rem;
+}
+
+.confirmation-dialog__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: #155286;
+  background: #eaf4ff;
+}
+
+.confirmation-dialog__icon--danger {
+  color: #b42318;
+  background: #fff1f0;
+}
+
+.confirmation-dialog__icon .material-symbols-outlined {
+  font-size: 24px;
+}
+
+.confirmation-dialog h2 {
+  margin: 0;
+  color: #12395b;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.confirmation-dialog p {
+  margin: 0.45rem 0 0;
+  color: #526b83;
+  line-height: 1.55;
+}
+
+.confirmation-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  padding: 1rem 1.25rem 1.25rem;
+  border-top: 1px solid #e0eaf5;
+  background: #f8fbff;
+}
+
+.confirmation-button {
+  min-width: 112px;
+  border-radius: 10px;
+  padding: 0.72rem 1rem;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.confirmation-button--secondary {
+  border: 1px solid #c7d8ea;
+  color: #17324d;
+  background: #ffffff;
+}
+
+.confirmation-button--primary {
+  border: 1px solid #155286;
+  color: #ffffff;
+  background: #155286;
+}
+
+.confirmation-button--danger {
+  border-color: #dc2626;
+  background: #dc2626;
+}
+
+.confirmation-button:hover {
+  filter: brightness(0.98);
+}
+
+@media (max-width: 520px) {
+  .confirmation-dialog__header {
+    grid-template-columns: 1fr;
+  }
+
+  .confirmation-dialog__actions {
+    flex-direction: column-reverse;
+  }
+
+  .confirmation-button {
+    width: 100%;
+  }
+}

@@ -1,0 +1,229 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 21, 35, 0.52);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  z-index: 1200;
+  animation: modalFadeIn 180ms ease-out;
+}
+
+.modal-card {
+  width: min(720px, 100%);
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #d8e3ef;
+  box-shadow: rgba(7, 27, 46, 0.28) 0 18px 45px;
+  padding: 1rem;
+  animation: modalSlideIn 220ms ease-out;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-bottom: 0.8rem;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #163a5d;
+}
+
+.icon-close {
+  min-width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #cddcec;
+  background: #f6f9fc;
+  color: #274967;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.doctor-form {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+label span {
+  color: #214b72;
+  font-weight: 600;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  border: 1px solid #cad9e8;
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  color: #17324d;
+  background: #ffffff;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.search-combobox {
+  position: relative;
+}
+
+.search-combobox__control {
+  position: relative;
+}
+
+.search-combobox__control input {
+  padding-right: 3rem;
+}
+
+.search-combobox__toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.45rem;
+  transform: translateY(-50%);
+  width: 2rem;
+  min-width: 2rem;
+  height: 2rem;
+  min-height: 2rem;
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid #cddcec;
+  background: #f6f9fc;
+  color: #295476;
+  display: inline-grid;
+  place-items: center;
+}
+
+.search-combobox__toggle .material-symbols-outlined {
+  font-size: 1.1rem;
+}
+
+.search-combobox__menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  z-index: 15;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.4rem;
+  max-height: 15rem;
+  overflow: auto;
+  border: 1px solid #cfe0ef;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 14px 32px rgba(9, 41, 68, 0.16);
+}
+
+.search-combobox__option {
+  display: grid;
+  justify-items: start;
+  gap: 0.08rem;
+  text-align: left;
+  width: 100%;
+  min-height: auto;
+  padding: 0.65rem 0.8rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: #ffffff;
+  color: #17324d;
+}
+
+.search-combobox__option:hover {
+  background: #eef6fd;
+  border-color: #d4e4f2;
+  box-shadow: none;
+}
+
+.search-combobox__option-title {
+  font-weight: 600;
+  color: #143a60;
+}
+
+.search-combobox__option-meta {
+  font-size: 0.84rem;
+  color: #67819a;
+}
+
+.search-combobox__empty {
+  padding: 0.7rem 0.8rem;
+  color: #67819a;
+  font-size: 0.92rem;
+}
+
+small {
+  color: #a32929;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+button {
+  border: 0;
+  border-radius: 10px;
+  min-height: 38px;
+  padding: 0 0.85rem;
+  cursor: pointer;
+  font-weight: 600;
+  background: var(--color-primary-500);
+  color: #fff;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.button-secondary {
+  background: #f4f8fc;
+  color: #18486f;
+  border: 1px solid #cddcec;
+}
+
+@media (max-width: 640px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

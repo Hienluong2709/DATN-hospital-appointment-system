@@ -1,0 +1,157 @@
+.notification-toast-stack {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.notification-toast {
+  position: relative;
+  width: min(420px, calc(100vw - 2rem));
+  min-width: min(360px, calc(100vw - 2rem));
+  overflow: hidden;
+  border-radius: 12px;
+  padding: 0.9rem 3rem 0.9rem 3.5rem;
+  border: 1px solid transparent;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.12);
+  animation: notification-slide-in 220ms ease-out;
+  pointer-events: auto;
+  transition: box-shadow 180ms ease;
+  background-repeat: no-repeat;
+  background-position: 1rem 1rem;
+  background-size: 24px;
+}
+
+.notification-toast:hover {
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+}
+
+.notification-toast--success {
+  background-image: url('/assets/images/check-circle.svg');
+  background-color: #ecfdf3;
+  border-color: #9ee6bf;
+  color: #166534;
+}
+
+.notification-toast--error {
+  background-image: url('/assets/images/cancel-circle.svg');
+  background-color: #fff1f2;
+  border-color: #f7b4bc;
+  color: #b42318;
+}
+
+.notification-content {
+  padding-right: 0;
+}
+
+.notification-title {
+  margin: 0 0 0.15rem;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.notification-message {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: inherit;
+}
+
+.notification-toast--success .notification-message {
+  color: #166534;
+}
+
+.notification-toast--error .notification-message {
+  color: #b42318;
+}
+
+.notification-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #6b7280;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.notification-close:hover {
+  background: rgba(255, 255, 255, 0.88);
+  transform: scale(1.04);
+}
+
+.notification-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  margin: 0;
+  transform-origin: left center;
+  animation: notification-timer 5s linear forwards;
+}
+
+.notification-toast--success .notification-progress {
+  background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+}
+
+.notification-toast--error .notification-progress {
+  background: linear-gradient(90deg, #ef4444 0%, #f87171 100%);
+}
+
+@keyframes notification-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes notification-slide-in {
+  from {
+    opacity: 0;
+    transform: translate3d(12px, -6px, 0) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@media (max-width: 640px) {
+  .notification-toast-stack {
+    top: 1rem;
+    right: 1rem;
+    left: 1rem;
+  }
+
+  .notification-toast {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@keyframes notification-timer {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}

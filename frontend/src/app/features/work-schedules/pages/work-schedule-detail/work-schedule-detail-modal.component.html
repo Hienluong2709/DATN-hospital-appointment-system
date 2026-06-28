@@ -1,0 +1,39 @@
+@if (isOpen) {
+  <div class="modal-overlay" (click)="onOverlayClick()">
+    <article class="modal-card" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <h2>Chi tiết lịch làm việc</h2>
+        <button class="icon-close" type="button" (click)="onCloseClick()">x</button>
+      </header>
+
+      @if (isLoading) {
+        <p class="state-text">Đang tải chi tiết...</p>
+      } @else if (schedule) {
+        <dl>
+          <div>
+            <dt>ID</dt>
+            <dd>{{ schedule.id }}</dd>
+          </div>
+          <div>
+            <dt>Bác sĩ</dt>
+            <dd>{{ doctorName }}</dd>
+          </div>
+          <div>
+            <dt>Ngày trong tuần</dt>
+            <dd>{{ dayLabel }}</dd>
+          </div>
+          <div>
+            <dt>Giờ bắt đầu</dt>
+            <dd>{{ startTimeLabel }}</dd>
+          </div>
+          <div>
+            <dt>Giờ kết thúc</dt>
+            <dd>{{ endTimeLabel }}</dd>
+          </div>
+        </dl>
+      } @else {
+        <p class="state-text">Không có dữ liệu chi tiết.</p>
+      }
+    </article>
+  </div>
+}

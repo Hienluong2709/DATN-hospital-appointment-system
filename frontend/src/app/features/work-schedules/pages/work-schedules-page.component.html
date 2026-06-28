@@ -1,0 +1,486 @@
+<section class="feature-page">
+  <header class="feature-header">
+    <h1 class="feature-title">
+      {{ isDoctorView ? 'Lịch làm việc của tôi' : isReceptionistView ? 'Lịch làm việc' : 'Quản lý lịch làm việc' }}
+    </h1>
+    <p class="feature-subtitle">
+      {{
+        isDoctorView
+          ? 'Theo dõi các ca làm việc cá nhân theo ngày và theo tuần.'
+          : isReceptionistView
+            ? 'Tra cứu lịch làm việc, phòng khám và lịch nghỉ đã duyệt của bác sĩ theo ngày.'
+          : 'Quản lý lịch làm việc của bác sĩ theo ngày và khung giờ khám.'
+      }}
+    </p>
+  </header>
+
+  @if (feedbackMessage) {
+    <p class="feedback" [class.feedback--error]="feedbackType === 'error'">{{ feedbackMessage }}</p>
+  }
+
+  <article class="feature-card filters-card">
+    <div class="filters-grid">
+      @if (!isDoctorView) {
+        <label class="filter-field">
+          <span>Bác sĩ</span>
+          <select [ngModel]="selectedDoctorId" (ngModelChange)="updateSelectedDoctor($event)">
+            <option [ngValue]="0">Tất cả bác sĩ</option>
+            @for (doctor of doctors; track doctor.id) {
+              <option [ngValue]="doctor.id">{{ doctorOptionLabel(doctor) }}</option>
+            }
+          </select>
+        </label>
+      }
+
+      <label class="filter-field">
+        <span>Ngày</span>
+        <input type="date" [value]="selectedDate" (input)="updateSelectedDate($any($event.target).value)" />
+      </label>
+
+      @if (isReceptionistView) {
+        <label class="filter-field">
+          <span>Loại lịch</span>
+          <select [ngModel]="receptionistScheduleFilter" (ngModelChange)="updateReceptionistScheduleFilter($event)">
+            @for (option of receptionistScheduleFilterOptions; track option.value) {
+              <option [ngValue]="option.value">{{ option.label }}</option>
+            }
+          </select>
+        </label>
+      }
+
+      @if (!isReceptionistView) {
+        <div class="filter-field">
+          <span>Chế độ xem</span>
+          <div class="view-mode-toggle" role="group" aria-label="Chế độ xem lịch">
+            <button
+              type="button"
+              class="button-secondary"
+              [class.active]="viewMode === 'day'"
+              (click)="setViewMode('day')"
+            >
+              Theo ngày
+            </button>
+            <button
+              type="button"
+              class="button-secondary"
+              [class.active]="viewMode === 'week'"
+              (click)="setViewMode('week')"
+            >
+              Theo tuần
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  </article>
+
+  @if (isReceptionistView) {
+    <article class="workday-directory-panel">
+      <div class="workday-directory-panel__header">
+        <div>
+          <h2>Lịch làm việc tuần {{ selectedWeekRangeLabel }}</h2>
+          <p>Ngày đang chọn: {{ selectedDateDayLabel }} {{ selectedDateDisplayLabel }} • {{ receptionistDoctors.length }}/{{ receptionistBaseDoctorCount }} bác sĩ phù hợp.</p>
+        </div>
+        <div class="week-quick-nav">
+          <button class="button-secondary" type="button" (click)="goToPreviousWeek()">Tuần trước</button>
+          <button class="button-secondary" type="button" (click)="goToToday()">Hôm nay</button>
+          <button class="button-secondary" type="button" (click)="goToNextWeek()">Tuần sau</button>
+        </div>
+      </div>
+
+      <div class="workday-summary">
+        <button
+          type="button"
+          class="workday-summary__item"
+          [class.workday-summary__item--active]="receptionistScheduleFilter === 'ALL'"
+          (click)="updateReceptionistScheduleFilter('ALL')"
+        >
+          <span>Tất cả</span>
+          <strong>{{ receptionistBaseDoctorCount }}</strong>
+        </button>
+        <button
+          type="button"
+          class="workday-summary__item"
+          [class.workday-summary__item--active]="receptionistScheduleFilter === 'WORKING'"
+          (click)="updateReceptionistScheduleFilter('WORKING')"
+        >
+          <span>Có ca làm việc</span>
+          <strong>{{ receptionistWorkingDoctorCount }}</strong>
+        </button>
+        <button
+          type="button"
+          class="workday-summary__item workday-summary__item--leave"
+          [class.workday-summary__item--active]="receptionistScheduleFilter === 'ON_LEAVE'"
+          (click)="updateReceptionistScheduleFilter('ON_LEAVE')"
+        >
+          <span>Có lịch nghỉ</span>
+          <strong>{{ receptionistLeaveDoctorCount }}</strong>
+        </button>
+        <button
+          type="button"
+          class="workday-summary__item"
+          [class.workday-summary__item--active]="receptionistScheduleFilter === 'NO_WORKING'"
+          (click)="updateReceptionistScheduleFilter('NO_WORKING')"
+        >
+          <span>Không có ca</span>
+          <strong>{{ receptionistNoWorkingDoctorCount }}</strong>
+        </button>
+      </div>
+
+      <div class="calendar-legend" aria-label="Chú giải trạng thái lịch">
+        <span><i class="legend-dot legend-dot--working"></i>Có ca làm việc</span>
+        <span><i class="legend-dot legend-dot--leave"></i>Lịch nghỉ đã duyệt</span>
+        <span><i class="legend-dot legend-dot--mixed"></i>Có ca và có nghỉ</span>
+        <span><i class="legend-dot legend-dot--empty"></i>Không có ca</span>
+      </div>
+
+      @if (isLoadingReceptionistDirectory) {
+        <p class="state-text">Đang tải lịch làm việc và lịch nghỉ đã duyệt...</p>
+      } @else if (!receptionistDoctors.length) {
+        <p class="state-text">Không có bác sĩ phù hợp với bộ lọc hiện tại.</p>
+      } @else {
+        <div class="work-calendar">
+          <div class="work-calendar__grid">
+            <div class="work-calendar__doctor-heading">Bác sĩ / phòng khám</div>
+            @for (day of receptionistCalendarDays; track day.dateInput) {
+              <button
+                type="button"
+                class="work-calendar__day-heading"
+                [class.work-calendar__day-heading--selected]="day.isSelected"
+                (click)="updateSelectedDate(day.dateInput)"
+              >
+                <span>{{ day.dayLabel }}</span>
+                <strong>{{ day.shortDateLabel }}</strong>
+              </button>
+            }
+
+          @for (doctor of receptionistDoctors; track doctor.id) {
+              <section class="work-calendar__doctor-cell">
+                <div>
+                  <h3>{{ doctorOptionLabel(doctor) }}</h3>
+                  <p>{{ doctor.Specialty?.name || 'Chưa có chuyên khoa' }} • {{ getDoctorRoomLabel(doctor) }}</p>
+                </div>
+                <span class="doctor-status" [class.doctor-status--inactive]="doctor.status === 'Inactive'">
+                  {{ doctor.status === 'Active' ? 'Đang hoạt động' : 'Ngưng hoạt động' }}
+                </span>
+              </section>
+
+              @for (day of receptionistCalendarDays; track day.dateInput) {
+                <section
+                  class="work-calendar__cell"
+                  [class.work-calendar__cell--selected]="day.isSelected"
+                  [ngClass]="getReceptionistCalendarCellClass(doctor.id, day.day, day.dateInput)"
+                >
+                  <div class="calendar-cell-status">
+                    {{ getReceptionistCalendarStatusLabel(doctor.id, day.day, day.dateInput) }}
+                  </div>
+
+                  @if (getSchedulesForDoctorCalendarDay(doctor.id, day.day).length) {
+                    <div class="schedule-chip-list schedule-chip-list--calendar">
+                      @for (schedule of getSchedulesForDoctorCalendarDay(doctor.id, day.day); track schedule.id) {
+                        <span class="schedule-chip">{{ getTimeRangeLabel(schedule.start_time, schedule.end_time) }}</span>
+                      }
+                    </div>
+                  }
+
+                  @if (getApprovedBlocksForDoctorCalendarDate(doctor.id, day.dateInput).length) {
+                    <div class="approved-block-list approved-block-list--calendar">
+                      @for (block of getApprovedBlocksForDoctorCalendarDate(doctor.id, day.dateInput); track block.id) {
+                        <div class="approved-block approved-block--compact">
+                          <strong>{{ getBlockLabel(block) }}</strong>
+                          <span>{{ block.reason || 'Không có ghi chú' }}</span>
+                        </div>
+                      }
+                    </div>
+                  }
+
+                  @if (
+                    !getSchedulesForDoctorCalendarDay(doctor.id, day.day).length &&
+                    !getApprovedBlocksForDoctorCalendarDate(doctor.id, day.dateInput).length
+                  ) {
+                    <p class="calendar-empty-text">Không có lịch</p>
+                  }
+                </section>
+              }
+          }
+          </div>
+        </div>
+      }
+    </article>
+  } @else {
+  <article class="feature-card table-card" [class.doctor-table-card]="isDoctorView">
+    <div class="table-header">
+      <h2>
+        @if (viewMode === 'day') {
+          Lịch {{ activeDayLabel }}
+        } @else {
+          Lịch theo tuần
+        }
+      </h2>
+      <div class="table-header-actions">
+        @if (viewMode === 'week') {
+          <div class="week-quick-nav">
+            <button class="button-secondary" type="button" (click)="goToPreviousWeek()">Tuần trước</button>
+            <button class="button-secondary" type="button" (click)="goToToday()">Hôm nay</button>
+            <button class="button-secondary" type="button" (click)="goToNextWeek()">Tuần sau</button>
+          </div>
+        }
+        @if (canManageSchedules) {
+          <button class="button-primary" type="button" (click)="openCreateModal()" [disabled]="isSubmitting">Thêm lịch</button>
+        }
+      </div>
+    </div>
+
+    @if (!isDoctorView) {
+      <p class="state-text state-text--left">
+        Đang xem: {{ doctorFilterLabel }} • Ngày chọn: {{ selectedDate }}
+        @if (viewMode === 'week') {
+          • Tuần: {{ selectedWeekRangeLabel }}
+        }
+      </p>
+    }
+
+    @if (isLoadingList) {
+      <p class="state-text">Đang tải danh sách lịch làm việc...</p>
+    } @else if (!schedules.length) {
+      <p class="state-text">Chưa có lịch làm việc nào.</p>
+    } @else if (viewMode === 'day') {
+      @if (!daySchedules.length) {
+        <p class="state-text">{{ isDoctorView ? doctorEmptyDayMessage : 'Không có lịch làm việc trong ngày đã chọn.' }}</p>
+      } @else if (isDoctorView) {
+        <div class="doctor-shift-list">
+          @for (schedule of daySchedules; track schedule.id; let index = $index) {
+            <article class="doctor-shift-card">
+              <p class="doctor-shift-card__index">Ca #{{ index + 1 }}</p>
+              <h3>{{ schedule.start_time.slice(0, 5) }} - {{ schedule.end_time.slice(0, 5) }}</h3>
+              <p>{{ dayLabel(schedule.day_of_week) }} • {{ selectedDate }}</p>
+            </article>
+          }
+        </div>
+      } @else {
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                  <th>STT</th>
+                <th>Bác sĩ</th>
+                <th>Giờ bắt đầu</th>
+                <th>Giờ kết thúc</th>
+                <th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+                @for (schedule of pagedDaySchedules; track schedule.id; let index = $index) {
+                <tr>
+                  <td>{{ dayRowOffset + index + 1 }}</td>
+                  <td>{{ displayDoctorName(schedule) }}</td>
+                  <td>{{ schedule.start_time.slice(0, 5) }}</td>
+                  <td>{{ schedule.end_time.slice(0, 5) }}</td>
+                  <td>
+                    <div class="actions">
+                      <button class="button-secondary action-icon-button" type="button" (click)="onViewMore(schedule.id)" aria-label="Xem chi tiết" title="Xem chi tiết">
+                        <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                        <span class="sr-only">Xem chi tiết</span>
+                      </button>
+                      @if (canManageSchedules) {
+                        <button class="button-warning action-icon-button" type="button" (click)="startEdit(schedule)" aria-label="Sửa" title="Sửa">
+                          <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M3 21l3.8-1 10-10a2 2 0 0 0 0-2.8l-1-1a2 2 0 0 0-2.8 0l-10 10L3 21z" />
+                            <path d="M13 6l5 5" />
+                          </svg>
+                          <span class="sr-only">Sửa</span>
+                        </button>
+                        <button class="button-danger action-icon-button" type="button" (click)="onDelete(schedule)" [disabled]="isSubmitting" aria-label="Xóa" title="Xóa">
+                          <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M4 7h16" />
+                            <path d="M10 11v6" />
+                            <path d="M14 11v6" />
+                            <path d="M6 7l1 13h10l1-13" />
+                            <path d="M9 7V4h6v3" />
+                          </svg>
+                          <span class="sr-only">Xóa</span>
+                        </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <app-shared-pagination
+          [totalItems]="daySchedules.length"
+          [page]="dayCurrentPage"
+          [pageSize]="dayPageSize"
+          [pageSizeOptions]="dayPageSizeOptions"
+          (pageChange)="onDayPageChange($event)"
+          (pageSizeChange)="onDayPageSizeChange($event)"
+        />
+      }
+    } @else {
+      @if (!hasAnyWeekSchedule) {
+        <p class="state-text">Không có lịch làm việc trong tuần đã chọn.</p>
+      } @else if (isDoctorView) {
+        <div class="doctor-week-board">
+          @for (dayGroup of weekDaySchedules; track dayGroup.day) {
+            <section class="doctor-week-day-card">
+              <header>
+                <h3>{{ dayGroup.dayLabel }}</h3>
+                <span>{{ dayGroup.dateLabel }}</span>
+              </header>
+              @if (!dayGroup.schedules.length) {
+                <p class="state-text">Không có ca làm việc.</p>
+              } @else {
+                <div class="doctor-week-day-card__list">
+                  @for (schedule of dayGroup.schedules; track schedule.id) {
+                    <p>{{ schedule.start_time.slice(0, 5) }} - {{ schedule.end_time.slice(0, 5) }}</p>
+                  }
+                </div>
+              }
+            </section>
+          }
+        </div>
+      } @else {
+        <div class="week-board">
+          @for (dayGroup of weekDaySchedules; track dayGroup.day) {
+            <section class="week-day-card">
+              <header class="week-day-card__header">
+                <h3>{{ dayGroup.dayLabel }}</h3>
+                <span>{{ dayGroup.dateLabel }}</span>
+              </header>
+
+              @if (!dayGroup.schedules.length) {
+                <p class="state-text">Không có lịch.</p>
+                } @else if (selectedDoctorId) {
+                  <div class="day-list">
+                    @for (schedule of dayGroup.schedules; track schedule.id) {
+                      <article class="schedule-item">
+                        <div class="schedule-item__info">
+                          <strong>{{ displayDoctorName(schedule) }}</strong>
+                          <span>{{ schedule.start_time.slice(0, 5) }} - {{ schedule.end_time.slice(0, 5) }}</span>
+                        </div>
+                        <div class="actions">
+                          <button class="button-secondary action-icon-button" type="button" (click)="onViewMore(schedule.id)" aria-label="Xem chi tiết" title="Xem chi tiết">
+                            <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z" />
+                              <circle cx="12" cy="12" r="3" />
+                            </svg>
+                            <span class="sr-only">Xem chi tiết</span>
+                          </button>
+                          @if (canManageSchedules) {
+                            <button class="button-warning action-icon-button" type="button" (click)="startEdit(schedule)" aria-label="Sửa" title="Sửa">
+                              <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M3 21l3.8-1 10-10a2 2 0 0 0 0-2.8l-1-1a2 2 0 0 0-2.8 0l-10 10L3 21z" />
+                                <path d="M13 6l5 5" />
+                              </svg>
+                              <span class="sr-only">Sửa</span>
+                            </button>
+                            <button class="button-danger action-icon-button" type="button" (click)="onDelete(schedule)" [disabled]="isSubmitting" aria-label="Xóa" title="Xóa">
+                              <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M4 7h16" />
+                                <path d="M10 11v6" />
+                                <path d="M14 11v6" />
+                                <path d="M6 7l1 13h10l1-13" />
+                                <path d="M9 7V4h6v3" />
+                              </svg>
+                              <span class="sr-only">Xóa</span>
+                            </button>
+                          }
+                        </div>
+                      </article>
+                    }
+                  </div>
+              } @else {
+                  <div class="doctor-groups">
+                    @for (doctorGroup of dayGroup.doctorGroups; track doctorGroup.doctorId) {
+                      <section class="doctor-group-card">
+                        <header class="doctor-group-card__header">
+                          <h4>{{ doctorGroup.doctorName }}</h4>
+                          <span>{{ doctorGroup.schedules.length }} ca</span>
+                        </header>
+
+                        <div class="day-list">
+                          @for (schedule of doctorGroup.schedules; track schedule.id) {
+                            <article class="schedule-item">
+                              <div class="schedule-item__info">
+                                  <strong>Ca làm việc</strong>
+                                <span>{{ schedule.start_time.slice(0, 5) }} - {{ schedule.end_time.slice(0, 5) }}</span>
+                              </div>
+                              <div class="actions">
+                                <button class="button-secondary action-icon-button" type="button" (click)="onViewMore(schedule.id)" aria-label="Xem chi tiết" title="Xem chi tiết">
+                                  <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z" />
+                                    <circle cx="12" cy="12" r="3" />
+                                  </svg>
+                                  <span class="sr-only">Xem chi tiết</span>
+                                </button>
+                                @if (canManageSchedules) {
+                                  <button class="button-warning action-icon-button" type="button" (click)="startEdit(schedule)" aria-label="Sửa" title="Sửa">
+                                    <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                      <path d="M3 21l3.8-1 10-10a2 2 0 0 0 0-2.8l-1-1a2 2 0 0 0-2.8 0l-10 10L3 21z" />
+                                      <path d="M13 6l5 5" />
+                                    </svg>
+                                    <span class="sr-only">Sửa</span>
+                                  </button>
+                                  <button class="button-danger action-icon-button" type="button" (click)="onDelete(schedule)" [disabled]="isSubmitting" aria-label="Xóa" title="Xóa">
+                                    <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                      <path d="M4 7h16" />
+                                      <path d="M10 11v6" />
+                                      <path d="M14 11v6" />
+                                      <path d="M6 7l1 13h10l1-13" />
+                                      <path d="M9 7V4h6v3" />
+                                    </svg>
+                                    <span class="sr-only">Xóa</span>
+                                  </button>
+                                }
+                              </div>
+                            </article>
+                          }
+                        </div>
+                      </section>
+                  }
+                </div>
+              }
+            </section>
+          }
+        </div>
+      }
+    }
+  </article>
+  }
+
+  @if (canManageSchedules) {
+    <app-work-schedule-form-modal
+      [isOpen]="isFormModalOpen"
+      [isSubmitting]="isSubmitting"
+      [isEditMode]="editingScheduleId !== null"
+      [form]="form"
+      [doctors]="doctors"
+      [nameInvalid]="doctorControl.invalid && (doctorControl.touched || doctorControl.dirty)"
+      [doctorInvalid]="doctorControl.invalid && (doctorControl.touched || doctorControl.dirty)"
+      [dayInvalid]="dayControl.invalid && (dayControl.touched || dayControl.dirty)"
+      [timeInvalid]="startTimeControl.invalid || endTimeControl.invalid"
+      [availableStartTimes]="availableStartTimeOptions"
+      [availableEndTimes]="availableEndTimeOptions"
+      [timeAvailabilityMessage]="timeAvailabilityMessage"
+      [hasAvailableTimeOptions]="hasAvailableTimeOptions"
+      (submitForm)="onSubmit()"
+      (closeModal)="closeFormModal()"
+    />
+  }
+
+  <app-work-schedule-detail-modal
+    [isOpen]="isDetailModalOpen"
+    [isLoading]="isLoadingDetail"
+    [schedule]="selectedSchedule"
+    [doctorName]="selectedSchedule ? displayDoctorName(selectedSchedule) : '--'"
+    [dayLabel]="selectedSchedule ? dayLabel(selectedSchedule.day_of_week) : '--'"
+    [startTimeLabel]="selectedSchedule ? selectedSchedule.start_time.slice(0, 5) : '--'"
+    [endTimeLabel]="selectedSchedule ? selectedSchedule.end_time.slice(0, 5) : '--'"
+    (closeModal)="closeDetailModal()"
+  />
+</section>

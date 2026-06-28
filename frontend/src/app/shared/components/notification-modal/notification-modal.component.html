@@ -1,0 +1,21 @@
+@if (isOpen && message) {
+  <div class="notification-toast-stack" aria-live="polite" aria-atomic="true">
+    <article
+      class="notification-toast"
+      [class.notification-toast--success]="type === 'success'"
+      [class.notification-toast--error]="type === 'error'"
+      role="alert"
+    >
+      <button class="notification-close" type="button" (click)="close()" aria-label="Đóng thông báo">
+        ×
+      </button>
+
+      <div class="notification-content">
+        <p class="notification-title">{{ title || (type === 'success' ? 'Thành công' : 'Thất bại') }}</p>
+        <p class="notification-message">{{ message }}</p>
+      </div>
+
+      <div class="notification-progress" [style.animation-duration.ms]="autoCloseMs" aria-hidden="true"></div>
+    </article>
+  </div>
+}

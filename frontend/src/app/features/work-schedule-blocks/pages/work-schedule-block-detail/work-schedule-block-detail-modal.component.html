@@ -1,0 +1,63 @@
+@if (isOpen) {
+  <div class="modal-overlay" (click)="onOverlayClick()">
+    <article class="modal-card" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <h2>Chi tiết lịch nghỉ</h2>
+        <button class="icon-close" type="button" (click)="onCloseClick()">x</button>
+      </header>
+
+      @if (isLoading) {
+        <p class="state-text">Đang tải chi tiết...</p>
+      } @else if (block) {
+        <dl>
+          <div>
+            <dt>ID</dt>
+            <dd>{{ block.id }}</dd>
+          </div>
+          <div>
+            <dt>Bác sĩ</dt>
+            <dd>{{ doctorName }}</dd>
+          </div>
+          <div>
+            <dt>Ngày</dt>
+            <dd>{{ dateLabel }}</dd>
+          </div>
+          <div>
+            <dt>Loại</dt>
+            <dd>{{ block.is_off ? 'Nghỉ cả ngày' : 'Nghỉ theo giờ' }}</dd>
+          </div>
+          <div>
+            <dt>Trạng thái</dt>
+            <dd>{{ statusLabel }}</dd>
+          </div>
+          <div>
+            <dt>Giờ bắt đầu</dt>
+            <dd>{{ startTimeLabel }}</dd>
+          </div>
+          <div>
+            <dt>Giờ kết thúc</dt>
+            <dd>{{ endTimeLabel }}</dd>
+          </div>
+          <div>
+            <dt>Lý do</dt>
+            <dd>{{ block.reason || 'Không có lý do' }}</dd>
+          </div>
+          @if (block.review_note) {
+            <div>
+              <dt>Ghi chú duyệt</dt>
+              <dd>{{ block.review_note }}</dd>
+            </div>
+          }
+        </dl>
+
+        <footer class="modal-actions">
+          <button class="button-secondary" type="button" (click)="onCloseClick()" [disabled]="isSubmitting">
+            Thoát
+          </button>
+        </footer>
+      } @else {
+        <p class="state-text">Không có dữ liệu chi tiết.</p>
+      }
+    </article>
+  </div>
+}

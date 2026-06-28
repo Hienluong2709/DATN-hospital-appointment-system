@@ -1,0 +1,146 @@
+<section class="feature-page role-dashboard">
+  <header class="feature-header">
+    <h1 class="feature-title">Trang chủ lễ tân</h1>
+    <p class="feature-subtitle">
+      Theo dõi tiếp đón trong ngày, các lịch cần check-in và hàng đợi đang chờ phục vụ.
+    </p>
+  </header>
+
+  @if (loading) {
+    <section class="feature-card dashboard-empty-state">
+      <strong>Đang tải dữ liệu lễ tân...</strong>
+      <span>Hệ thống đang đồng bộ lịch hẹn và hàng đợi trong ngày.</span>
+    </section>
+  } @else if (errorMessage) {
+    <section class="feature-card dashboard-empty-state dashboard-empty-state--error">
+      <strong>Không thể tải trang chủ lễ tân</strong>
+      <span>{{ errorMessage }}</span>
+      <button type="button" class="button-secondary" (click)="loadSummary()">Tải lại</button>
+    </section>
+  } @else {
+    @if (summary; as currentSummary) {
+      <section class="feature-card role-dashboard-hero">
+        <div>
+          <p class="role-dashboard-hero__eyebrow">Khu vực tiếp đón</p>
+          <h2>Điều phối check-in và hàng đợi trong ngày</h2>
+          <p>
+            Ưu tiên theo dõi lịch sắp đến giờ, bệnh nhân đã tiếp nhận và thời gian chờ để hỗ trợ điều phối tại quầy.
+          </p>
+          <div class="role-dashboard-hero__meta">
+            <span><span class="material-symbols-outlined">how_to_reg</span> Check-in bệnh nhân</span>
+            <span><span class="material-symbols-outlined">groups</span> Hàng đợi khám</span>
+          </div>
+        </div>
+        <div class="role-dashboard-hero__icon" aria-hidden="true">
+          <span class="material-symbols-outlined">support_agent</span>
+        </div>
+      </section>
+
+      <section class="feature-card dashboard-kpi-grid">
+        @for (card of currentSummary.kpis; track card.key) {
+          <article
+            class="dashboard-kpi-card"
+            [class.dashboard-kpi-card--success]="card.tone === 'success'"
+            [class.dashboard-kpi-card--warning]="card.tone === 'warning'">
+            <span class="dashboard-kpi-card__icon material-symbols-outlined" aria-hidden="true">{{ getKpiIcon(card.key) }}</span>
+            <div>
+              <span class="dashboard-kpi-label">{{ card.label }}</span>
+              <strong class="dashboard-kpi-value">{{ card.value }}</strong>
+              @if (card.note) {
+                <p class="dashboard-kpi-note">{{ card.note }}</p>
+              }
+            </div>
+          </article>
+        }
+      </section>
+
+      <section class="dashboard-panel-grid">
+        <article class="feature-card dashboard-panel">
+          <header class="dashboard-panel__header">
+            <div>
+              <p class="dashboard-section-label">Tiếp nhận</p>
+              <h3>Lịch cần tiếp đón tiếp theo</h3>
+              <p>Các lịch hôm nay chưa check-in, sắp tới giờ phục vụ.</p>
+            </div>
+            <span class="dashboard-panel__icon material-symbols-outlined" aria-hidden="true">event_available</span>
+          </header>
+
+          @if (currentSummary.next_appointments.length > 0) {
+            <div class="dashboard-list">
+              @for (appointment of currentSummary.next_appointments; track appointment.id) {
+                <article class="dashboard-list-item">
+                  <div class="dashboard-list-item__main">
+                    <strong>{{ appointment.patient_name }}</strong>
+                    <span>
+                      {{ appointment.time_slot ? formatTime(appointment.time_slot) : 'Chưa có khung giờ' }}
+                      · {{ appointment.doctor_name }}
+                      @if (appointment.specialty_name) { · {{ appointment.specialty_name }} }
+                    </span>
+                  </div>
+                  <span class="status-badge" [ngClass]="getAppointmentStatusBadgeClass(appointment.status)">
+                    {{ getAppointmentStatusLabel(appointment.status) }}
+                  </span>
+                </article>
+              }
+            </div>
+          } @else {
+            <div class="dashboard-empty-inline">Không có lịch hẹn nào đang chờ tiếp đón trong ngày.</div>
+          }
+        </article>
+
+        <article class="feature-card dashboard-panel">
+          <header class="dashboard-panel__header">
+            <div>
+              <p class="dashboard-section-label">Hàng đợi</p>
+              <h3>Hàng đợi đang chờ khám</h3>
+              <p>Theo dõi giờ khám dự kiến được cập nhật theo hàng đợi và AI dự báo.</p>
+            </div>
+            <span class="dashboard-panel__icon material-symbols-outlined" aria-hidden="true">queue</span>
+          </header>
+
+          @if (currentSummary.waiting_queues.length > 0) {
+            <div class="dashboard-list">
+              @for (queue of currentSummary.waiting_queues; track queue.id) {
+                <article class="dashboard-list-item">
+                  <div class="dashboard-list-item__main">
+                    <strong>{{ queue.patient_name }}</strong>
+                    <span>
+                      {{ queue.doctor_name }}
+                      @if (queue.specialty_name) { · {{ queue.specialty_name }} }
+                      @if (queue.checked_in_at) { · Check-in {{ formatDateTime(queue.checked_in_at) }} }
+                    </span>
+                  </div>
+                  <div class="receptionist-queue-time">
+                    <span>Dự kiến khám</span>
+                    <strong>{{ getQueueEstimatedStartLabel(queue) }}</strong>
+                    <small>{{ getQueueWaitLabel(queue) }}</small>
+                  </div>
+                </article>
+              }
+            </div>
+          } @else {
+            <div class="dashboard-empty-inline">Chưa có bệnh nhân nào đang chờ khám.</div>
+          }
+        </article>
+      </section>
+
+      <section class="feature-card dashboard-panel dashboard-panel--wide">
+        <header class="dashboard-panel__header">
+          <div>
+            <p class="dashboard-section-label">Thao tác thường dùng</p>
+            <h3>Thao tác nhanh</h3>
+            <p>Điều hướng trực tiếp đến các khu vực điều phối hằng ngày.</p>
+          </div>
+          <span class="dashboard-panel__icon material-symbols-outlined" aria-hidden="true">bolt</span>
+        </header>
+
+        <nav class="dashboard-link-grid">
+          <a routerLink="/staff/appointments"><span class="material-symbols-outlined">queue</span> Quản lý hàng đợi</a>
+          <a routerLink="/staff/work-schedules"><span class="material-symbols-outlined">calendar_month</span> Lịch làm việc</a>
+          <a routerLink="/staff/work-schedule-blocks"><span class="material-symbols-outlined">event_busy</span> Lịch nghỉ đã duyệt</a>
+          <a routerLink="/staff/doctors"><span class="material-symbols-outlined">medical_services</span> Tra cứu bác sĩ</a>
+        </nav>
+      </section>
+    }
+  }
+</section>

@@ -1,0 +1,134 @@
+@import '../../specialties/pages/specialties-page.component.scss';
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.reset-password-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgb(15 23 42 / 45%);
+}
+
+.reset-password-modal {
+  width: min(440px, 100%);
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgb(15 23 42 / 20%);
+}
+
+.reset-password-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px 14px;
+  border-bottom: 1px solid #dbeafe;
+
+  h2 {
+    margin: 0;
+    color: #0f3d66;
+    font-size: 20px;
+  }
+
+  p {
+    margin: 4px 0 0;
+    color: #5f7fa3;
+    font-size: 13px;
+  }
+}
+
+.reset-password-form {
+  display: grid;
+  gap: 14px;
+  padding: 18px 22px 22px;
+
+  label {
+    display: grid;
+    gap: 7px;
+    color: #24496f;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  input {
+    width: 100%;
+    border: 1px solid #bdd2ea;
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: #12314f;
+    font: inherit;
+  }
+
+  small {
+    color: #b91c1c;
+    font-weight: 700;
+  }
+}
+
+.reset-password-note {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #cfe4f6;
+  border-radius: 8px;
+  background: #f3f9ff;
+  color: #163a5f;
+
+  .material-symbols-outlined {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: #e3f1ff;
+    color: #0f5f9f;
+  }
+
+  strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #0f3d66;
+  }
+
+  p {
+    margin: 0;
+    color: #52708d;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+}
+
+.reset-password-form .form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.icon-close {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #cbdff5;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #345f89;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}

@@ -1,0 +1,4 @@
+[console_scripts]
+ai-engine-predict = ai_engine.predict:main
+ai-engine-serve = ai_engine.server:main
+ai-engine-train = ai_engine.train:main

@@ -1,0 +1,24 @@
+<main class="app-shell">
+  <router-outlet></router-outlet>
+</main>
+
+<app-notification-modal
+  [isOpen]="notificationService.notification().isOpen"
+  [message]="notificationService.notification().message"
+  [type]="notificationService.notification().type"
+  [title]="notificationService.notification().title"
+  [autoCloseMs]="notificationService.notification().autoCloseMs"
+  [version]="notificationService.notification().version"
+  (closed)="notificationService.close()"
+/>
+
+<app-confirmation-modal
+  [isOpen]="confirmationService.confirmation().isOpen"
+  [title]="confirmationService.confirmation().title"
+  [message]="confirmationService.confirmation().message"
+  [confirmText]="confirmationService.confirmation().confirmText"
+  [cancelText]="confirmationService.confirmation().cancelText"
+  [tone]="confirmationService.confirmation().tone"
+  (confirmed)="confirmationService.accept()"
+  (cancelled)="confirmationService.cancel()"
+/>

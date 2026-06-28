@@ -1,0 +1,24 @@
+import { Component, inject } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
+import { ConfirmationService } from './core/services/confirmation.service';
+import { IdleSessionService } from './core/services/idle-session.service';
+import { NotificationService } from './core/services/notification.service';
+import { ConfirmationModalComponent } from './shared/components/confirmation-modal/confirmation-modal.component';
+import { NotificationModalComponent } from './shared/components/notification-modal/notification-modal.component';
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [RouterOutlet, NotificationModalComponent, ConfirmationModalComponent],
+  templateUrl: './app.component.html',
+  styleUrl: './app.component.css'
+})
+export class AppComponent {
+  private readonly idleSessionService = inject(IdleSessionService);
+  protected readonly notificationService = inject(NotificationService);
+  protected readonly confirmationService = inject(ConfirmationService);
+
+  constructor() {
+    this.idleSessionService.startMonitoring();
+  }
+}

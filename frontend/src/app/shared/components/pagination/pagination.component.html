@@ -1,0 +1,40 @@
+@if (totalItems > 0) {
+  <div class="pagination">
+    <p class="pagination__summary">Hiển thị {{ startItem }}-{{ endItem }} trên {{ totalItems }} bản ghi</p>
+
+    <div class="pagination__controls">
+      <button class="button-secondary" type="button" (click)="goToPage(safePage - 1)" [disabled]="safePage === 1">Trước</button>
+
+      <div class="pagination__pages" role="group" aria-label="Phân trang">
+        @for (item of visiblePages; track item) {
+          <button
+            type="button"
+            class="button-secondary"
+            [class.pagination__page--active]="item === safePage"
+            (click)="goToPage(item)"
+          >
+            {{ item }}
+          </button>
+        }
+      </div>
+
+      <button
+        class="button-secondary"
+        type="button"
+        (click)="goToPage(safePage + 1)"
+        [disabled]="safePage === totalPages"
+      >
+        Sau
+      </button>
+
+      <label class="pagination__size">
+        <span>/ trang</span>
+        <select [value]="pageSize" (change)="onPageSizeChanged($any($event.target).value)">
+          @for (size of pageSizeOptions; track size) {
+            <option [value]="size">{{ size }}</option>
+          }
+        </select>
+      </label>
+    </div>
+  </div>
+}

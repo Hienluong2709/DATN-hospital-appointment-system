@@ -1,0 +1,109 @@
+@if (isOpen) {
+  <div class="modal-overlay" (click)="onOverlayClick()">
+    <article class="modal-card" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <h2>{{ isEditMode ? 'Cập nhật bác sĩ' : 'Tạo bác sĩ mới' }}</h2>
+        <button class="icon-close" type="button" (click)="onCloseClick()" [disabled]="isSubmitting">x</button>
+      </header>
+
+      <form class="doctor-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+        <label>
+          <span>Bác sĩ / tài khoản bác sĩ</span>
+          <div class="search-combobox" (focusout)="onUserSearchBlur()">
+            <div class="search-combobox__control">
+              <input
+                type="text"
+                [value]="userSearchTerm"
+                (focus)="onUserSearchFocus()"
+                (input)="onUserSearchInput($any($event.target).value)"
+                placeholder="Chọn hoặc gõ tên tài khoản bác sĩ"
+                autocomplete="off"
+              />
+              <button
+                class="search-combobox__toggle"
+                type="button"
+                (click)="toggleUserDropdown()"
+                [attr.aria-label]="isUserDropdownOpen ? 'Thu gọn danh sách bác sĩ' : 'Mở danh sách bác sĩ'"
+              >
+                <span class="material-symbols-outlined">expand_more</span>
+              </button>
+            </div>
+
+            @if (isUserDropdownOpen) {
+              <div class="search-combobox__menu">
+                @if (filteredDoctorUsers.length) {
+                  @for (user of filteredDoctorUsers; track user.id) {
+                    <button
+                      class="search-combobox__option"
+                      type="button"
+                      (click)="selectDoctorUser(user)"
+                    >
+                      <span class="search-combobox__option-title">{{ getDoctorUserLabel(user) }}</span>
+                      <span class="search-combobox__option-meta">{{ user.email || user.phone || 'Tài khoản bác sĩ' }}</span>
+                    </button>
+                  }
+                } @else {
+                  <div class="search-combobox__empty">Không tìm thấy tài khoản bác sĩ phù hợp.</div>
+                }
+              </div>
+            }
+          </div>
+          @if (userInvalid) {
+            <small>Vui lòng chọn tài khoản bác sĩ.</small>
+          }
+        </label>
+
+        <div class="grid-2">
+          <label>
+            <span>Chuyên khoa</span>
+            <select formControlName="specialty_id" (change)="onSpecialtyChange($any($event.target).value)">
+              <option [ngValue]="0" disabled>Chọn chuyên khoa</option>
+              @for (specialty of specialties; track specialty.id) {
+                <option [ngValue]="specialty.id">{{ specialty.name }}</option>
+              }
+            </select>
+            @if (specialtyInvalid) {
+              <small>Vui lòng chọn chuyên khoa.</small>
+            }
+          </label>
+
+          <label>
+            <span>Phòng</span>
+            <select formControlName="room_id">
+              <option [ngValue]="null">Không chọn phòng</option>
+              @for (room of filteredRooms.length ? filteredRooms : rooms; track room.id) {
+                <option [ngValue]="room.id">{{ room.name }}</option>
+              }
+            </select>
+            @if (roomInvalid) {
+              <small>Phòng đã chọn phải thuộc chuyên khoa hiện tại.</small>
+            }
+          </label>
+        </div>
+
+        <label>
+          <span>Trạng thái</span>
+          <select formControlName="status">
+            @for (status of statusOptions; track status) {
+              <option [value]="status">{{ getDoctorStatusLabel(status) }}</option>
+            }
+          </select>
+        </label>
+
+        <label>
+          <span>Mô tả</span>
+          <textarea rows="3" formControlName="description" placeholder="Mô tả chuyên môn hoặc ghi chú"></textarea>
+        </label>
+
+        <div class="form-actions">
+          <button class="button-primary" type="submit" [disabled]="isSubmitting || !specialties.length">
+            {{ isSubmitting ? 'Đang xử lý...' : isEditMode ? 'Lưu cập nhật' : 'Thêm bác sĩ' }}
+          </button>
+          <button class="button-secondary" type="button" (click)="onCloseClick()" [disabled]="isSubmitting">
+            Đóng
+          </button>
+        </div>
+      </form>
+    </article>
+  </div>
+}

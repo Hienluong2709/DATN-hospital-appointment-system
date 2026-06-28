@@ -1,0 +1,380 @@
+<section class="patient-landing">
+  <app-portal-topbar
+    [portal]="'patient'"
+    [isAuthenticated]="isLoggedIn"
+    [breadcrumbLabel]="isLoggedIn ? 'Patient Portal' : 'Welcome'" />
+
+  <div class="patient-landing__content">
+
+    <!-- LOGGED-IN VIEW -->
+    @if (isLoggedIn) {
+      <div class="welcome-card">
+        <div class="welcome-content">
+          <p class="eyebrow">Chào mừng trở lại</p>
+          <h1>Xin chào, {{ accountLabel }}!</h1>
+          <p class="welcome-description">
+            Khám phá dịch vụ, đội ngũ bác sĩ và chuyên khoa nổi bật của bệnh viện trước khi đặt lịch khám.
+          </p>
+          <div class="welcome-actions">
+            <a class="btn-primary" [routerLink]="'/patient/appointments'">Xem lịch khám</a>
+            <a class="btn-secondary" [routerLink]="'/patient/appointments'">Đặt lịch khám mới</a>
+          </div>
+        </div>
+      </div>
+
+      <section class="section-block patient-dashboard-block">
+        <header>
+          <div>
+            <p class="patient-dashboard-eyebrow">Dashboard bệnh nhân</p>
+            <h2>Tổng quan lịch khám của tôi</h2>
+            <p>Theo dõi nhanh lịch sắp tới, trạng thái tiếp nhận và lịch sử khám gần đây.</p>
+          </div>
+          <button type="button" class="patient-refresh-button" (click)="loadPatientSummary()" [disabled]="isLoadingPatientSummary">
+            {{ isLoadingPatientSummary ? 'Đang tải...' : 'Tải lại' }}
+          </button>
+        </header>
+
+        @if (isLoadingPatientSummary) {
+          <div class="patient-dashboard-empty">Đang tải dữ liệu lịch khám cá nhân...</div>
+        } @else if (patientSummaryErrorMessage) {
+          <div class="patient-dashboard-empty patient-dashboard-empty--error">{{ patientSummaryErrorMessage }}</div>
+        } @else {
+          @if (patientSummary; as currentSummary) {
+            <div class="dashboard-kpi-grid patient-kpi-grid">
+              @for (card of currentSummary.kpis; track card.key) {
+                <article class="dashboard-kpi-card">
+                  <span class="dashboard-kpi-card__icon material-symbols-outlined" aria-hidden="true">event_note</span>
+                  <div>
+                    <span class="dashboard-kpi-label">{{ card.label }}</span>
+                    <strong class="dashboard-kpi-value">{{ card.value }}</strong>
+                    @if (card.note) {
+                      <p class="dashboard-kpi-note">{{ card.note }}</p>
+                    }
+                  </div>
+                </article>
+              }
+            </div>
+
+            <div class="patient-dashboard-panel-grid">
+              <article class="patient-dashboard-panel">
+                <header>
+                  <span class="material-symbols-outlined" aria-hidden="true">upcoming</span>
+                  <div>
+                    <h3>Lịch khám sắp tới</h3>
+                    <p>Các lịch còn hiệu lực để bạn chuẩn bị trước khi đến viện.</p>
+                  </div>
+                </header>
+
+                @if (currentSummary.next_appointments.length) {
+                  <div class="patient-appointment-list">
+                    @for (appointment of currentSummary.next_appointments; track appointment.id) {
+                      <article class="patient-appointment-item">
+                        <div>
+                          <strong>{{ appointment.doctor_name || 'Bác sĩ' }}</strong>
+                          <span>{{ appointment.date }} · {{ formatTime(appointment.time_slot) }}</span>
+                          @if (appointment.specialty_name) {
+                            <span>{{ appointment.specialty_name }}</span>
+                          }
+                        </div>
+                        <span class="status-badge" [ngClass]="getPatientAppointmentStatusClass(appointment.status)">
+                          {{ getAppointmentStatusLabel(appointment.status) }}
+                        </span>
+                      </article>
+                    }
+                  </div>
+                } @else {
+                  <div class="patient-dashboard-empty">Bạn chưa có lịch khám sắp tới.</div>
+                }
+              </article>
+
+              <article class="patient-dashboard-panel">
+                <header>
+                  <span class="material-symbols-outlined" aria-hidden="true">history</span>
+                  <div>
+                    <h3>Lịch sử gần đây</h3>
+                    <p>Các lượt khám đã hoàn tất, đã hủy hoặc vắng mặt gần nhất.</p>
+                  </div>
+                </header>
+
+                @if (currentSummary.recent_visits.length) {
+                  <div class="patient-appointment-list">
+                    @for (appointment of currentSummary.recent_visits; track appointment.id) {
+                      <article class="patient-appointment-item">
+                        <div>
+                          <strong>{{ appointment.doctor_name || 'Bác sĩ' }}</strong>
+                          <span>{{ appointment.date }} · {{ formatTime(appointment.time_slot) }}</span>
+                          @if (appointment.specialty_name) {
+                            <span>{{ appointment.specialty_name }}</span>
+                          }
+                        </div>
+                        <span class="status-badge" [ngClass]="getPatientAppointmentStatusClass(appointment.status)">
+                          {{ getAppointmentStatusLabel(appointment.status) }}
+                        </span>
+                      </article>
+                    }
+                  </div>
+                } @else {
+                  <div class="patient-dashboard-empty">Chưa có lịch sử khám gần đây.</div>
+                }
+              </article>
+            </div>
+          }
+        }
+      </section>
+
+      @if (publicErrorMessage) {
+        <section class="section-block callout">
+          <h2>Không thể tải dữ liệu giới thiệu bệnh viện</h2>
+          <p>{{ publicErrorMessage }}</p>
+        </section>
+      }
+
+      <section class="section-block">
+        <header>
+          <h2>Thông tin nhanh</h2>
+          <p>Các dịch vụ và thông tin cần thiết cho bạn.</p>
+        </header>
+
+        <div class="feature-grid">
+          @for (item of featuredBenefits; track item.title) {
+            <article class="feature-item">
+              <h3>{{ item.title }}</h3>
+              <p>{{ item.description }}</p>
+            </article>
+          }
+        </div>
+      </section>
+
+      <section class="section-block doctor-section">
+        <header>
+          <h2>Đội ngũ bác sĩ chuyên khoa</h2>
+          <p>Các bác sĩ có kinh nghiệm sẵn sàng phục vụ bạn.</p>
+        </header>
+
+        <div class="doctor-grid">
+          @for (doctor of doctors; track doctor.name; let index = $index) {
+            <article class="doctor-card">
+              <div class="doctor-card__visual" [style]="getDoctorVisualStyle(doctor, index)" aria-hidden="true">
+                <img
+                  [src]="getDoctorImageUrl(doctor, index)"
+                  [alt]="doctor.name"
+                  [style.object-position]="getDoctorImagePosition(index)"
+                  loading="lazy"
+                />
+                <span class="doctor-card__initials">{{ getInitials(doctor.name) }}</span>
+              </div>
+              <div class="doctor-card__content">
+                <h3>{{ doctor.name }}</h3>
+                <p class="doctor-specialty">{{ doctor.specialty }}</p>
+                <p class="doctor-description">{{ getDoctorDescription(doctor) }}</p>
+              </div>
+            </article>
+          }
+        </div>
+      </section>
+
+      <section class="section-block soft">
+        <header>
+          <h2>Chuyên khoa nổi bật</h2>
+          <p>Tham khảo nhanh các chuyên khoa đang phục vụ để chọn hướng khám phù hợp.</p>
+        </header>
+
+        <div class="department-grid">
+          @for (item of departments; track item.name; let index = $index) {
+            <article class="department-card">
+              <div class="department-card__visual" [style]="getSpecialtyVisualStyle(item, index)" aria-hidden="true">
+                <img [src]="getSpecialtyImageUrl(item, index)" [alt]="item.name" loading="lazy" />
+                <span>{{ getSpecialtyShortName(item.name) }}</span>
+              </div>
+              <div class="department-card__content">
+                <h3>{{ item.name }}</h3>
+                <p>{{ item.description || 'Thông tin chuyên khoa đang được cập nhật.' }}</p>
+              </div>
+            </article>
+          }
+        </div>
+      </section>
+
+      <section class="section-block callout">
+        <h2>Sẵn sàng đặt lịch khám?</h2>
+        <p>
+          Bạn có thể xem lịch hẹn hiện tại, đặt lịch mới hoặc tiếp tục tra cứu thông tin bệnh viện ngay tại đây.
+        </p>
+        <div class="hero-actions">
+          <a class="btn-primary" [routerLink]="'/patient/appointments'">Đặt lịch ngay</a>
+          <a class="btn-secondary" href="#doctor-section">Xem đội ngũ bác sĩ</a>
+        </div>
+      </section>
+    }
+
+    <!-- PUBLIC VIEW (NOT LOGGED IN) -->
+    @if (!isLoggedIn) {
+      <div class="hero-card">
+        <div class="hero-content">
+          <p class="eyebrow">Bệnh viện Đa khoa Hien Luong</p>
+          <h1>Chăm sóc sức khỏe gia đình tận tâm, an toàn và hiện đại</h1>
+          <p class="hero-description">
+            Từ khoa khám tổng quát đến các chuyên khoa chuyên sâu, bệnh viện mang đến trải nghiệm
+            khám chữa bệnh thân thiện, rõ ràng chi phí và tối ưu thời gian cho bệnh nhân.
+          </p>
+          <p class="hero-note">
+            Bạn có thể xem thông tin bệnh viện ngay tại đây. Tài khoản bệnh nhân chỉ cần thiết khi bắt đầu đặt lịch hoặc tra cứu lịch hẹn.
+          </p>
+
+          <div class="hero-actions">
+            <a class="btn-primary" [routerLink]="'/login'" [queryParams]="{ redirect: '/patient/appointments' }">Đăng nhập để đặt lịch</a>
+            <a class="btn-secondary" [routerLink]="'/register'">Tạo tài khoản bệnh nhân</a>
+          </div>
+
+          <div class="hero-links">
+            <a [routerLink]="'/register'">Chưa có tài khoản? Đăng ký ngay</a>
+            <a href="#booking-flow">Xem quy trình đặt lịch</a>
+            <a href="#doctor-section">Xem bác sĩ</a>
+            <a href="#department-section">Xem chuyên khoa</a>
+          </div>
+        </div>
+
+        <div class="hero-highlight">
+          @for (item of trustIndicators; track item.label) {
+            <article>
+              <strong>{{ item.value }}</strong>
+              <span>{{ item.label }}</span>
+            </article>
+          }
+        </div>
+      </div>
+
+      <section class="section-block soft" id="booking-flow">
+        <header>
+          <h2>Quy trình đặt lịch cho bệnh nhân</h2>
+          <p>Luồng sử dụng được tách rõ: xem thông tin công khai trước, chỉ đăng nhập khi thực sự cần đặt lịch khám.</p>
+        </header>
+
+        <div class="booking-step-grid">
+          @for (item of bookingSteps; track item.step) {
+            <article class="booking-step-card">
+              <span class="booking-step-card__index">{{ item.step }}</span>
+              <h3>{{ item.title }}</h3>
+              <p>{{ item.description }}</p>
+            </article>
+          }
+        </div>
+      </section>
+
+      <section class="section-block">
+        <header>
+          <h2>Vì sao bệnh nhân lựa chọn chúng tôi</h2>
+          <p>Quy trình gọn gàng, đội ngũ tận tâm và hệ thống hỗ trợ liên tục từ đặt lịch đến tái khám.</p>
+        </header>
+
+        <div class="feature-grid">
+          @for (item of featuredBenefits; track item.title) {
+            <article class="feature-item">
+              <h3>{{ item.title }}</h3>
+              <p>{{ item.description }}</p>
+            </article>
+          }
+        </div>
+      </section>
+
+      <section class="section-block doctor-section" id="doctor-section">
+        <header>
+          <h2>Giới thiệu bác sĩ</h2>
+          <p>Đội ngũ bác sĩ có kinh nghiệm, luôn đồng hành cùng bệnh nhân trong khám, chẩn đoán và tái khám.</p>
+        </header>
+
+        <div class="doctor-grid">
+          @for (doctor of doctors; track doctor.name; let index = $index) {
+            <article class="doctor-card">
+              <div class="doctor-card__visual" [style]="getDoctorVisualStyle(doctor, index)" aria-hidden="true">
+                <img
+                  [src]="getDoctorImageUrl(doctor, index)"
+                  [alt]="doctor.name"
+                  [style.object-position]="getDoctorImagePosition(index)"
+                  loading="lazy"
+                />
+                <span class="doctor-card__initials">{{ getInitials(doctor.name) }}</span>
+              </div>
+              <div class="doctor-card__content">
+                <h3>{{ doctor.name }}</h3>
+                <p class="doctor-specialty">{{ doctor.specialty }}</p>
+                <p class="doctor-description">{{ getDoctorDescription(doctor) }}</p>
+              </div>
+            </article>
+          }
+        </div>
+      </section>
+
+      <section class="section-block soft" id="department-section">
+        <header>
+          <h2>Chuyên khoa nổi bật</h2>
+          <p>Hệ thống chuyên khoa được bố trí theo nhu cầu khám phổ biến, dễ tiếp cận và dễ theo dõi.</p>
+        </header>
+
+        <div class="department-grid">
+          @for (item of departments; track item.name; let index = $index) {
+            <article class="department-card">
+              <div class="department-card__visual" [style]="getSpecialtyVisualStyle(item, index)" aria-hidden="true">
+                <img [src]="getSpecialtyImageUrl(item, index)" [alt]="item.name" loading="lazy" />
+                <span>{{ getSpecialtyShortName(item.name) }}</span>
+              </div>
+              <div class="department-card__content">
+                <h3>{{ item.name }}</h3>
+                <p>{{ item.description || 'Thông tin chuyên khoa đang được cập nhật.' }}</p>
+              </div>
+            </article>
+          }
+        </div>
+      </section>
+
+      <section class="section-block callout">
+        <h2>Sẵn sàng đặt lịch khám?</h2>
+        <p>Đăng nhập nếu bạn đã có tài khoản, hoặc tạo tài khoản mới để bắt đầu đặt lịch và theo dõi lịch hẹn trực tuyến.</p>
+        <div class="hero-actions">
+          <a class="btn-primary" [routerLink]="'/login'">Đăng nhập bệnh nhân</a>
+          <a class="btn-secondary" [routerLink]="'/register'">Đăng ký tài khoản</a>
+        </div>
+      </section>
+    }
+  </div>
+
+  <footer class="patient-footer">
+    <div class="patient-footer__grid">
+      <section class="patient-footer__brand">
+        <p class="patient-footer__eyebrow">Hospital System</p>
+        <h2>Bệnh viện Đa khoa Hien Luong</h2>
+        <p>
+          Cổng thông tin bệnh nhân hỗ trợ xem thông tin bệnh viện, chuyên khoa, đội ngũ bác sĩ và
+          đặt lịch khám thuận tiện trên cùng một nền tảng.
+        </p>
+      </section>
+
+      <section>
+        <h3>Điều hướng nhanh</h3>
+        <nav class="patient-footer__links">
+          <a [routerLink]="isLoggedIn ? '/patient/appointments' : '/login'">Đặt lịch khám</a>
+          <a href="#doctor-section">Đội ngũ bác sĩ</a>
+          <a href="#department-section">Chuyên khoa</a>
+          <a [routerLink]="isLoggedIn ? '/patient/appointments' : '/register'">
+            {{ isLoggedIn ? 'Lịch khám của tôi' : 'Tạo tài khoản bệnh nhân' }}
+          </a>
+        </nav>
+      </section>
+
+      <section>
+        <h3>Liên hệ hỗ trợ</h3>
+        <ul class="patient-footer__meta">
+          <li>Tổng đài: 1900 6868</li>
+          <li>Email: support&#64;luong-hospital.vn</li>
+          <li>Địa chỉ: 123 Nguyễn Văn Cừ, Quận 5, TP. Hồ Chí Minh</li>
+          <li>Hỗ trợ: 07:00 - 20:00 mỗi ngày</li>
+        </ul>
+      </section>
+    </div>
+
+    <div class="patient-footer__bottom">
+      <span>© 2026 Luong Hospital. All rights reserved.</span>
+      <span>Chăm sóc sức khỏe an toàn, minh bạch và thuận tiện cho bệnh nhân.</span>
+    </div>
+  </footer>
+</section>
