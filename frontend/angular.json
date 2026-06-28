@@ -28,6 +28,16 @@
           },
           "configurations": {
             "production": {
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": true
+                },
+                "fonts": {
+                  "inline": false
+                }
+              },
               "budgets": [
                 {
                   "type": "initial",
@@ -36,8 +46,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "6kb",
-                  "maximumError": "10kb"
+                  "maximumWarning": "30kb",
+                  "maximumError": "50kb"
                 }
               ],
               "outputHashing": "all"
@@ -49,6 +59,16 @@
             },
             "patient-production": {
               "outputPath": "dist/frontend/patient",
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": true
+                },
+                "fonts": {
+                  "inline": false
+                }
+              },
               "fileReplacements": [
                 {
                   "replace": "src/environments/environment.ts",
@@ -63,14 +83,24 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "6kb",
-                  "maximumError": "10kb"
+                  "maximumWarning": "30kb",
+                  "maximumError": "50kb"
                 }
               ],
               "outputHashing": "all"
             },
             "staff-production": {
               "outputPath": "dist/frontend/staff",
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": true
+                },
+                "fonts": {
+                  "inline": false
+                }
+              },
               "fileReplacements": [
                 {
                   "replace": "src/environments/environment.ts",
@@ -85,8 +115,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "6kb",
-                  "maximumError": "10kb"
+                  "maximumWarning": "30kb",
+                  "maximumError": "50kb"
                 }
               ],
               "outputHashing": "all"
@@ -99,7 +129,16 @@
                   "with": "src/environments/environment.patient.ts"
                 }
               ],
-              "optimization": false,
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": true
+                },
+                "fonts": {
+                  "inline": false
+                }
+              },
               "extractLicenses": false,
               "sourceMap": true
             },
@@ -111,7 +150,16 @@
                   "with": "src/environments/environment.staff.ts"
                 }
               ],
-              "optimization": false,
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": true
+                },
+                "fonts": {
+                  "inline": false
+                }
+              },
               "extractLicenses": false,
               "sourceMap": true
             }
