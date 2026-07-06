@@ -26,6 +26,7 @@ const MAX_ACTUAL_END_DURATION_MINUTES =
 const QUEUE_APPOINTMENT_UNIQUE_INDEX = "uq_queues_appointment_id";
 const QUEUE_DOCTOR_DATE_NUMBER_UNIQUE_INDEX = "uq_queues_doctor_date_queue_number";
 
+// Chuyển offset timezone dạng +/-HH:mm sang số phút.
 const parseUtcOffsetToMinutes = (offsetValue) => {
   const matched = /^([+-])(\d{2}):(\d{2})$/.exec(offsetValue);
   if (!matched) {
@@ -49,6 +50,7 @@ const parseUtcOffsetToMinutes = (offsetValue) => {
 
 const BUSINESS_TIMEZONE_OFFSET_MINUTES = parseUtcOffsetToMinutes(BUSINESS_TIMEZONE_OFFSET);
 
+// Format Date thành chuỗi datetime theo timezone nghiệp vụ.
 const formatDateTimeWithBusinessOffset = (dateValue) => {
   if (!dateValue) {
     return null;
@@ -70,6 +72,7 @@ const formatDateTimeWithBusinessOffset = (dateValue) => {
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}${BUSINESS_TIMEZONE_OFFSET}`;
 };
 
+// Lấy ngày nghiệp vụ YYYY-MM-DD từ một mốc datetime.
 const getBusinessDateStringFromDateTime = (dateValue) => {
   if (!dateValue) {
     return null;
@@ -87,10 +90,7 @@ const getBusinessDateStringFromDateTime = (dateValue) => {
   return `${year}-${month}-${day}`;
 };
 
-const getTodayBusinessDateString = () => {
-  return getBusinessDateStringFromDateTime(new Date());
-};
-
+// Chuẩn hóa dữ liệu hàng đợi và tính remaining_wait_minutes trước khi trả về client.
 const serializeQueueDateTimes = (queueRow) => {
   const data = typeof queueRow?.toJSON === "function" ? queueRow.toJSON() : queueRow;
   if (!data) {
@@ -122,6 +122,7 @@ const serializeQueueDateTimes = (queueRow) => {
   };
 };
 
+// Chuyển ID đầu vào về số nguyên dương.
 const parseId = (id) => {
   const parsed = Number(id);
   if (!Number.isInteger(parsed) || parsed <= 0) {
@@ -142,6 +143,7 @@ const APPOINTMENT_STATUS_VALUES = new Set([
 ]);
 const APPOINTMENT_PRIORITY_VALUES = new Set(["Normal", "Priority", "Emergency"]);
 
+// Chuẩn hóa doctor_id tùy chọn khi lọc hàng đợi.
 const normalizeOptionalDoctorId = (value) => {
   if (value === undefined || value === null || value === "") {
     return null;
@@ -150,6 +152,7 @@ const normalizeOptionalDoctorId = (value) => {
   return parseId(value);
 };
 
+// Chuẩn hóa ngày hàng đợi tùy chọn theo định dạng YYYY-MM-DD.
 const normalizeOptionalQueueDate = (value) => {
   if (value === undefined || value === null || value === "") {
     return null;
@@ -165,6 +168,7 @@ const normalizeOptionalQueueDate = (value) => {
   return trimmed;
 };
 
+// Chuẩn hóa trạng thái lịch hẹn khi lọc hàng đợi.
 const normalizeOptionalAppointmentStatus = (value) => {
   if (value === undefined || value === null || value === "" || value === "ALL") {
     return null;
@@ -180,6 +184,7 @@ const normalizeOptionalAppointmentStatus = (value) => {
   return trimmed;
 };
 
+// Chuẩn hóa mức ưu tiên tùy chọn khi check-in.
 const normalizeOptionalPriorityLevel = (value) => {
   if (value === undefined || value === null || value === "") {
     return null;
@@ -195,6 +200,7 @@ const normalizeOptionalPriorityLevel = (value) => {
   return trimmed;
 };
 
+// Chuẩn hóa một giá trị số nguyên dương.
 const normalizePositiveInteger = (value, fieldName) => {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0) {
@@ -205,6 +211,7 @@ const normalizePositiveInteger = (value, fieldName) => {
   return parsed;
 };
 
+// Chuẩn hóa datetime tùy chọn cho các mốc dự kiến/thực tế.
 const normalizeDateTime = (value, fieldName) => {
   if (value === undefined || value === null || value === "") {
     return null;
@@ -220,6 +227,7 @@ const normalizeDateTime = (value, fieldName) => {
   return parsed;
 };
 
+// Suy ra giờ khám dự kiến ban đầu từ date và time_slot của lịch hẹn.
 const deriveEstimatedStartFromAppointment = (appointment) => {
   const dateValue = String(appointment?.date || "").slice(0, 10);
   const timeValue = String(appointment?.time_slot || "").slice(0, 8);
@@ -238,6 +246,7 @@ const deriveEstimatedStartFromAppointment = (appointment) => {
   return new Date(utcTimestamp);
 };
 
+// Xác định estimated_start khi tạo queue từ payload, time_slot hoặc mô phỏng lịch hẹn.
 const resolveEstimatedStartForQueue = async (appointment, payload, transaction) => {
   const hasEstimatedStartInPayload = Object.prototype.hasOwnProperty.call(payload || {}, "estimated_start");
   if (hasEstimatedStartInPayload) {
@@ -253,6 +262,7 @@ const resolveEstimatedStartForQueue = async (appointment, payload, transaction) 
   return normalizeDateTime(serializedAppointment?.estimated_start, "estimated_start");
 };
 
+// Kiểm tra thời gian kết thúc thực tế không trước thời gian bắt đầu thực tế.
 const ensureTimeOrder = (actualStart, actualEnd) => {
   if (actualStart && actualEnd && actualEnd < actualStart) {
     const error = new Error("Thời gian kết thúc thực tế phải lớn hơn hoặc bằng thời gian bắt đầu thực tế");
@@ -261,6 +271,7 @@ const ensureTimeOrder = (actualStart, actualEnd) => {
   }
 };
 
+// Kiểm tra các mốc thời gian của queue hợp lệ với ngày khám và giới hạn sai lệch.
 const ensureReasonableQueueTimes = ({
   queueDate,
   estimatedStart,
@@ -336,6 +347,7 @@ const ensureReasonableQueueTimes = ({
   ensureTimeOrder(actualStart, actualEnd);
 };
 
+// Kiểm tra lịch hẹn tồn tại và đủ điều kiện để tạo queue/check-in.
 const ensureAppointmentExists = async (appointmentId, transaction) => {
   const parsedAppointmentId = parseId(appointmentId);
   const appointment = await Appointment.findByPk(parsedAppointmentId, {
@@ -376,6 +388,7 @@ const ensureAppointmentExists = async (appointmentId, transaction) => {
   return appointment;
 };
 
+// Kiểm tra quyền check-in nếu thao tác được gọi bởi bác sĩ.
 const ensureCanCheckInAppointment = async (appointment, currentUser, transaction) => {
   if (currentUser?.role !== "DOCTOR") {
     return;
@@ -389,6 +402,7 @@ const ensureCanCheckInAppointment = async (appointment, currentUser, transaction
   }
 };
 
+// Lấy doctor_id tương ứng với user bác sĩ hiện tại.
 const resolveDoctorIdFromCurrentUser = async (currentUser, transaction) => {
   if (currentUser?.role !== "DOCTOR") {
     return null;
@@ -409,6 +423,7 @@ const resolveDoctorIdFromCurrentUser = async (currentUser, transaction) => {
   return doctor.id;
 };
 
+// Đảm bảo bác sĩ chỉ được cập nhật queue thuộc phòng khám của mình.
 const ensureDoctorCanUpdateQueue = async (queue, currentUser, transaction) => {
   if (currentUser?.role !== "DOCTOR") {
     return;
@@ -422,10 +437,12 @@ const ensureDoctorCanUpdateQueue = async (queue, currentUser, transaction) => {
   }
 };
 
+// Nhận diện lỗi vi phạm unique constraint từ Sequelize.
 const isUniqueConstraintViolation = (error) => {
   return error?.name === "SequelizeUniqueConstraintError";
 };
 
+// Chuyển lỗi unique constraint của queue thành thông báo nghiệp vụ.
 const toQueueConflictError = (error) => {
   const constraintName = String(error?.original?.constraint || error?.parent?.constraint || "");
   const errorMessage = String(error?.original?.sqlMessage || error?.parent?.sqlMessage || error?.message || "");
@@ -490,6 +507,7 @@ const queueQueryOptions = {
   ],
 };
 
+// Tạo cấu hình include/order khi truy vấn queue kèm lịch hẹn và dự đoán.
 const createQueueQueryOptions = () => {
   return {
     include: [
@@ -514,6 +532,7 @@ const createQueueQueryOptions = () => {
   };
 };
 
+// Sinh số tiếp nhận tiếp theo theo từng bác sĩ và ngày khám.
 const generateQueueNumber = async (appointmentDate, doctorId, transaction) => {
   const [row] = await EQueueNumber.findOrCreate({
     where: { date: appointmentDate, doctor_id: doctorId },
@@ -536,6 +555,7 @@ const generateQueueNumber = async (appointmentDate, doctorId, transaction) => {
   return row.current_number;
 };
 
+// Đánh lại queue_number liên tục sau khi queue bị hủy/xóa trong ngày của bác sĩ.
 export const reindexQueuesForDoctorDateService = async (doctorId, date, transaction) => {
   if (!doctorId || !date) {
     return;
@@ -592,6 +612,7 @@ export const reindexQueuesForDoctorDateService = async (doctorId, date, transact
   }
 };
 
+// Lấy danh sách hàng đợi theo vai trò người dùng và bộ lọc.
 export const getAllQueuesService = async (currentUser, filters = {}) => {
   const pagination = parsePaginationQuery(filters);
   const queryOptions = createQueueQueryOptions();
@@ -671,6 +692,7 @@ export const getAllQueuesService = async (currentUser, filters = {}) => {
   });
 };
 
+// Lấy chi tiết một lượt queue và kiểm tra quyền xem của bác sĩ.
 export const getQueueByIdService = async (id, currentUser) => {
   const queueId = parseId(id);
   const queue = await Queue.findByPk(queueId, {
@@ -695,6 +717,7 @@ export const getQueueByIdService = async (id, currentUser) => {
   return serializeQueueDateTimes(queue);
 };
 
+// Tạo queue trực tiếp từ appointment_id, dùng cho luồng nội bộ/quản trị.
 export const createQueueService = async (payload) => {
   try {
     const created = await sequelize.transaction(async (transaction) => {
@@ -792,18 +815,13 @@ export const createQueueService = async (payload) => {
   }
 };
 
+// Check-in lịch hẹn: tạo queue, chuyển Appointment sang CheckedIn và tính lại dự báo.
 export const checkInAppointmentService = async (appointmentId, payload, currentUser) => {
   try {
     const created = await sequelize.transaction(async (transaction) => {
       const appointment = await ensureAppointmentExists(appointmentId, transaction);
       await ensureCanCheckInAppointment(appointment, currentUser, transaction);
       const priorityLevel = normalizeOptionalPriorityLevel(payload?.priority_level);
-
-      if (appointment.date !== getTodayBusinessDateString()) {
-        const error = new Error("Chỉ có thể check-in lịch hẹn trong đúng ngày khám");
-        error.statusCode = 409;
-        throw error;
-      }
 
       const existed = await Queue.findOne({
         where: { appointment_id: appointment.id },
@@ -908,6 +926,7 @@ export const checkInAppointmentService = async (appointmentId, payload, currentU
   }
 };
 
+// Cập nhật queue có kiểm soát, hiện không cho sửa thủ công các trường hệ thống quản lý.
 export const updateQueueService = async (id, payload, currentUser) => {
   const queueId = parseId(id);
   const updatedQueueId = await sequelize.transaction(async (transaction) => {
@@ -960,6 +979,7 @@ export const updateQueueService = async (id, payload, currentUser) => {
   return getQueueByIdService(updatedQueueId, currentUser);
 };
 
+// Hủy check-in: xóa queue, đưa Appointment về Confirmed và tính lại dự báo.
 export const deleteQueueService = async (id, currentUser) => {
   const queueId = parseId(id);
   const queue = await Queue.findByPk(queueId, {

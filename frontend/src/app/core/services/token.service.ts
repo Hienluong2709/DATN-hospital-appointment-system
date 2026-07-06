@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 
 import { BackendRole, normalizeBackendRole } from '../models/auth-role.model';
 import { LoginData } from '../../features/auth/models/auth.model';
+import { environment } from '../../../environments/environment';
 
 interface AuthSession {
   accessToken: string;
@@ -23,13 +24,13 @@ export class TokenService {
 
   getAccessToken(): string | null {
     const session = this.getSession();
-    if (session?.accessToken && !this.isTokenExpired(session.accessToken)) {
+    if (session?.accessToken && (environment.disableAuthAutoLogout || !this.isTokenExpired(session.accessToken))) {
       return session.accessToken;
     }
 
     const legacyToken = localStorage.getItem(this.accessTokenKey);
-    if (!legacyToken || this.isTokenExpired(legacyToken)) {
-      if (legacyToken) {
+    if (!legacyToken || (!environment.disableAuthAutoLogout && this.isTokenExpired(legacyToken))) {
+      if (legacyToken && !environment.disableAuthAutoLogout) {
         this.clearSession();
       }
       return null;
@@ -136,7 +137,7 @@ export class TokenService {
       return null;
     }
 
-    if (this.isIsoExpired(session.refreshTokenExpiresAt)) {
+    if (!environment.disableAuthAutoLogout && this.isIsoExpired(session.refreshTokenExpiresAt)) {
       this.clearSession();
       return null;
     }
@@ -150,7 +151,7 @@ export class TokenService {
 
   canRefreshSession(): boolean {
     const session = this.getSession();
-    return !!session?.refreshToken && !this.isIsoExpired(session.refreshTokenExpiresAt);
+    return !!session?.refreshToken && (environment.disableAuthAutoLogout || !this.isIsoExpired(session.refreshTokenExpiresAt));
   }
 
   getCurrentRole(): BackendRole | null {

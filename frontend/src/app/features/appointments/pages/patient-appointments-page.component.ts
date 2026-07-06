@@ -659,12 +659,7 @@ export class PatientAppointmentsPageComponent implements OnInit, OnDestroy {
   }
 
   private getMinimumBookingDateString(): string {
-    const nextDay = new Date();
-    nextDay.setDate(nextDay.getDate() + 1);
-    const year = nextDay.getFullYear();
-    const month = String(nextDay.getMonth() + 1).padStart(2, '0');
-    const day = String(nextDay.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return this.getTodayDateString();
   }
 
   private isActiveAppointment(appointment: Appointment): boolean {

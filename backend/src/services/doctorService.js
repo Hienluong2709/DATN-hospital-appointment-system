@@ -20,7 +20,11 @@ const normalizeNonNegativeIntegerEnv = (value, fallback) => {
 };
 const PATIENT_MIN_BOOKING_DAYS_IN_ADVANCE = normalizeNonNegativeIntegerEnv(
   process.env.PATIENT_MIN_BOOKING_DAYS_IN_ADVANCE,
-  1,
+  0,
+);
+const PATIENT_MIN_BOOKING_LEAD_MINUTES = normalizeNonNegativeIntegerEnv(
+  process.env.PATIENT_MIN_BOOKING_LEAD_MINUTES,
+  60,
 );
 
 const parseDateParts = (dateValue) => {
@@ -187,6 +191,17 @@ const filterPastSlotsForDate = (slots, date, slotMinutes) => {
   }
 
   return slots.filter((slot) => timeToSeconds(slot) + slotMinutes * 60 > currentBusinessSeconds);
+};
+
+const filterSlotsByMinimumLeadForDate = (slots, date, leadMinutes) => {
+  const { date: currentBusinessDate, seconds: currentBusinessSeconds } = getCurrentBusinessDateAndSeconds();
+
+  if (date !== currentBusinessDate || leadMinutes <= 0) {
+    return slots;
+  }
+
+  const minimumStartSeconds = currentBusinessSeconds + leadMinutes * 60;
+  return slots.filter((slot) => timeToSeconds(slot) >= minimumStartSeconds);
 };
 
 const getMinimumPatientBookingDateString = () => {
@@ -530,12 +545,16 @@ export const getDoctorsBySpecialtyAndDateService = async (query, currentUser) =>
           startSeconds: timeToSeconds(toTimeString(block.start_time)),
           endSeconds: timeToSeconds(toTimeString(block.end_time)),
         }));
-      const capacitySlots = filterPastSlotsForDate(
-        sortedCandidates.filter(
-          (slot) => !isSlotBlocked(slot, slotMinutes, blockRanges),
+      const capacitySlots = filterSlotsByMinimumLeadForDate(
+        filterPastSlotsForDate(
+          sortedCandidates.filter(
+            (slot) => !isSlotBlocked(slot, slotMinutes, blockRanges),
+          ),
+          date,
+          slotMinutes,
         ),
         date,
-        slotMinutes,
+        PATIENT_MIN_BOOKING_LEAD_MINUTES,
       );
       const activeAppointmentsCount = activeAppointmentsCountByDoctor.get(doctor.id) || 0;
       const remainingBookingCapacity = capacitySlots.length - activeAppointmentsCount;
@@ -546,12 +565,16 @@ export const getDoctorsBySpecialtyAndDateService = async (query, currentUser) =>
 
       const bookedSlots = Array.from(bookedByDoctor.get(doctor.id) || []).sort();
       const bookedSet = new Set(bookedSlots);
-      const availableSlots = filterPastSlotsForDate(
-        sortedCandidates.filter(
-          (slot) => !bookedSet.has(slot) && !isSlotBlocked(slot, slotMinutes, blockRanges),
+      const availableSlots = filterSlotsByMinimumLeadForDate(
+        filterPastSlotsForDate(
+          sortedCandidates.filter(
+            (slot) => !bookedSet.has(slot) && !isSlotBlocked(slot, slotMinutes, blockRanges),
+          ),
+          date,
+          slotMinutes,
         ),
         date,
-        slotMinutes,
+        PATIENT_MIN_BOOKING_LEAD_MINUTES,
       );
 
       if (availableSlots.length === 0) {

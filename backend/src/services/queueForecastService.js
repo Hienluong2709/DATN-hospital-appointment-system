@@ -41,9 +41,11 @@ const QUEUE_PRIORITY_RANK = Object.freeze({
   Normal: 2,
 });
 
+// Loại các queue không còn tham gia dự báo như Cancelled hoặc NoShow.
 const shouldExcludeFromActiveForecast = (queueLike) =>
   FORECAST_EXCLUDED_APPOINTMENT_STATUSES.has(queueLike?.Appointment?.status);
 
+// Chuyển offset timezone dạng +/-HH:mm sang số phút.
 const parseUtcOffsetToMinutes = (offsetValue) => {
   const matched = /^([+-])(\d{2}):(\d{2})$/.exec(offsetValue);
   if (!matched) {
@@ -56,11 +58,13 @@ const parseUtcOffsetToMinutes = (offsetValue) => {
 
 const BUSINESS_TIMEZONE_OFFSET_MINUTES = parseUtcOffsetToMinutes(BUSINESS_TIMEZONE_OFFSET);
 
+// Tách ngày YYYY-MM-DD thành year, month, day.
 const parseDateParts = (dateValue) => {
   const [year, month, day] = String(dateValue).split("-").map(Number);
   return { year, month, day };
 };
 
+// Lấy ngày hiện tại và số giây trong ngày theo timezone nghiệp vụ.
 const getCurrentBusinessDateAndSeconds = () => {
   const shifted = new Date(Date.now() + BUSINESS_TIMEZONE_OFFSET_MINUTES * 60 * 1000);
   const year = shifted.getUTCFullYear();
@@ -76,16 +80,19 @@ const getCurrentBusinessDateAndSeconds = () => {
   };
 };
 
+// Lấy thứ trong tuần từ ngày khám.
 const getDayOfWeekFromDate = (dateValue) => {
   const { year, month, day } = parseDateParts(dateValue);
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
 };
 
+// Chuyển giờ HH:mm:ss thành số giây trong ngày.
 const timeToSeconds = (timeValue) => {
   const [hours, minutes, seconds] = String(timeValue).slice(0, 8).split(":").map(Number);
   return hours * 3600 + minutes * 60 + seconds;
 };
 
+// Chuyển số giây trong ngày thành giờ HH:mm:ss.
 const secondsToTime = (secondsValue) => {
   const hours = String(Math.floor(secondsValue / 3600)).padStart(2, "0");
   const minutes = String(Math.floor((secondsValue % 3600) / 60)).padStart(2, "0");
@@ -93,12 +100,15 @@ const secondsToTime = (secondsValue) => {
   return `${hours}:${minutes}:${seconds}`;
 };
 
+// Cắt giá trị thời gian về định dạng HH:mm:ss.
 const toTimeString = (value) => String(value).slice(0, 8);
 
+// Kiểm tra hai khoảng thời gian có giao nhau không.
 const doesTimeRangeOverlap = (startA, endA, startB, endB) => {
   return startA < endB && endA > startB;
 };
 
+// Kiểm tra một slot có nằm trong khoảng bác sĩ tạm ngưng không.
 const isSlotBlocked = (slotTime, slotMinutes, blockRanges) => {
   const slotStart = timeToSeconds(slotTime);
   const slotEnd = slotStart + slotMinutes * 60;
@@ -108,6 +118,7 @@ const isSlotBlocked = (slotTime, slotMinutes, blockRanges) => {
   );
 };
 
+// Sinh danh sách slot khám từ giờ bắt đầu đến giờ kết thúc.
 const buildTimeSlots = (startTime, endTime, slotMinutes) => {
   const stepSeconds = slotMinutes * 60;
   const slots = [];
@@ -121,6 +132,7 @@ const buildTimeSlots = (startTime, endTime, slotMinutes) => {
   return slots;
 };
 
+// Loại các slot đã qua nếu ngày dự báo là hôm nay.
 const filterPastSlotsForDate = (slots, date, slotMinutes) => {
   const { date: currentBusinessDate, seconds: currentBusinessSeconds } = getCurrentBusinessDateAndSeconds();
 
@@ -131,6 +143,7 @@ const filterPastSlotsForDate = (slots, date, slotMinutes) => {
   return slots.filter((slot) => timeToSeconds(slot) + slotMinutes * 60 > currentBusinessSeconds);
 };
 
+// Kiểm tra slot thuộc buổi sáng/chiều theo preferred_period.
 const isSlotWithinPreferredPeriod = (slotTime, preferredPeriod) => {
   if (!preferredPeriod) {
     return true;
@@ -148,6 +161,7 @@ const isSlotWithinPreferredPeriod = (slotTime, preferredPeriod) => {
   return true;
 };
 
+// Lọc danh sách slot theo buổi mong muốn.
 const filterSlotsByPreferredPeriod = (slots, preferredPeriod) => {
   if (!preferredPeriod) {
     return slots;
@@ -156,6 +170,7 @@ const filterSlotsByPreferredPeriod = (slots, preferredPeriod) => {
   return slots.filter((slot) => isSlotWithinPreferredPeriod(slot, preferredPeriod));
 };
 
+// Ghép ngày và giờ thành Date theo timezone nghiệp vụ.
 const parseDateTimeAtBusinessOffset = (dateValue, timeValue) => {
   const { year, month, day } = parseDateParts(dateValue);
   const [hour, minute, second] = String(timeValue).slice(0, 8).split(":").map(Number);
@@ -165,6 +180,7 @@ const parseDateTimeAtBusinessOffset = (dateValue, timeValue) => {
   return new Date(utcTimestamp);
 };
 
+// Giới hạn thời lượng khám trong ngưỡng tối thiểu/tối đa hợp lý.
 const clampDurationMinutes = (value) => {
   return Math.min(
     MAX_QUEUE_VISIT_DURATION_MINUTES,
@@ -172,6 +188,7 @@ const clampDurationMinutes = (value) => {
   );
 };
 
+// Tính trung vị của danh sách số.
 const median = (values) => {
   if (!values.length) {
     return null;
@@ -187,6 +204,7 @@ const median = (values) => {
   return sorted[middleIndex];
 };
 
+// Tính trung bình sau khi bỏ bớt các giá trị ngoại lai hai đầu.
 const trimmedAverage = (values, trimRatio = 0.15) => {
   if (!values.length) {
     return null;
@@ -206,6 +224,7 @@ const trimmedAverage = (values, trimRatio = 0.15) => {
   return trimmedValues.reduce((sum, value) => sum + value, 0) / trimmedValues.length;
 };
 
+// Lấy mốc thời gian lớn nhất trong các Date hợp lệ.
 const maxDate = (...values) => {
   const validDates = values.filter((value) => value instanceof Date && !Number.isNaN(value.getTime()));
   if (validDates.length === 0) {
@@ -215,6 +234,7 @@ const maxDate = (...values) => {
   return new Date(Math.max(...validDates.map((value) => value.getTime())));
 };
 
+// Lấy mốc thời gian nhỏ nhất trong các Date hợp lệ.
 const minDate = (...values) => {
   const validDates = values.filter((value) => value instanceof Date && !Number.isNaN(value.getTime()));
   if (validDates.length === 0) {
@@ -224,10 +244,12 @@ const minDate = (...values) => {
   return new Date(Math.min(...validDates.map((value) => value.getTime())));
 };
 
+// Cộng thêm số phút vào một Date.
 const addMinutes = (dateValue, minutes) => {
   return new Date(dateValue.getTime() + minutes * 60 * 1000);
 };
 
+// Ước lượng mốc bác sĩ rảnh tiếp theo khi đang có ca khám chưa kết thúc.
 const buildInProgressForecastCursor = ({
   actualStart,
   averageVisitDurationMs,
@@ -244,6 +266,7 @@ const buildInProgressForecastCursor = ({
   );
 };
 
+// Xác định thời điểm sớm nhất bệnh nhân được phép vào khám.
 const getEarliestEligibleStartTime = ({
   checkedInAt,
   originalScheduledTime,
@@ -256,6 +279,7 @@ const getEarliestEligibleStartTime = ({
   return maxDate(originalScheduledTime, earliestWorkingDateTime);
 };
 
+// Tính số phút chờ từ mốc neo đến giờ vào khám dự đoán.
 const computePredictedWaitMinutesFromAnchor = (predictedStart, anchorDate) => {
   if (!(predictedStart instanceof Date) || Number.isNaN(predictedStart.getTime())) {
     return null;
@@ -268,6 +292,7 @@ const computePredictedWaitMinutesFromAnchor = (predictedStart, anchorDate) => {
   return Math.max(0, Math.ceil((predictedStart.getTime() - anchorDate.getTime()) / (60 * 1000)));
 };
 
+// Suy ra giờ vào khám dự đoán từ trạng thái queue và số phút chờ.
 const derivePredictedStartFromQueueState = ({
   checkedInAt,
   predictedWaitMinutes,
@@ -297,6 +322,7 @@ const derivePredictedStartFromQueueState = ({
   );
 };
 
+// Ép thời điểm dự báo nằm trong các khoảng làm việc hợp lệ của bác sĩ.
 const normalizeDateTimeWithinWorkingPeriods = (dateValue, workingPeriods) => {
   if (!(dateValue instanceof Date) || Number.isNaN(dateValue.getTime())) {
     return dateValue;
@@ -334,6 +360,7 @@ const normalizeDateTimeWithinWorkingPeriods = (dateValue, workingPeriods) => {
   return new Date(normalizedPeriods[normalizedPeriods.length - 1].end);
 };
 
+// Lấy mốc thời gian ưu tiên để sắp xếp lượt khám trong hàng đợi.
 const getQueueServicePriorityDate = (queueLike) => {
   const originalEstimatedStart =
     queueLike?.original_estimated_start instanceof Date
@@ -374,6 +401,7 @@ const getQueueServicePriorityDate = (queueLike) => {
   return null;
 };
 
+// Lấy thời điểm check-in hợp lệ của queue.
 const getQueueCheckedInDate = (queueLike) => {
   const checkedInAt =
     queueLike?.checked_in_at instanceof Date
@@ -384,6 +412,7 @@ const getQueueCheckedInDate = (queueLike) => {
   return checkedInAt && !Number.isNaN(checkedInAt.getTime()) ? checkedInAt : null;
 };
 
+// Xếp hạng queue theo trạng thái: đã xong, đang khám, đang chờ.
 const getQueueCategoryRank = (queueLike) => {
   if (queueLike?.actual_end) {
     return 0;
@@ -396,16 +425,19 @@ const getQueueCategoryRank = (queueLike) => {
   return 2;
 };
 
+// Xếp hạng mức ưu tiên khám: Emergency, Priority, Normal.
 const getQueuePriorityRank = (queueLike) => {
   const priorityLevel = queueLike?.Appointment?.priority_level || queueLike?.priority_level || "Normal";
   return QUEUE_PRIORITY_RANK[priorityLevel] ?? QUEUE_PRIORITY_RANK.Normal;
 };
 
+// Cho phép ca ưu tiên vượt giờ hẹn gốc sau khi đã check-in.
 const canBypassOriginalScheduleAfterCheckIn = (queueLike, checkedInAt) =>
   checkedInAt instanceof Date &&
   !Number.isNaN(checkedInAt.getTime()) &&
   getQueuePriorityRank(queueLike) < QUEUE_PRIORITY_RANK.Normal;
 
+// So sánh hai queue để xác định thứ tự phục vụ/dự báo trong ngày.
 export const compareQueuesByServiceOrder = (left, right) => {
   const categoryDelta = getQueueCategoryRank(left) - getQueueCategoryRank(right);
   if (categoryDelta !== 0) {
@@ -462,6 +494,7 @@ export const compareQueuesByServiceOrder = (left, right) => {
   return (left?.id ?? Number.MAX_SAFE_INTEGER) - (right?.id ?? Number.MAX_SAFE_INTEGER);
 };
 
+// Tính thời lượng khám trung bình gần đây của bác sĩ để làm baseline dự báo.
 export const getAverageVisitDurationMinutesService = async (doctorId, transaction) => {
   const completedQueues = await Queue.findAll({
     where: {
@@ -504,6 +537,7 @@ export const getAverageVisitDurationMinutesService = async (doctorId, transactio
   return clampDurationMinutes(Math.round(weightedDuration));
 };
 
+// Lưu một bản ghi dự đoán mới và gắn latest_prediction_id cho queue.
 const syncWaitPrediction = async (
   queue,
   predictedWaitMinutes,
@@ -538,6 +572,7 @@ const syncWaitPrediction = async (
   );
 };
 
+// Tạo dự báo bằng rule engine dựa trên forecastCursor, giờ hẹn và giờ check-in.
 const buildRuleBasedWaitingForecast = ({
   checkedInAt,
   forecastCursor,
@@ -590,6 +625,7 @@ const buildRuleBasedWaitingForecast = ({
   };
 };
 
+// Tạo dự báo thích nghi: dùng AI nếu hợp lệ, fallback rule engine khi AI lỗi hoặc lệch quá nhiều.
 const buildAdaptiveWaitingForecast = async ({
   aiContext,
   queueLikeItems,
@@ -747,11 +783,13 @@ const buildAdaptiveWaitingForecast = async ({
   }
 };
 
+// Lấy mốc bắt đầu làm việc sớm nhất của bác sĩ trong ngày.
 const getEarliestWorkingDateTimeForDoctorDate = async (doctorId, date, transaction) => {
   const workingPeriods = await getDoctorWorkingPeriodsForDate(doctorId, date, transaction);
   return workingPeriods[0]?.start || null;
 };
 
+// Lấy các khoảng làm việc thực tế của bác sĩ, đã trừ ngày nghỉ và block tạm ngưng.
 const getDoctorWorkingPeriodsForDate = async (doctorId, date, transaction) => {
   const dayOfWeek = getDayOfWeekFromDate(date);
   const schedules = await WorkSchedule.findAll({
@@ -831,6 +869,7 @@ const getDoctorWorkingPeriodsForDate = async (doctorId, date, transaction) => {
   return workingPeriods.sort((left, right) => left.start.getTime() - right.start.getTime());
 };
 
+// Tính các slot còn khả dụng của bác sĩ theo ngày và buổi mong muốn.
 const getAvailableSlotsForDoctorDate = async (
   doctorId,
   date,
@@ -904,6 +943,7 @@ const getAvailableSlotsForDoctorDate = async (
   return availableSlots;
 };
 
+// Ước lượng giờ hẹn gốc của appointment nếu chưa có time_slot cụ thể.
 const estimateOriginalAppointmentDateTime = async (
   appointmentLike,
   transaction,
@@ -960,6 +1000,7 @@ const estimateOriginalAppointmentDateTime = async (
   return estimatedSlot ? parseDateTimeAtBusinessOffset(appointmentLike.date, estimatedSlot) : null;
 };
 
+// Ước lượng giờ hẹn gốc của một queue dựa trên appointment hoặc queue_number.
 const estimateOriginalQueueDateTime = async (queueLike, transaction) => {
   if (!queueLike?.doctor_id || !queueLike?.date) {
     return null;
@@ -991,6 +1032,7 @@ const estimateOriginalQueueDateTime = async (queueLike, transaction) => {
   return estimatedSlot ? parseDateTimeAtBusinessOffset(queueLike.date, estimatedSlot) : null;
 };
 
+// Mô phỏng giờ vào khám dự kiến cho một appointment, kể cả khi chưa lưu queue thật.
 export const simulateEstimatedStartForAppointmentService = async (appointmentLike, transaction) => {
   if (!appointmentLike?.doctor_id || !appointmentLike?.date) {
     return null;
@@ -1195,6 +1237,7 @@ export const simulateEstimatedStartForAppointmentService = async (appointmentLik
     : null;
 };
 
+// Tính lại dự báo cho toàn bộ hàng đợi của một bác sĩ trong một ngày.
 export const recalculateQueueForecastForDoctorDateService = async (doctorId, date, transaction) => {
   if (!doctorId || !date) {
     return;
@@ -1356,6 +1399,7 @@ export const recalculateQueueForecastForDoctorDateService = async (doctorId, dat
   }
 };
 
+// Đánh giá sai số dự đoán khi đã có giờ bắt đầu khám thực tế.
 export const evaluateWaitPredictionsForQueueService = async (
   queueId,
   actualStartValue,

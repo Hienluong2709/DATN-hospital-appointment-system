@@ -766,7 +766,6 @@ export class QueuesPageComponent implements OnInit, OnDestroy {
   canCheckIn(appointment: Appointment): boolean {
     return (
       appointment.status === 'Confirmed' &&
-      appointment.date === this.getTodayDateString() &&
       !appointment.Queue?.id &&
       this.canUseCheckInAction
     );

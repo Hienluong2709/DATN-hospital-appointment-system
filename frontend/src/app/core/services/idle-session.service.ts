@@ -30,6 +30,10 @@ export class IdleSessionService {
   });
 
   startMonitoring(): void {
+    if (environment.disableAuthAutoLogout) {
+      return;
+    }
+
     if (this.isStarted) {
       return;
     }
@@ -44,6 +48,14 @@ export class IdleSessionService {
   }
 
   private resetTimer(): void {
+    if (environment.disableAuthAutoLogout) {
+      if (this.timeoutId !== null) {
+        window.clearTimeout(this.timeoutId);
+        this.timeoutId = null;
+      }
+      return;
+    }
+
     if (this.timeoutId !== null) {
       window.clearTimeout(this.timeoutId);
       this.timeoutId = null;
@@ -59,6 +71,10 @@ export class IdleSessionService {
   }
 
   private async handleIdleTimeout(): Promise<void> {
+    if (environment.disableAuthAutoLogout) {
+      return;
+    }
+
     if (this.isLoggingOut || !this.tokenService.hasValidSession()) {
       return;
     }

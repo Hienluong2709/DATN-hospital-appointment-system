@@ -3,6 +3,7 @@ import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { TokenService } from '../../../core/services/token.service';
+import { environment } from '../../../../environments/environment';
 import { PortalTopbarComponent } from '../../../shared/components/portal-topbar/portal-topbar.component';
 import { DashboardApiService } from '../../../shared/services/dashboard.api';
 import { getAppointmentStatusLabel } from '../../../shared/enum-label.util';
@@ -29,7 +30,7 @@ export class PatientPageComponent {
   protected isLoadingPatientSummary = false;
 
   get isLoggedIn(): boolean {
-    return this.tokenService.hasValidSession();
+    return this.tokenService.hasValidSession() || (!!environment.disableAuthAutoLogout && !!this.tokenService.getCurrentUser());
   }
 
   get accountLabel(): string {

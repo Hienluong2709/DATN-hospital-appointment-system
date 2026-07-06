@@ -5,5 +5,6 @@ export interface PortalEnvironment {
   patientPortalOrigin: string;
   staffPortalOrigin: string;
   idleTimeoutMs: number;
+  disableAuthAutoLogout?: boolean;
   realtimeWsUrl: string;
 }

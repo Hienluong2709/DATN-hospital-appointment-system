@@ -3,6 +3,7 @@ import { inject } from '@angular/core';
 import { catchError, map, Observable, shareReplay, switchMap, throwError } from 'rxjs';
 
 import { AuthApiService } from '../../features/auth/services/auth.api';
+import { environment } from '../../../environments/environment';
 import { TokenService } from '../services/token.service';
 
 const AUTH_ENDPOINTS_TO_SKIP = [
@@ -19,6 +20,10 @@ const shouldSkipAuthHandling = (url: string): boolean =>
   AUTH_ENDPOINTS_TO_SKIP.some((path) => url.includes(path));
 
 const clearSessionOnUnauthorized = (tokenService: TokenService, error: unknown) => {
+  if (environment.disableAuthAutoLogout) {
+    return;
+  }
+
   const httpError = error as { status?: number; error?: { message?: string } };
   if (httpError?.status === 401 || (httpError?.status === 403 && httpError?.error?.message === 'Tài khoản đã bị khóa')) {
     tokenService.clearSession();
@@ -30,7 +35,6 @@ const refreshAccessToken = (authApiService: AuthApiService, tokenService: TokenS
     const refreshToken = tokenService.getRefreshToken();
 
     if (!refreshToken) {
-      tokenService.clearSession();
       return throwError(() => new Error('Phiên đăng nhập đã hết hạn'));
     }
 
@@ -40,7 +44,9 @@ const refreshAccessToken = (authApiService: AuthApiService, tokenService: TokenS
         return tokenService.getAccessToken();
       }),
       catchError((error) => {
-        tokenService.clearSession();
+        if (!environment.disableAuthAutoLogout) {
+          tokenService.clearSession();
+        }
         return throwError(() => error);
       }),
       shareReplay(1)

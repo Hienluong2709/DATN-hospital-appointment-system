@@ -3,12 +3,13 @@ import { inject } from '@angular/core';
 
 import { ACCESS_DENIED_PATH, CHANGE_PASSWORD_PATH, STAFF_PATH } from '@constant/navigator-endpoint.constant';
 import { TokenService } from '../../../app/core/services/token.service';
+import { environment } from '../../../environments/environment';
 
 export const authGuard: CanActivateFn = (_route, state) => {
   const tokenService = inject(TokenService);
   const router = inject(Router);
 
-  if (tokenService.hasValidSession()) {
+  if (tokenService.hasValidSession() || (!!environment.disableAuthAutoLogout && !!tokenService.getCurrentUser())) {
     const forcedChangePasswordPath = `/${STAFF_PATH}/${CHANGE_PASSWORD_PATH}`;
     if (tokenService.mustChangePassword() && !state.url.startsWith(forcedChangePasswordPath)) {
       return router.createUrlTree(['/', STAFF_PATH, CHANGE_PASSWORD_PATH]);

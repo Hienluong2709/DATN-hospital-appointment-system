@@ -22,6 +22,7 @@ import {
 
 const { Appointment, User, Doctor, Specialty, Room, WorkSchedule, WorkScheduleBlock, Queue, WaitPrediction, SmsLog } = db;
 const RETRYABLE_TRANSACTION_ERROR_CODES = new Set(["1213", "1205", "40P01"]);
+// Chuẩn hóa biến môi trường dạng số nguyên không âm, dùng fallback khi sai định dạng.
 const normalizeNonNegativeIntegerEnv = (value, fallback) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback;
@@ -32,7 +33,11 @@ const DEFAULT_APPOINTMENT_SLOT_MINUTES = Number(process.env.APPOINTMENT_SLOT_MIN
 const BUSINESS_TIMEZONE_OFFSET = process.env.BUSINESS_TIMEZONE_OFFSET || "+07:00";
 const PATIENT_MIN_BOOKING_DAYS_IN_ADVANCE = normalizeNonNegativeIntegerEnv(
   process.env.PATIENT_MIN_BOOKING_DAYS_IN_ADVANCE,
-  1,
+  0,
+);
+const PATIENT_MIN_BOOKING_LEAD_MINUTES = normalizeNonNegativeIntegerEnv(
+  process.env.PATIENT_MIN_BOOKING_LEAD_MINUTES,
+  60,
 );
 const DOCTOR_SLOT_UNIQUE_INDEX = "uq_appointments_active_doctor_slot";
 const PATIENT_SLOT_UNIQUE_INDEX = "uq_appointments_active_patient_slot";
@@ -81,6 +86,7 @@ const STATUS_TRANSITIONS = Object.freeze({
   [APPOINTMENT_STATUS.NO_SHOW]: new Set(),
 });
 
+// Tách và kiểm tra ngày theo định dạng YYYY-MM-DD.
 const parseDateParts = (dateValue) => {
   const [year, month, day] = dateValue.split("-").map(Number);
   const parsedDate = new Date(Date.UTC(year, month - 1, day));
@@ -98,6 +104,7 @@ const parseDateParts = (dateValue) => {
   return { year, month, day };
 };
 
+// Chuyển ID đầu vào về số nguyên dương.
 const parseId = (id) => {
   const parsed = Number(id);
   if (!Number.isInteger(parsed) || parsed <= 0) {
@@ -108,6 +115,7 @@ const parseId = (id) => {
   return parsed;
 };
 
+// Chuyển offset timezone dạng +/-HH:mm sang số phút.
 const parseUtcOffsetToMinutes = (offsetValue) => {
   const matched = /^([+-])(\d{2}):(\d{2})$/.exec(offsetValue);
   if (!matched) {
@@ -131,6 +139,7 @@ const parseUtcOffsetToMinutes = (offsetValue) => {
 
 const BUSINESS_TIMEZONE_OFFSET_MINUTES = parseUtcOffsetToMinutes(BUSINESS_TIMEZONE_OFFSET);
 
+// Format ngày theo offset nghiệp vụ thay vì timezone của server.
 const formatDateAtOffset = (dateValue, offsetMinutes) => {
   const shifted = new Date(dateValue.getTime() + offsetMinutes * 60 * 1000);
   const year = shifted.getUTCFullYear();
@@ -139,15 +148,18 @@ const formatDateAtOffset = (dateValue, offsetMinutes) => {
   return `${year}-${month}-${day}`;
 };
 
+// Lấy ngày hiện tại theo timezone nghiệp vụ của bệnh viện.
 const getTodayBusinessDateString = () => {
   return formatDateAtOffset(new Date(), BUSINESS_TIMEZONE_OFFSET_MINUTES);
 };
 
+// Lấy số giây hiện tại trong ngày theo timezone nghiệp vụ.
 const getCurrentBusinessSeconds = () => {
   const shifted = new Date(Date.now() + BUSINESS_TIMEZONE_OFFSET_MINUTES * 60 * 1000);
   return shifted.getUTCHours() * 3600 + shifted.getUTCMinutes() * 60 + shifted.getUTCSeconds();
 };
 
+// Format Date thành chuỗi datetime có offset nghiệp vụ.
 const formatDateTimeAtBusinessOffset = (dateValue) => {
   if (!dateValue) {
     return null;
@@ -169,6 +181,7 @@ const formatDateTimeAtBusinessOffset = (dateValue) => {
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}${BUSINESS_TIMEZONE_OFFSET}`;
 };
 
+// Chuẩn hóa các mốc thời gian của hàng đợi trước khi trả về client.
 const serializeQueueDateTimes = (queueRow) => {
   const data = typeof queueRow?.toJSON === "function" ? queueRow.toJSON() : queueRow;
   if (!data) {
@@ -184,6 +197,7 @@ const serializeQueueDateTimes = (queueRow) => {
   };
 };
 
+// Chuẩn hóa dữ liệu lịch hẹn và gắn estimated_start từ queue hoặc time_slot.
 const serializeAppointment = (appointmentRow) => {
   const data = typeof appointmentRow?.toJSON === "function" ? appointmentRow.toJSON() : appointmentRow;
   if (!data) {
@@ -202,6 +216,7 @@ const serializeAppointment = (appointmentRow) => {
   };
 };
 
+// Chuẩn hóa ngày đặt lịch và chặn đặt lịch trong quá khứ.
 const normalizeDate = (value) => {
   if (typeof value !== "string") {
     const error = new Error("date là bắt buộc");
@@ -227,6 +242,7 @@ const normalizeDate = (value) => {
   return trimmed;
 };
 
+// Chuẩn hóa ngày lọc tùy chọn trong các API danh sách.
 const normalizeOptionalFilterDate = (value, fieldName) => {
   if (value === undefined || value === null || value === "") {
     return undefined;
@@ -249,6 +265,7 @@ const normalizeOptionalFilterDate = (value, fieldName) => {
   return trimmed;
 };
 
+// Chuẩn hóa trạng thái lịch hẹn khi lọc danh sách.
 const normalizeOptionalAppointmentStatusFilter = (value) => {
   if (value === undefined || value === null || value === "") {
     return undefined;
@@ -269,6 +286,7 @@ const normalizeOptionalAppointmentStatusFilter = (value) => {
   return value;
 };
 
+// Chuẩn hóa giờ khám bắt buộc theo định dạng HH:mm:ss.
 const normalizeTime = (value) => {
   if (typeof value !== "string") {
     const error = new Error("time_slot là bắt buộc");
@@ -287,6 +305,7 @@ const normalizeTime = (value) => {
   return trimmed.length === 5 ? `${trimmed}:00` : trimmed;
 };
 
+// Chuẩn hóa giờ khám tùy chọn, trả null nếu không truyền.
 const normalizeOptionalTime = (value) => {
   if (value === undefined || value === null || value === "") {
     return null;
@@ -295,6 +314,7 @@ const normalizeOptionalTime = (value) => {
   return normalizeTime(value);
 };
 
+// Chuẩn hóa buổi mong muốn khi đặt lịch: MORNING hoặc AFTERNOON.
 const normalizePreferredPeriod = (value, required = false) => {
   if (value === undefined || value === null || value === "") {
     if (required) {
@@ -319,6 +339,7 @@ const normalizePreferredPeriod = (value, required = false) => {
   return trimmed;
 };
 
+// Chuẩn hóa lý do khám, cho phép rỗng khi không bắt buộc.
 const normalizeReason = (reason) => {
   if (reason === undefined || reason === null) {
     return null;
@@ -334,6 +355,7 @@ const normalizeReason = (reason) => {
   return trimmed || null;
 };
 
+// Chuẩn hóa lý do khám bắt buộc khi tạo lịch.
 const normalizeRequiredReason = (reason) => {
   const normalized = normalizeReason(reason);
 
@@ -346,6 +368,7 @@ const normalizeRequiredReason = (reason) => {
   return normalized;
 };
 
+// Chuẩn hóa mức ưu tiên của lịch hẹn.
 const normalizePriorityLevel = (value, { allowEmpty = true } = {}) => {
   if (value === undefined || value === null || value === "") {
     if (allowEmpty) {
@@ -367,6 +390,7 @@ const normalizePriorityLevel = (value, { allowEmpty = true } = {}) => {
   return trimmed;
 };
 
+// Chuẩn hóa ngày chạy job tự động.
 const normalizeJobDate = (value) => {
   if (typeof value !== "string") {
     const error = new Error("date là bắt buộc");
@@ -385,6 +409,7 @@ const normalizeJobDate = (value) => {
   return trimmed;
 };
 
+// Kiểm tra người dùng có quyền xác nhận lịch hẹn hay không.
 const ensureCanConfirmAppointment = (appointment, currentUser) => {
   if (currentUser?.role === "PATIENT" && appointment.patient_id !== currentUser.id) {
     const error = new Error("Bạn không có quyền xác nhận lịch hẹn này");
@@ -393,6 +418,7 @@ const ensureCanConfirmAppointment = (appointment, currentUser) => {
   }
 };
 
+// Kiểm tra người dùng có quyền hủy lịch hẹn hay không.
 const ensureCanCancelAppointment = (appointment, currentUser) => {
   if (currentUser?.role === "PATIENT" && appointment.patient_id !== currentUser.id) {
     const error = new Error("Bạn không có quyền hủy lịch hẹn này");
@@ -407,6 +433,7 @@ const ensureCanCancelAppointment = (appointment, currentUser) => {
   }
 };
 
+// Kiểm tra chuyển trạng thái lịch hẹn có hợp lệ không.
 const ensureCanTransitionStatus = (fromStatus, toStatus) => {
   const allowedTransitions = STATUS_TRANSITIONS[fromStatus] || new Set();
   if (!allowedTransitions.has(toStatus)) {
@@ -416,6 +443,7 @@ const ensureCanTransitionStatus = (fromStatus, toStatus) => {
   }
 };
 
+// Chuẩn hóa datetime tùy chọn cho các mốc khám thực tế.
 const normalizeOptionalDateTime = (value, fieldName, defaultValue = null) => {
   if (value === undefined || value === null || value === "") {
     return defaultValue;
@@ -431,6 +459,7 @@ const normalizeOptionalDateTime = (value, fieldName, defaultValue = null) => {
   return parsed;
 };
 
+// Chuẩn hóa độ dài mỗi slot khám theo phút.
 const normalizeSlotMinutes = (value) => {
   if (value === undefined || value === null || value === "") {
     return 30;
@@ -446,21 +475,25 @@ const normalizeSlotMinutes = (value) => {
   return parsed;
 };
 
+// Chuyển ngày YYYY-MM-DD thành Date UTC tại 00:00.
 const parseDateOnlyToUTC = (dateValue) => {
   const { year, month, day } = parseDateParts(dateValue);
   return new Date(Date.UTC(year, month - 1, day));
 };
 
+// Format Date UTC thành chuỗi YYYY-MM-DD.
 const formatDateUTC = (dateValue) => {
   return dateValue.toISOString().slice(0, 10);
 };
 
+// Cộng số ngày vào một Date theo UTC.
 const addDaysUTC = (dateValue, days) => {
   const next = new Date(dateValue);
   next.setUTCDate(next.getUTCDate() + days);
   return next;
 };
 
+// Tính ngày sớm nhất bệnh nhân được phép tự đặt lịch.
 const getMinimumPatientBookingDateString = () => {
   return formatDateUTC(
     addDaysUTC(
@@ -470,6 +503,7 @@ const getMinimumPatientBookingDateString = () => {
   );
 };
 
+// Chặn bệnh nhân tự đặt lịch quá sát ngày hiện tại.
 const ensurePatientBookingDateAllowed = (date) => {
   if (PATIENT_MIN_BOOKING_DAYS_IN_ADVANCE <= 0) {
     return;
@@ -487,11 +521,31 @@ const ensurePatientBookingDateAllowed = (date) => {
   }
 };
 
+// Khi bệnh nhân tự đặt lịch trong ngày, chỉ cho phép chọn slot còn hiệu lực.
+const ensurePatientBookingTimeAllowed = (date, timeSlot) => {
+  if (date !== getTodayBusinessDateString()) {
+    return;
+  }
+
+  const minimumStartSeconds = getCurrentBusinessSeconds() + PATIENT_MIN_BOOKING_LEAD_MINUTES * 60;
+  if (timeToSeconds(timeSlot) < minimumStartSeconds) {
+    const error = new Error(
+      PATIENT_MIN_BOOKING_LEAD_MINUTES > 0
+        ? `Vui lòng đặt lịch trước giờ khám tối thiểu ${PATIENT_MIN_BOOKING_LEAD_MINUTES} phút`
+        : "Không thể đặt lịch vào khung giờ đã qua"
+    );
+    error.statusCode = 409;
+    throw error;
+  }
+};
+
+// Chuyển chuỗi HH:mm:ss thành số giây trong ngày.
 const timeToSeconds = (timeValue) => {
   const [hours, minutes, seconds] = timeValue.split(":").map(Number);
   return hours * 3600 + minutes * 60 + seconds;
 };
 
+// Chuyển số giây trong ngày thành chuỗi HH:mm:ss.
 const secondsToTime = (secondsValue) => {
   const hours = String(Math.floor(secondsValue / 3600)).padStart(2, "0");
   const minutes = String(Math.floor((secondsValue % 3600) / 60)).padStart(2, "0");
@@ -499,14 +553,17 @@ const secondsToTime = (secondsValue) => {
   return `${hours}:${minutes}:${seconds}`;
 };
 
+// Cắt giá trị thời gian về định dạng HH:mm:ss.
 const toTimeString = (value) => String(value).slice(0, 8);
 
+// Xác định một khung giờ thuộc buổi sáng hay buổi chiều.
 const getPreferredPeriodForTime = (timeValue) => {
   return timeToSeconds(timeValue) < AFTERNOON_START_SECONDS
     ? APPOINTMENT_PREFERRED_PERIOD.MORNING
     : APPOINTMENT_PREFERRED_PERIOD.AFTERNOON;
 };
 
+// Kiểm tra slot có nằm trong buổi mong muốn hay không.
 const isSlotWithinPreferredPeriod = (slotTime, preferredPeriod) => {
   if (!preferredPeriod) {
     return true;
@@ -515,6 +572,7 @@ const isSlotWithinPreferredPeriod = (slotTime, preferredPeriod) => {
   return getPreferredPeriodForTime(slotTime) === preferredPeriod;
 };
 
+// Lọc danh sách slot theo buổi mong muốn.
 const filterSlotsByPreferredPeriod = (slots, preferredPeriod) => {
   if (!preferredPeriod) {
     return slots;
@@ -523,11 +581,13 @@ const filterSlotsByPreferredPeriod = (slots, preferredPeriod) => {
   return slots.filter((slot) => isSlotWithinPreferredPeriod(slot, preferredPeriod));
 };
 
+// Nhận diện lỗi transaction có thể thử lại.
 const isRetryableTransactionError = (error) => {
   const errorCode = String(error?.original?.code || error?.parent?.code || "");
   return RETRYABLE_TRANSACTION_ERROR_CODES.has(errorCode);
 };
 
+// Chạy transaction mức READ COMMITTED và tự retry khi gặp deadlock/timeout.
 const runReadCommittedTransaction = async (callback) => {
   for (let attempt = 0; attempt <= MAX_TRANSACTION_RETRIES; attempt += 1) {
     try {
@@ -551,10 +611,12 @@ const runReadCommittedTransaction = async (callback) => {
   }
 };
 
+// Nhận diện lỗi vi phạm unique constraint từ Sequelize.
 const isUniqueConstraintViolation = (error) => {
   return error instanceof UniqueConstraintError || error?.name === "SequelizeUniqueConstraintError";
 };
 
+// Chuyển lỗi unique constraint thành thông báo nghiệp vụ dễ hiểu.
 const toConflictErrorFromUniqueConstraint = (error) => {
   const constraintName = String(error?.original?.constraint || error?.parent?.constraint || "");
   const fields = Object.keys(error?.fields || {});
@@ -584,6 +646,7 @@ const toConflictErrorFromUniqueConstraint = (error) => {
   return fallbackError;
 };
 
+// Kiểm tra lỗi unique constraint có phải trùng slot của bác sĩ hay không.
 const isDoctorSlotUniqueConstraintViolation = (error) => {
   if (!isUniqueConstraintViolation(error)) {
     return false;
@@ -598,6 +661,7 @@ const isDoctorSlotUniqueConstraintViolation = (error) => {
   );
 };
 
+// Bọc thao tác ghi để chuẩn hóa lỗi trùng dữ liệu.
 const executeWithUniqueConstraintHandling = async (callback) => {
   try {
     return await callback();
@@ -610,6 +674,7 @@ const executeWithUniqueConstraintHandling = async (callback) => {
   }
 };
 
+// Chặn một bệnh nhân có nhiều lịch còn hiệu lực với cùng bác sĩ trong cùng ngày.
 const ensureNoActiveDuplicateAppointment = async (
   patientId,
   doctorId,
@@ -644,10 +709,12 @@ const ensureNoActiveDuplicateAppointment = async (
   }
 };
 
+// Tính thời điểm hết hạn giữ chỗ cho lịch Pending.
 const getPendingHoldExpiry = () => {
   return new Date(Date.now() + DEFAULT_APPOINTMENT_HOLD_MINUTES * 60 * 1000);
 };
 
+// Hủy các lịch Pending đã quá hạn giữ chỗ.
 const cleanupExpiredPendingAppointments = async (transaction) => {
   const [affectedRows] = await Appointment.update(
     {
@@ -668,14 +735,17 @@ const cleanupExpiredPendingAppointments = async (transaction) => {
   return affectedRows;
 };
 
+// Service public để job ngoài gọi dọn lịch Pending hết hạn.
 export const cleanupExpiredPendingAppointmentsService = async () => {
   return cleanupExpiredPendingAppointments();
 };
 
+// Tự động ghi nhận vắng mặt cho các lịch trong ngày không được xử lý.
 export const markAppointmentsAsNoShowForDateService = async (dateValue, options = {}) => {
   const targetDate = normalizeJobDate(dateValue || getTodayBusinessDateString());
   const isDryRun = Boolean(options?.dryRun);
 
+  // Gom các lịch cần đánh dấu vắng mặt và bỏ qua ca đang/đã khám.
   const buildSummary = (appointments) => {
     const candidates = [];
     let skippedInProgress = 0;
@@ -702,6 +772,7 @@ export const markAppointmentsAsNoShowForDateService = async (dateValue, options 
     };
   };
 
+  // Tải các lịch trong ngày có khả năng bị đánh dấu vắng mặt.
   const loadCandidates = (transaction) =>
     Appointment.findAll({
       where: {
@@ -790,10 +861,12 @@ export const markAppointmentsAsNoShowForDateService = async (dateValue, options 
   });
 };
 
+// Kiểm tra hai khoảng thời gian có giao nhau không.
 const doesTimeRangeOverlap = (startA, endA, startB, endB) => {
   return startA < endB && endA > startB;
 };
 
+// Kiểm tra một slot có bị block bởi khoảng nghỉ/tạm ngưng không.
 const isSlotBlockedByRange = (slotTime, slotMinutes, blockRanges) => {
   if (blockRanges.length === 0) {
     return false;
@@ -807,6 +880,7 @@ const isSlotBlockedByRange = (slotTime, slotMinutes, blockRanges) => {
   );
 };
 
+// Sinh danh sách slot từ giờ bắt đầu đến giờ kết thúc theo độ dài slot.
 const buildTimeSlots = (startTime, endTime, slotMinutes) => {
   const step = slotMinutes * 60;
   const startSeconds = timeToSeconds(startTime);
@@ -820,6 +894,7 @@ const buildTimeSlots = (startTime, endTime, slotMinutes) => {
   return slots;
 };
 
+// Loại bỏ các slot đã qua nếu ngày được chọn là hôm nay.
 const filterPastSlotsForDate = (slots, date, slotMinutes) => {
   if (date !== getTodayBusinessDateString()) {
     return slots;
@@ -829,11 +904,23 @@ const filterPastSlotsForDate = (slots, date, slotMinutes) => {
   return slots.filter((slot) => timeToSeconds(slot) + slotMinutes * 60 > currentBusinessSeconds);
 };
 
+// Loại slot quá sát giờ đặt nếu bệnh nhân tự đặt lịch trong ngày.
+const filterSlotsByMinimumLeadForDate = (slots, date, leadMinutes) => {
+  if (date !== getTodayBusinessDateString() || leadMinutes <= 0) {
+    return slots;
+  }
+
+  const minimumStartSeconds = getCurrentBusinessSeconds() + leadMinutes * 60;
+  return slots.filter((slot) => timeToSeconds(slot) >= minimumStartSeconds);
+};
+
+// Lấy thứ trong tuần từ ngày YYYY-MM-DD.
 const getDayOfWeekFromDate = (dateValue) => {
   const { year, month, day } = parseDateParts(dateValue);
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
 };
 
+// Ghép ngày và giờ khám thành Date theo timezone nghiệp vụ.
 const parseAppointmentDateTimeLocal = (dateValue, timeValue) => {
   const dateString = String(dateValue).slice(0, 10);
   const rawTimeString = toTimeString(timeValue);
@@ -848,6 +935,7 @@ const parseAppointmentDateTimeLocal = (dateValue, timeValue) => {
   return new Date(utcTimestamp);
 };
 
+// Chặn bệnh nhân hủy lịch khi còn dưới 24 giờ trước giờ khám.
 const ensureCanCancelBy24HourRule = (appointment) => {
   let appointmentDateTime = null;
 
@@ -875,6 +963,7 @@ const ensureCanCancelBy24HourRule = (appointment) => {
   }
 };
 
+// Chặn cập nhật lịch sang thời điểm đã qua.
 const ensureAppointmentNotInPastForUpdate = (dateValue, timeValue) => {
   const appointmentDateTime = parseAppointmentDateTimeLocal(dateValue, timeValue);
 
@@ -885,6 +974,7 @@ const ensureAppointmentNotInPastForUpdate = (dateValue, timeValue) => {
   }
 };
 
+// Kiểm tra bệnh nhân tồn tại và có role PATIENT.
 const ensurePatientExists = async (patientId, transaction) => {
   const parsedPatientId = parseId(patientId);
   const patient = await User.findByPk(parsedPatientId, {
@@ -906,6 +996,7 @@ const ensurePatientExists = async (patientId, transaction) => {
   return parsedPatientId;
 };
 
+// Kiểm tra bác sĩ tồn tại và đang hoạt động.
 const ensureDoctorExists = async (doctorId, transaction) => {
   const parsedDoctorId = parseId(doctorId);
   const doctor = await Doctor.findByPk(parsedDoctorId, {
@@ -927,6 +1018,7 @@ const ensureDoctorExists = async (doctorId, transaction) => {
   return parsedDoctorId;
 };
 
+// Đảm bảo bác sĩ chỉ thao tác trên lịch hẹn của chính mình.
 const ensureDoctorOwnsAppointment = async (appointment, currentUser, transaction) => {
   if (currentUser?.role !== "DOCTOR") {
     return;
@@ -945,6 +1037,7 @@ const ensureDoctorOwnsAppointment = async (appointment, currentUser, transaction
   }
 };
 
+// Đảm bảo lượt khám được bắt đầu là lượt hợp lệ tiếp theo trong hàng đợi.
 const ensureQueueIsCurrentTurnForStart = async (queue, transaction) => {
   const candidateQueues = await Queue.findAll({
     where: {
@@ -994,6 +1087,7 @@ const ensureQueueIsCurrentTurnForStart = async (queue, transaction) => {
   throw error;
 };
 
+// Kiểm tra bác sĩ có làm việc và không bị block tại đúng khung giờ khám.
 const ensureDoctorWorkingAtTime = async (doctorId, date, timeSlot, transaction) => {
   const dayOfWeek = getDayOfWeekFromDate(date);
   const slotMinutes = normalizeSlotMinutes(DEFAULT_APPOINTMENT_SLOT_MINUTES);
@@ -1055,6 +1149,7 @@ const ensureDoctorWorkingAtTime = async (doctorId, date, timeSlot, transaction) 
   }
 };
 
+// Kiểm tra bác sĩ còn khả năng nhận lịch trong ngày/buổi được chọn.
 const ensureDoctorWorkingOnDate = async (
   doctorId,
   date,
@@ -1152,14 +1247,17 @@ const ensureDoctorWorkingOnDate = async (
   }
 };
 
+// Tự chọn slot trống đầu tiên cho bác sĩ theo ngày và buổi mong muốn.
 const resolveAutoTimeSlotForDoctorDate = async (
   doctorId,
   date,
   preferredPeriod,
   transaction,
+  options = {},
 ) => {
   const dayOfWeek = getDayOfWeekFromDate(date);
   const slotMinutes = normalizeSlotMinutes(DEFAULT_APPOINTMENT_SLOT_MINUTES);
+  const minLeadMinutes = normalizeNonNegativeIntegerEnv(options?.minLeadMinutes, 0);
   const schedules = await WorkSchedule.findAll({
     where: {
       doctor_id: doctorId,
@@ -1211,11 +1309,15 @@ const resolveAutoTimeSlotForDoctorDate = async (
       endSeconds: timeToSeconds(toTimeString(block.end_time)),
     }));
 
-  const validSlots = filterPastSlotsForDate(
-    filterSlotsByPreferredPeriod(Array.from(candidateSlots).sort(), preferredPeriod)
-      .filter((slot) => !isSlotBlockedByRange(slot, slotMinutes, blockRanges)),
+  const validSlots = filterSlotsByMinimumLeadForDate(
+    filterPastSlotsForDate(
+      filterSlotsByPreferredPeriod(Array.from(candidateSlots).sort(), preferredPeriod)
+        .filter((slot) => !isSlotBlockedByRange(slot, slotMinutes, blockRanges)),
+      date,
+      slotMinutes,
+    ),
     date,
-    slotMinutes,
+    minLeadMinutes,
   );
 
   if (validSlots.length === 0) {
@@ -1273,6 +1375,7 @@ const resolveAutoTimeSlotForDoctorDate = async (
   return selectedSlot;
 };
 
+// Mô phỏng giờ vào khám dự kiến cho lịch hẹn chưa/đã có hàng đợi.
 const estimateAppointmentStart = async (appointmentLike, transaction) => {
   if (!appointmentLike?.doctor_id || !appointmentLike?.date) {
     return null;
@@ -1321,6 +1424,7 @@ const appointmentQueryOptions = {
   ],
 };
 
+// Lấy danh sách lịch hẹn theo vai trò người dùng và bộ lọc.
 export const getAllAppointmentsService = async (currentUser, filters = {}) => {
   const pagination = parsePaginationQuery(filters, { defaultPageSize: 10 });
   const queryOptions = {
@@ -1470,6 +1574,7 @@ export const getAllAppointmentsService = async (currentUser, filters = {}) => {
   };
 };
 
+// Tổng hợp số lượng lịch hẹn theo trạng thái cho dashboard/danh sách.
 const buildAppointmentStatusSummary = async ({ baseWhere = {}, specialtyId }) => {
   const summaryWhere = { ...baseWhere };
   delete summaryWhere.status;
@@ -1501,6 +1606,7 @@ const buildAppointmentStatusSummary = async ({ baseWhere = {}, specialtyId }) =>
   );
 };
 
+// Lấy chi tiết một lịch hẹn và bổ sung giờ khám dự kiến.
 export const getAppointmentByIdService = async (id, transaction) => {
   const appointmentId = parseId(id);
   const appointment = await Appointment.findByPk(appointmentId, {
@@ -1525,6 +1631,7 @@ export const getAppointmentByIdService = async (id, transaction) => {
   };
 };
 
+// Tạo lịch hẹn mới, gồm kiểm tra bác sĩ, slot, trùng lịch và quyền người đặt.
 export const createAppointmentService = async (payload, currentUser) => {
   const isPatientSelfBooking = currentUser?.role === "PATIENT";
   const hasExplicitTimeSlot = Boolean(normalizeOptionalTime(payload?.time_slot));
@@ -1570,7 +1677,14 @@ export const createAppointmentService = async (payload, currentUser) => {
           date,
           preferredPeriod,
           transaction,
+          {
+            minLeadMinutes: isPatientSelfBooking ? PATIENT_MIN_BOOKING_LEAD_MINUTES : 0,
+          },
         );
+
+        if (isPatientSelfBooking) {
+          ensurePatientBookingTimeAllowed(date, timeSlot);
+        }
 
         await ensureDoctorWorkingAtTime(doctorId, date, timeSlot, transaction);
         await ensureNoActiveDuplicateAppointment(patientId, doctorId, date, transaction);
@@ -1611,6 +1725,7 @@ export const createAppointmentService = async (payload, currentUser) => {
   }
 };
 
+// Tính lịch làm việc, slot đã đặt và slot còn trống của bác sĩ.
 export const getDoctorAvailabilityService = async (doctorId, query) => {
   const parsedDoctorId = await ensureDoctorExists(doctorId);
 
@@ -1737,10 +1852,14 @@ export const getDoctorAvailabilityService = async (doctorId, query) => {
       }
     }
 
-    const sortedCandidates = filterPastSlotsForDate(
-      Array.from(candidateSlots).sort(),
+    const sortedCandidates = filterSlotsByMinimumLeadForDate(
+      filterPastSlotsForDate(
+        Array.from(candidateSlots).sort(),
+        dateKey,
+        slotMinutes,
+      ),
       dateKey,
-      slotMinutes,
+      PATIENT_MIN_BOOKING_LEAD_MINUTES,
     );
     const bookedSlots = Array.from(bookedByDate.get(dateKey) || []).sort();
     const bookedSet = new Set(bookedSlots);
@@ -1792,6 +1911,7 @@ export const getDoctorAvailabilityService = async (doctorId, query) => {
   };
 };
 
+// Xác nhận lịch Pending còn hiệu lực thành Confirmed.
 export const confirmAppointmentService = async (id, currentUser) => {
   const appointmentId = parseId(id);
 
@@ -1848,6 +1968,7 @@ export const confirmAppointmentService = async (id, currentUser) => {
   });
 };
 
+// Hủy lịch hẹn khi còn được phép và chưa check-in vào hàng đợi.
 export const cancelAppointmentService = async (id, currentUser) => {
   const appointmentId = parseId(id);
 
@@ -1904,6 +2025,7 @@ export const cancelAppointmentService = async (id, currentUser) => {
   });
 };
 
+// Ghi nhận bệnh nhân vắng mặt và cập nhật lại hàng đợi nếu cần.
 export const markAppointmentNoShowService = async (id, currentUser, payload = {}) => {
   const appointmentId = parseId(id);
   const noShowNote = normalizeReason(payload?.note ?? payload?.no_show_note);
@@ -2060,6 +2182,7 @@ export const markAppointmentNoShowService = async (id, currentUser, payload = {}
   return result;
 };
 
+// Đổi lịch bằng cách tạo lịch mới và hủy lịch cũ trong cùng transaction.
 export const rescheduleAppointmentService = async (id, payload, currentUser) => {
   const appointmentId = parseId(id);
   const safePayload = payload || {};
@@ -2170,6 +2293,7 @@ export const rescheduleAppointmentService = async (id, payload, currentUser) => 
   });
 };
 
+// Bắt đầu ca khám, ghi nhận actual_start và cập nhật dự báo hàng đợi.
 export const startAppointmentService = async (id, payload, currentUser) => {
   const appointmentId = parseId(id);
   const safePayload = payload || {};
@@ -2285,6 +2409,7 @@ export const startAppointmentService = async (id, payload, currentUser) => {
   return result;
 };
 
+// Hoàn tất ca khám, ghi nhận actual_end và đánh giá sai số dự đoán.
 export const completeAppointmentService = async (id, payload, currentUser) => {
   const appointmentId = parseId(id);
   const safePayload = payload || {};
@@ -2396,6 +2521,7 @@ export const completeAppointmentService = async (id, payload, currentUser) => {
   return result;
 };
 
+// Xóa lịch hẹn khỏi hệ thống khi không còn ràng buộc nghiệp vụ.
 export const deleteAppointmentService = async (id) => {
   const appointmentId = parseId(id);
   const appointment = await Appointment.findByPk(appointmentId);
