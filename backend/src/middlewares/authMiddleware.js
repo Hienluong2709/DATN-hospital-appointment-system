@@ -4,6 +4,7 @@ import db from "../models/index.js";
 const { User } = db;
 const DEFAULT_JWT_ISSUER = "luong-hospital-api";
 const DEFAULT_JWT_AUDIENCE = "luong-clinic-platform";
+const DEMO_ALLOW_EXPIRED_TOKENS = process.env.DEMO_ALLOW_EXPIRED_TOKENS === "true";
 
 export const authenticate = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -26,6 +27,7 @@ export const authenticate = async (req, res, next) => {
     const decoded = jwt.verify(token, jwtSecret, {
       issuer: process.env.JWT_ISSUER || DEFAULT_JWT_ISSUER,
       audience: process.env.JWT_AUDIENCE || DEFAULT_JWT_AUDIENCE,
+      ignoreExpiration: DEMO_ALLOW_EXPIRED_TOKENS,
     });
     const user = await User.findByPk(decoded.id, {
       attributes: ["id", "role", "status"],

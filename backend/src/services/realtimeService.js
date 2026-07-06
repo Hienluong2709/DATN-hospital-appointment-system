@@ -7,6 +7,7 @@ const { User, Doctor, Queue, Appointment } = db;
 
 const DEFAULT_JWT_ISSUER = "luong-hospital-api";
 const DEFAULT_JWT_AUDIENCE = "luong-clinic-platform";
+const DEMO_ALLOW_EXPIRED_TOKENS = process.env.DEMO_ALLOW_EXPIRED_TOKENS === "true";
 
 let webSocketServer = null;
 const clients = new Set();
@@ -27,6 +28,7 @@ const authenticateSocketRequest = async (req) => {
   const decoded = jwt.verify(token, jwtSecret, {
     issuer: process.env.JWT_ISSUER || DEFAULT_JWT_ISSUER,
     audience: process.env.JWT_AUDIENCE || DEFAULT_JWT_AUDIENCE,
+    ignoreExpiration: DEMO_ALLOW_EXPIRED_TOKENS,
   });
 
   const user = await User.findByPk(decoded.id, {
